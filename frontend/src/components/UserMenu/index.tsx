@@ -1,4 +1,8 @@
+import { useState } from 'react'
 import { useAuth, UserButton } from '@clerk/clerk-react'
+import { Download } from 'lucide-react'
+import { fetchDataExport, saveBlob } from '../../services/api'
+import { useToast } from '../toast'
 
 const appearance = {
   variables: {
@@ -67,10 +71,36 @@ const appearance = {
 
 export default function UserMenu() {
   const { isSignedIn } = useAuth()
+  const toast = useToast()
+  const [exporting, setExporting] = useState(false)
 
   if (!isSignedIn) {
     return null
   }
 
-  return <UserButton afterSignOutUrl="/" appearance={appearance} />
+  const handleExport = async () => {
+    if (exporting) return
+    setExporting(true)
+    try {
+      const { blob, filename } = await fetchDataExport()
+      saveBlob(blob, filename)
+      toast.success('Export downloaded')
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  return (
+    <UserButton afterSignOutUrl="/" appearance={appearance}>
+      <UserButton.MenuItems>
+        <UserButton.Action
+          label={exporting ? 'Exporting…' : 'Export my data'}
+          labelIcon={<Download size={14} />}
+          onClick={handleExport}
+        />
+      </UserButton.MenuItems>
+    </UserButton>
+  )
 }

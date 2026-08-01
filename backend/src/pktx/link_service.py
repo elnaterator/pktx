@@ -7,6 +7,7 @@ from pktx.database import (
     link_delete,
     link_insert,
     links_for_resource,
+    load_all_links,
     unlink_all_for,
 )
 from pktx.db import DBConnection
@@ -128,6 +129,10 @@ class LinkService:
                 result[rtype] = refs
 
         return result
+
+    def list_all(self, uid: str) -> list[dict[str, Any]]:
+        """Return every link owned by a user as flat canonical pairs."""
+        return load_all_links(self._conn, uid)
 
     def count_links(
         self, resource_type: str, resource_ids: list[int], uid: str

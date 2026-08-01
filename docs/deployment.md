@@ -288,6 +288,17 @@ Once set, `terraform plan` runs automatically on any PR that touches `infra/**`.
 
 ---
 
+## Backups
+
+Backups are **Neon's**, not this repo's. There is nothing to provision and nothing in Terraform.
+
+- Neon console → project → **Settings → Storage → History retention** — the point-in-time-restore window (free plan caps it at 24 hours)
+- Restoring is a Neon-console operation: branch → *Restore*, pick a timestamp
+
+Users can take their own data out at any time via **Export my data** in the account menu (`GET /api/export`), which returns their full dataset as JSON.
+
+---
+
 ## Destroying an Environment
 
 > **Warning**: This is irreversible. All AWS resources (Lambda, ECR images, IAM roles, SSM parameters, CloudWatch data) are deleted.

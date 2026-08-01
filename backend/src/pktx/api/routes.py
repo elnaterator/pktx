@@ -4,12 +4,15 @@ from collections.abc import Callable
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
+from fastapi.responses import JSONResponse
 
 from pktx.accomplishment_service import AccomplishmentService
 from pktx.application_service import ApplicationService
 from pktx.auth import UserContext
 from pktx.communication_service import ContactCommunicationService
 from pktx.contact_service import ContactService
+from pktx.export_service import ExportService
 from pktx.link_service import RESOURCE_TYPES, LinkService
 from pktx.models import Resume
 from pktx.note_service import NoteService
@@ -961,6 +964,33 @@ def create_router(
         uid = current_user.id if current_user is not None else None
         results = _search_service.search(q=q, tags=tag, types=type, user_id=uid)
         return [r.model_dump() for r in results]
+
+    # ==========================================================
+    # Data Export Route
+    # ==========================================================
+
+    _export_service = ExportService(
+        resume_service=service,
+        app_service=app_service,
+        acc_service=acc_service,
+        note_service=note_service,
+        contact_service=contact_service,
+        comm_service=comm_service,
+        link_service=link_service,
+    )
+
+    @api.get("/api/export")
+    def export_my_data(
+        current_user: UserContext | None = Depends(_user_dep),
+    ) -> JSONResponse:
+        """Return every resource owned by the caller as one JSON document."""
+        uid = current_user.id if current_user is not None else None
+        data = _export_service.export_user_data(user_id=uid)
+        filename = f"pktx-export-{data['exported_at'][:10]}.json"
+        return JSONResponse(
+            content=jsonable_encoder(data),
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     # ==========================================================
     # Webhook Routes (no auth — verified via Svix signature)

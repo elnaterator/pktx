@@ -1279,6 +1279,26 @@ def links_for_resource(
     return [{"other_type": r["other_type"], "other_id": r["other_id"]} for r in rows]
 
 
+def load_all_links(conn: DBConnection, user_id: str) -> list[dict[str, Any]]:
+    """Return every link owned by a user, in canonical (left, right) form."""
+    rows = conn.execute(
+        "SELECT left_type, left_id, right_type, right_id, created_at "
+        "FROM resource_link WHERE user_id = %s "
+        "ORDER BY left_type, left_id, right_type, right_id",
+        (user_id,),
+    ).fetchall()
+    return [
+        {
+            "left_type": r["left_type"],
+            "left_id": r["left_id"],
+            "right_type": r["right_type"],
+            "right_id": r["right_id"],
+            "created_at": _dt(r["created_at"]),
+        }
+        for r in rows
+    ]
+
+
 def link_counts(
     conn: DBConnection,
     resource_type: str,

@@ -78,6 +78,7 @@ backend/                  # Python FastAPI + MCP server
     auth.py               # Clerk JWT (REST) + MCP OAuth proxy (build_mcp_auth)
     oauth_store.py        # PostgreSQL-backed AsyncKeyValue for OAuth-proxy state
     resume_service.py     # Shared business logic (one *_service.py per resource)
+    export_service.py     # Per-user JSON export behind GET /api/export
     api/                  # REST API routes
       routes.py           # FastAPI route handlers
     tools/                # MCP tool handlers (one *_tools.py per resource)

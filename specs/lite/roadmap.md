@@ -96,8 +96,8 @@ Cold starts hurt the MCP connect flow (Claude Desktop hits `/mcp` at session sta
 I want to rename this app from persona to pktx which is short for personal context. Look through docs, readme, code, etc.  I also want to clean up docs and readmes, organize the repo, prep for open source. Create contributing.md. Give manual steps needed to rename all places (github, neon, clerk, etc.)
 
 
-## 020 Backups, tested restore, and user data export
-Verify automated Postgres backups exist in Terraform and run an actual restore drill (backups enabled is not enough — restore must be proven). Add a user-facing "export my data" feature: full dump of the user's accomplishments, applications, resumes, notes, contacts, and communications as JSON (optionally Markdown). Export doubles as the data-portability trust story. Blocker for first beta invite.
+## 020 User data export - SHIPPED
+Add a user-facing "export my data" feature: full dump of the user's accomplishments, applications, resumes, notes, contacts, and communications as JSON (optionally Markdown). Export is the data-portability trust story. Blocker for first beta invite. Backups are deliberately out of scope — Neon's own PITR is the backup story, configured in the Neon console, with no Terraform-managed backup infrastructure of our own.
 
 
 ## 021 Error tracking and feedback loop
