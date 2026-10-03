@@ -204,3 +204,128 @@ def resume_service_with_data(db_conn_with_data: Connection[Any]):  # type: ignor
     from pktx.resume_service import ResumeService
 
     return ResumeService(db_conn_with_data)  # type: ignore[arg-type]
+
+
+# ---------------------------------------------------------------------------
+# Production-parity connection (autocommit) — 027
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def autocommit_conn(
+    _schema_applied, pg_dsn: str
+) -> Generator[Connection[Any], None, None]:
+    """Autocommit connection matching the production connection mode.
+
+    Writes are real (no wrapping transaction), so tests MUST create data only
+    under users whose ids start with ``ac_``; every such user is deleted on
+    teardown and ``ON DELETE CASCADE`` removes everything they own.
+    """
+    with psycopg.connect(pg_dsn, row_factory=dict_row, autocommit=True) as conn:  # type: ignore[call-overload]
+        try:
+            yield conn
+        finally:
+            conn.execute("DELETE FROM users WHERE id LIKE 'ac\\_%%'")
+
+
+# ---------------------------------------------------------------------------
+# Two-user fixture — alice owns one of everything, bob owns nothing — 027
+# ---------------------------------------------------------------------------
+
+ALICE = "user_alice"
+BOB = "user_bob"
+# Marker planted in every alice-owned text field / tag; must never reach bob.
+ALICE_MARKER = "alicesecret"
+
+
+@pytest.fixture
+def two_users(db_conn: Connection[Any]) -> dict[str, Any]:
+    """Seed alice with one of every resource type (plus links + a comm).
+
+    Returns a dict of alice's resource ids plus ``conn``. Bob exists with no data.
+    """
+    from pktx.accomplishment_service import AccomplishmentService
+    from pktx.application_service import ApplicationService
+    from pktx.communication_service import ContactCommunicationService
+    from pktx.contact_service import ContactService
+    from pktx.link_service import LinkService
+    from pktx.note_service import NoteService
+    from pktx.resume_service import ResumeService
+
+    for uid in (ALICE, BOB):
+        db_conn.execute(
+            "INSERT INTO users (id) VALUES (%s) ON CONFLICT DO NOTHING", (uid,)
+        )
+
+    m = ALICE_MARKER
+    tags = [m]
+    resumes = ResumeService(db_conn)  # type: ignore[arg-type]
+    r1 = resumes.create_resume(f"{m} resume", user_id=ALICE, tags=tags)
+    r2 = resumes.create_resume(f"{m} resume two", user_id=ALICE, tags=tags)
+    resumes.set_default(r1["id"], user_id=ALICE)
+    resumes.update_section("summary", {"text": f"{m} summary"}, r1["id"], user_id=ALICE)
+    resumes.add_entry(
+        "experience",
+        {"title": f"{m} title", "company": f"{m} co"},
+        r1["id"],
+        user_id=ALICE,
+    )
+
+    app = ApplicationService(db_conn).create_application(  # type: ignore[arg-type]
+        {"company": f"{m} corp", "position": f"{m} eng", "tags": tags}, user_id=ALICE
+    )
+    acc = AccomplishmentService(db_conn).create_accomplishment(  # type: ignore[arg-type]
+        {"title": f"{m} win", "tags": tags}, user_id=ALICE
+    )
+    note = NoteService(db_conn).create_note(  # type: ignore[arg-type]
+        {"title": f"{m} note", "content": f"{m} body", "tags": tags}, user_id=ALICE
+    )
+    contact = ContactService(db_conn).create_contact(  # type: ignore[arg-type]
+        {"name": f"{m} person", "tags": tags}, user_id=ALICE
+    )
+    comm = ContactCommunicationService(db_conn).add_for_contact(  # type: ignore[arg-type]
+        contact["id"],
+        {
+            "type": "email",
+            "direction": "sent",
+            "subject": f"{m} subj",
+            "body": f"{m} body",
+            "date": "2024-01-01",
+            "tags": tags,
+        },
+        user_id=ALICE,
+    )
+    links = LinkService(db_conn)  # type: ignore[arg-type]
+    links.link("note", note["id"], "contact", contact["id"], ALICE)
+    links.link("application", app["id"], "resume", r1["id"], ALICE)
+
+    return {
+        "conn": db_conn,
+        "resume_id": r1["id"],
+        "resume2_id": r2["id"],
+        "app_id": app["id"],
+        "acc_id": acc["id"],
+        "note_id": note["id"],
+        "contact_id": contact["id"],
+        "comm_id": comm["id"],
+    }
+
+
+def snapshot_user_rows(conn: Connection[Any], user_id: str) -> dict[str, Any]:
+    """Every row a user owns, per table — compare before/after to detect writes."""
+    out: dict[str, Any] = {}
+    for table in ("resume_version", "application", "accomplishment", "note", "contact"):
+        out[table] = conn.execute(
+            f"SELECT * FROM {table} WHERE user_id = %s ORDER BY id", (user_id,)
+        ).fetchall()
+    out["communication"] = conn.execute(
+        "SELECT c.* FROM communication c JOIN contact ct ON c.contact_ref_id = ct.id "
+        "WHERE ct.user_id = %s ORDER BY c.id",
+        (user_id,),
+    ).fetchall()
+    out["resource_link"] = conn.execute(
+        "SELECT * FROM resource_link WHERE user_id = %s "
+        "ORDER BY left_type, left_id, right_type, right_id",
+        (user_id,),
+    ).fetchall()
+    return out
