@@ -11,3 +11,6 @@ extra_client_redirect_uris = [
   "https://chatgpt.com/connector/oauth/*",
   "https://chatgpt.com/connector_platform_oauth_redirect",
 ]
+
+# REST JWT `azp` origins on top of the public URL origin. Empty = public only.
+authorized_parties = []

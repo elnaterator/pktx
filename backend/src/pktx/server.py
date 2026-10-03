@@ -1,21 +1,23 @@
 """pktx server — FastAPI REST API + MCP tools, with --stdio backward compat."""
 
 import argparse
+import json
 import logging
 import os
-from collections.abc import AsyncIterator, Generator
+from collections.abc import AsyncIterator, Awaitable, Callable, MutableMapping
 from contextlib import asynccontextmanager
-from typing import Any, cast
+from typing import Any
 
+import anyio
+import anyio.to_thread
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastmcp import FastMCP
+from fastmcp.server.middleware import Middleware
 from psycopg_pool import ConnectionPool
 from starlette.exceptions import HTTPException as StarletteHTTPException
-from starlette.middleware.base import BaseHTTPMiddleware
-from starlette.requests import Request as StarletteRequest
 from starlette.routing import Route as StarletteRoute
 
 from pktx.accomplishment_service import AccomplishmentService
@@ -26,11 +28,12 @@ from pktx.auth import (
     build_get_current_user,
     build_mcp_auth,
     current_user_id_var,
-    verify_clerk_jwt,
 )
 from pktx.communication_service import ContactCommunicationService
 from pktx.config import (
+    MAX_REQUEST_BODY_BYTES,
     configure_logging,
+    resolve_authorized_parties,
     resolve_cors_origins,
     resolve_db_url,
     resolve_frontend_dir,
@@ -40,7 +43,14 @@ from pktx.config import (
 )
 from pktx.contact_service import ContactService
 from pktx.database import init_pool
-from pktx.db import DBConnection
+from pktx.db import (
+    ConnHolder,
+    DBConnection,
+    RequestConnection,
+    begin_scope,
+    current_holder,
+    end_scope,
+)
 from pktx.link_service import LinkService
 from pktx.note_service import NoteService
 from pktx.resume_service import ResumeService
@@ -52,6 +62,12 @@ from pktx.tools.note_tools import register_note_tools
 from pktx.tools.resume_tools import register_resume_tools
 
 logger = logging.getLogger("pktx")
+
+Scope = MutableMapping[str, Any]
+Message = MutableMapping[str, Any]
+Receive = Callable[[], Awaitable[Message]]
+Send = Callable[[Message], Awaitable[None]]
+ASGIApp = Callable[[Scope, Receive, Send], Awaitable[None]]
 
 
 class SPAStaticFiles(StaticFiles):
@@ -76,8 +92,6 @@ class SPAStaticFiles(StaticFiles):
 
 # Resolved at startup, used by MCP tool handlers.
 _pool: ConnectionPool[Any] | None = None
-_raw_conn: Any = None  # raw psycopg.Connection — needed for pool.putconn()
-_conn: DBConnection | None = None
 _service: ResumeService | None = None
 _app_service: ApplicationService | None = None
 _acc_service: AccomplishmentService | None = None
@@ -122,17 +136,225 @@ def _get_link_service() -> LinkService:
     return _link_service
 
 
-def get_db() -> Generator[DBConnection, None, None]:
-    """FastAPI dependency: yields a per-request PostgreSQL connection from the pool."""
-    assert _pool is not None, "Database pool not initialized"
-    with _pool.connection() as conn:
-        yield cast(DBConnection, conn)
+def _init_services(service: ResumeService, conn: DBConnection | None) -> None:
+    """Set the module-level services shared by REST routes and MCP tools."""
+    global _service, _app_service, _acc_service, _note_service
+    global _contact_service, _comm_service, _link_service
+    _service = service
+    _app_service = ApplicationService(conn) if conn else None
+    _acc_service = AccomplishmentService(conn) if conn else None
+    _note_service = NoteService(conn) if conn else None
+    _contact_service = ContactService(conn) if conn else None
+    _comm_service = ContactCommunicationService(conn) if conn else None
+    _link_service = LinkService(conn) if conn else None
 
 
-def _build_mcp(production: bool) -> FastMCP:
+# ---------------------------------------------------------------------------
+# Per-request DB session (027 / H6)
+# ---------------------------------------------------------------------------
+
+
+async def _release(holder: ConnHolder, commit: bool) -> None:
+    """Commit/rollback + putconn off the event loop, shielded from cancellation.
+
+    Shielded so a cancelled request (client disconnect) still returns its
+    connection to the pool instead of leaking it.
+    """
+    if holder.conn is None:
+        return
+    with anyio.CancelScope(shield=True):
+        await anyio.to_thread.run_sync(holder.release, commit)
+
+
+async def _send_json(send: Send, status: int, body: dict[str, Any]) -> None:
+    payload = json.dumps(body).encode()
+    await send(
+        {
+            "type": "http.response.start",
+            "status": status,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"content-length", str(len(payload)).encode()),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": payload})
+
+
+class DBSessionMiddleware:
+    """One pooled connection + one transaction per HTTP request.
+
+    Installs an empty ``ConnHolder`` before the app runs; ``RequestConnection``
+    checks a connection out lazily on first use. When the response starts, a
+    checked-out connection is committed (rolled back on a 5xx status or a
+    holder marked failed) *before* the status line is forwarded, so a client
+    never sees success for a write that failed to commit — a commit failure
+    turns into a 500 instead. At the end of the request any remaining work is
+    committed (rolled back if the app raised) and the connection goes back to
+    the pool. Blocking pool/commit calls run in a worker thread.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        holder, token = begin_scope()
+        swallow = False
+
+        async def send_wrapper(message: Message) -> None:
+            nonlocal swallow
+            if swallow:
+                return
+            if message["type"] == "http.response.start" and holder.conn is not None:
+                if message["status"] >= 500:
+                    holder.failed = True
+                try:
+                    await anyio.to_thread.run_sync(holder.end_transaction, True)
+                except Exception:
+                    logger.exception("DB commit failed; answering 500")
+                    holder.failed = True
+                    swallow = True
+                    await _send_json(send, 500, {"detail": "Internal Server Error"})
+                    return
+            await send(message)
+
+        try:
+            await self.app(scope, receive, send_wrapper)
+        except BaseException:
+            holder.failed = True
+            await _release(holder, commit=False)
+            raise
+        else:
+            await _release(holder, commit=True)
+        finally:
+            end_scope(token)
+
+
+class DBSessionToolMiddleware(Middleware):
+    """DB session handling for MCP tool calls.
+
+    Over HTTP the ASGI ``DBSessionMiddleware`` already owns the scope; MCP
+    returns tool errors as HTTP 200, so here a raised tool error only marks the
+    scope for rollback. With no scope active (stdio transport) this middleware
+    owns one per tool call: install a holder, run the tool, commit or roll back,
+    return the connection. ``user_id`` (stdio only) is set as the current user
+    for every call.
+    """
+
+    def __init__(self, user_id: str | None = None) -> None:
+        self._user_id = user_id
+
+    async def on_call_tool(self, context, call_next):  # type: ignore[override]
+        user_token = None
+        if self._user_id is not None:
+            user_token = current_user_id_var.set(self._user_id)
+        try:
+            outer = current_holder()
+            if outer is not None:
+                try:
+                    return await call_next(context)
+                except BaseException:
+                    outer.failed = True
+                    raise
+
+            holder, token = begin_scope()
+            try:
+                result = await call_next(context)
+            except BaseException:
+                holder.failed = True
+                await _release(holder, commit=False)
+                raise
+            else:
+                await _release(holder, commit=True)
+                return result
+            finally:
+                end_scope(token)
+        finally:
+            if user_token is not None:
+                current_user_id_var.reset(user_token)
+
+
+# ---------------------------------------------------------------------------
+# Request body size cap (027 / 8b)
+# ---------------------------------------------------------------------------
+
+
+class _BodyTooLarge(StarletteHTTPException):
+    def __init__(self) -> None:
+        super().__init__(status_code=413, detail="Request body too large")
+
+
+class BodySizeLimitMiddleware:
+    """Reject request bodies over ``max_bytes`` with 413.
+
+    A declared ``Content-Length`` over the limit is rejected before the app
+    runs. Bodies without one (chunked) are counted as they are received; the
+    read that crosses the limit raises, and the 413 is sent if no response has
+    started. The exception subclasses ``HTTPException`` so FastAPI's body
+    parsing re-raises it untouched instead of turning it into a 400.
+    """
+
+    def __init__(self, app: ASGIApp, max_bytes: int = MAX_REQUEST_BODY_BYTES) -> None:
+        self.app = app
+        self.max_bytes = max_bytes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        for name, value in scope.get("headers", []):
+            if name == b"content-length":
+                try:
+                    declared = int(value)
+                except ValueError:
+                    await _send_json(send, 400, {"detail": "Invalid Content-Length"})
+                    return
+                if declared > self.max_bytes:
+                    await _send_json(send, 413, {"detail": "Request body too large"})
+                    return
+
+        received = 0
+        started = False
+
+        async def limited_receive() -> Message:
+            nonlocal received
+            message = await receive()
+            if message["type"] == "http.request":
+                received += len(message.get("body", b""))
+                if received > self.max_bytes:
+                    raise _BodyTooLarge()
+            return message
+
+        async def tracking_send(message: Message) -> None:
+            nonlocal started
+            if message["type"] == "http.response.start":
+                started = True
+            await send(message)
+
+        try:
+            await self.app(scope, limited_receive, tracking_send)
+        except _BodyTooLarge:
+            if started:
+                raise
+            await _send_json(send, 413, {"detail": "Request body too large"})
+
+
+# ---------------------------------------------------------------------------
+# MCP wiring
+# ---------------------------------------------------------------------------
+
+
+def _build_mcp(
+    production: bool,
+    conn: DBConnection | None = None,
+    stdio_user_id: str | None = None,
+) -> FastMCP:
     """Create FastMCP instance, register all tools, and wire auth/middleware."""
-    import pktx.auth as auth_module
-
     if production:
         assert _pool is not None, "DB pool required for production MCP auth"
         mcp_auth = build_mcp_auth(_pool)
@@ -147,51 +369,12 @@ def _build_mcp(production: bool) -> FastMCP:
     register_contact_tools(m, _get_contact_service, _get_comm_service)
     register_link_tools(m, _get_link_service)
 
+    # Outermost: owns (stdio) or watches (HTTP) the DB session for each call.
+    m.add_middleware(DBSessionToolMiddleware(user_id=stdio_user_id))
     if production:
-        m.add_middleware(UserContextToolMiddleware())
-        # Expose the shared conn reference to the tool middleware
-        auth_module._conn = _conn
+        m.add_middleware(UserContextToolMiddleware(conn))
 
     return m
-
-
-# --- UserContextMiddleware ---
-
-
-class UserContextMiddleware(BaseHTTPMiddleware):
-    """Set current_user_id_var from Bearer token or PKTX_USER_ID env var.
-
-    REST API paths: attempts JWT-only auth (sets context var), never blocks.
-    stdio mode: reads PKTX_USER_ID env var.
-    MCP paths are handled by UserContextToolMiddleware via FastMCP middleware.
-    """
-
-    async def dispatch(self, request: StarletteRequest, call_next):  # type: ignore[override]
-        # Non-/mcp paths: try JWT auth (sets context var), never blocks
-        if not request.url.path.startswith("/mcp"):
-            auth_header = request.headers.get("authorization", "")
-            if auth_header.startswith("Bearer "):
-                token = auth_header[7:]
-                try:
-                    claims = verify_clerk_jwt(token)
-                    token_ctx = current_user_id_var.set(claims.get("sub"))
-                    try:
-                        return await call_next(request)
-                    finally:
-                        current_user_id_var.reset(token_ctx)
-                except Exception:
-                    pass
-
-        # Also support stdio mode: check env var
-        stdio_user = os.environ.get("PKTX_USER_ID")
-        if stdio_user:
-            token_ctx = current_user_id_var.set(stdio_user)
-            try:
-                return await call_next(request)
-            finally:
-                current_user_id_var.reset(token_ctx)
-
-        return await call_next(request)
 
 
 _PRM_PATH = "/.well-known/oauth-protected-resource"
@@ -228,42 +411,44 @@ def _add_root_resource_metadata_alias(app: FastAPI, mcp_app: Any) -> None:
 def create_app(
     service: ResumeService | None = None,
     conn: DBConnection | None = None,
+    *,
+    pool: ConnectionPool[Any] | None = None,
+    enable_auth: bool | None = None,
 ) -> FastAPI:
     """Create the FastAPI application with REST API routes and CORS middleware.
 
     Args:
         service: Optional pre-built ResumeService (for testing).
         conn: Optional pre-built DBConnection (for testing / MCP globals).
-            If service and conn are None, initializes pool from environment config.
+        pool: Optional pre-built pool (for testing the production connection
+            path without auth). Services get a ``RequestConnection`` on it.
+        enable_auth: Wire Clerk REST auth + the MCP OAuth proxy. Defaults to
+            True only in full production mode (nothing injected).
+
+    With nothing injected, initializes the pool from environment config; every
+    request then runs on its own pooled connection and transaction.
     """
-    global _pool, _raw_conn, _conn, _service
-    global _app_service, _acc_service, _note_service, _contact_service, _comm_service
-    global _link_service
+    global _pool
 
-    # Track production mode before service is overwritten below.
-    # Auth is only wired in production (no pre-built service injected).
-    _production_mode = service is None
+    production = service is None and conn is None and pool is None
+    auth_enabled = production if enable_auth is None else enable_auth
+    owns_pool = False
 
-    if service is None:
-        logger = configure_logging()
-        _pool = init_pool(resolve_db_url(), resolve_pool_min(), resolve_pool_max())
-        raw = _pool.getconn()
-        raw.autocommit = True
-        _raw_conn = raw
-        conn = cast(DBConnection, raw)
-        service = ResumeService(conn)
+    if production:
+        configure_logging()
+        pool = init_pool(resolve_db_url(), resolve_pool_min(), resolve_pool_max())
+        owns_pool = True
         logger.info("pktx server starting (PostgreSQL pool initialized)")
+    if pool is not None:
+        _pool = pool
+        conn = RequestConnection(pool)
+        if service is None:
+            service = ResumeService(conn)
+    assert service is not None, "create_app needs a service, conn or pool"
 
-    _conn = conn
-    _service = service
-    _app_service = ApplicationService(conn) if conn else None
-    _acc_service = AccomplishmentService(conn) if conn else None
-    _note_service = NoteService(conn) if conn else None
-    _contact_service = ContactService(conn) if conn else None
-    _comm_service = ContactCommunicationService(conn) if conn else None
-    _link_service = LinkService(conn) if conn else None
+    _init_services(service, conn)
 
-    mcp = _build_mcp(production=_production_mode)
+    mcp = _build_mcp(production=auth_enabled, conn=conn)
 
     # Get MCP HTTP app — use path="/mcp" so the Route is registered at /mcp.
     # We add this route directly to FastAPI's router (not via app.mount)
@@ -274,30 +459,16 @@ def create_app(
     # Create combined lifespan that wraps MCP lifespan and closes pool on shutdown
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-        # Startup: delegate to MCP lifespan
         async with mcp_app.lifespan(app):
             yield
-        # Shutdown: return connection to pool, then close pool
-        if _pool is not None:
-            if _raw_conn is not None:
-                _pool.putconn(_raw_conn)
-            _pool.close()
+        if owns_pool and pool is not None:
+            pool.close()
 
     app = FastAPI(title="pktx", lifespan=lifespan)
 
-    # CORS middleware
-    cors_origins = resolve_cors_origins()
-    if cors_origins:
-        app.add_middleware(
-            CORSMiddleware,
-            allow_origins=cors_origins,
-            allow_credentials=True,
-            allow_methods=["*"],
-            allow_headers=["*"],
-        )
-
-    # UserContextMiddleware: populate current_user_id_var for REST API handlers
-    app.add_middleware(UserContextMiddleware)
+    # Middleware: last added is outermost. Resulting order, outer → inner:
+    # CORS → body-size cap → MCP auth (if any) → DB session → routes.
+    app.add_middleware(DBSessionMiddleware)
 
     # Re-apply the MCP auth middleware that mcp.http_app() installs at the app
     # level. Below we graft only `mcp_app.routes` into this FastAPI app (to keep
@@ -308,14 +479,29 @@ def create_app(
     # per-route RequireAuthMiddleware 401s as invalid_token before our verifier
     # ever runs. Add in reverse so AuthenticationMiddleware stays outermost and
     # populates request auth before AuthContextMiddleware reads it.
-    if _production_mode and mcp.auth is not None:
+    if auth_enabled and mcp.auth is not None:
         for mw in reversed(mcp.auth.get_middleware()):
             app.add_middleware(mw.cls, *mw.args, **mw.kwargs)
 
-    # Wire auth in production mode only; test callers that inject a pre-built
-    # service bypass auth so existing cross-interface tests keep working.
+    app.add_middleware(BodySizeLimitMiddleware)
+
+    cors_origins = resolve_cors_origins()
+    if cors_origins:
+        app.add_middleware(
+            CORSMiddleware,
+            allow_origins=cors_origins,
+            allow_credentials=True,
+            allow_methods=["*"],
+            allow_headers=["*"],
+        )
+
+    # REST auth. Authorized parties are resolved here, at build time, so a
+    # deploy missing both CLERK_AUTHORIZED_PARTIES and PKTX_PUBLIC_URL fails to
+    # start rather than accepting tokens from any origin.
     get_user = (
-        build_get_current_user(conn) if _production_mode and conn is not None else None
+        build_get_current_user(conn, resolve_authorized_parties())
+        if auth_enabled and conn is not None
+        else None
     )
     app.include_router(
         create_router(
@@ -350,8 +536,25 @@ def create_app(
     return app
 
 
+def resolve_stdio_user_id() -> str:
+    """Return ``PKTX_USER_ID`` for stdio mode, or exit with a clear error.
+
+    Also sets ``current_user_id_var`` for the process (the stdio tool
+    middleware sets it per call as well). Only the stdio transport uses
+    ``PKTX_USER_ID``; HTTP mode ignores it.
+    """
+    user_id = os.environ.get("PKTX_USER_ID", "").strip()
+    if not user_id:
+        raise SystemExit(
+            "pktx --stdio requires PKTX_USER_ID (the user id the MCP tools act as)"
+        )
+    current_user_id_var.set(user_id)
+    return user_id
+
+
 def main() -> None:
     """Start the pktx server (HTTP default, --stdio for backward compat)."""
+    global _pool
     parser = argparse.ArgumentParser(description="pktx server")
     parser.add_argument(
         "--stdio",
@@ -361,29 +564,18 @@ def main() -> None:
     args = parser.parse_args()
 
     if args.stdio:
-        global _pool, _raw_conn, _conn, _service
-        global _app_service, _acc_service, _note_service, _contact_service
-        global _comm_service, _link_service
-        logger = configure_logging()
-        _pool = init_pool(resolve_db_url(), resolve_pool_min(), resolve_pool_max())
-        raw = _pool.getconn()
-        raw.autocommit = True
-        _raw_conn = raw
-        _conn = cast(DBConnection, raw)
-        _service = ResumeService(_conn)
-        _app_service = ApplicationService(_conn)
-        _acc_service = AccomplishmentService(_conn)
-        _note_service = NoteService(_conn)
-        _contact_service = ContactService(_conn)
-        _comm_service = ContactCommunicationService(_conn)
-        _link_service = LinkService(_conn)
+        configure_logging()
+        user_id = resolve_stdio_user_id()
+        pool = init_pool(resolve_db_url(), resolve_pool_min(), resolve_pool_max())
+        _pool = pool
+        conn = RequestConnection(pool)
+        _init_services(ResumeService(conn), conn)
         logger.info("pktx MCP server starting (stdio, PostgreSQL pool initialized)")
-        mcp = _build_mcp(production=False)
+        mcp = _build_mcp(production=False, stdio_user_id=user_id)
         try:
             mcp.run(transport="stdio")
         finally:
-            _pool.putconn(_raw_conn)
-            _pool.close()
+            pool.close()
     else:
         port = resolve_port()
         app = create_app()

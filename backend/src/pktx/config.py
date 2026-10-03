@@ -4,6 +4,7 @@ import logging
 import os
 import sys
 from pathlib import Path
+from urllib.parse import urlparse
 
 DEFAULT_PORT = 8000
 
@@ -89,6 +90,28 @@ def resolve_extra_client_redirect_uris() -> list[str]:
     return [pattern.strip() for pattern in raw.split(",") if pattern.strip()]
 
 
+def resolve_authorized_parties() -> list[str]:
+    """Resolve the allowed ``azp`` values for REST session JWTs.
+
+    ``CLERK_AUTHORIZED_PARTIES`` is a comma-separated list of origins (trimmed,
+    trailing ``/`` stripped). When unset, defaults to the origin of
+    ``PKTX_PUBLIC_URL``. Raises ``ValueError`` when neither is set, so a
+    production deploy fails closed instead of accepting any ``azp``.
+    """
+    raw = os.environ.get("CLERK_AUTHORIZED_PARTIES", "")
+    parties = [p.strip().rstrip("/") for p in raw.split(",") if p.strip()]
+    if parties:
+        return parties
+    public = os.environ.get("PKTX_PUBLIC_URL", "").strip()
+    if public:
+        parsed = urlparse(public)
+        if parsed.scheme and parsed.netloc:
+            return [f"{parsed.scheme}://{parsed.netloc}"]
+    raise ValueError(
+        "CLERK_AUTHORIZED_PARTIES (or PKTX_PUBLIC_URL to derive it) must be set"
+    )
+
+
 def resolve_clerk_jwks_url() -> str:
     """Resolve CLERK_JWKS_URL env var. Raises on missing."""
     value = os.environ.get("CLERK_JWKS_URL", "")
@@ -161,6 +184,9 @@ def resolve_db_url() -> str:
 def resolve_pool_min() -> int:
     """Resolve PKTX_DB_POOL_MIN env var (default 1)."""
     return int(os.environ.get("PKTX_DB_POOL_MIN", "1"))
+
+
+MAX_REQUEST_BODY_BYTES = 1_048_576  # 1 MB
 
 
 def resolve_pool_max() -> int:

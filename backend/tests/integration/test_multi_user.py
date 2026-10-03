@@ -61,7 +61,14 @@ def _make_token(
         encryption_algorithm=serialization.NoEncryption(),
     )
     return jwt.encode(
-        {"sub": sub, "iss": issuer, "iat": now, "exp": now + 3600, "email": email},
+        {
+            "sub": sub,
+            "iss": issuer,
+            "iat": now,
+            "exp": now + 3600,
+            "email": email,
+            "azp": "http://testserver",
+        },
         pem,
         algorithm="RS256",
         headers={"kid": kid},
@@ -71,6 +78,12 @@ def _make_token(
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _authorized_parties(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tokens above carry azp=http://testserver (027 / M12)."""
+    monkeypatch.setenv("CLERK_AUTHORIZED_PARTIES", "http://testserver")
 
 
 @pytest.fixture

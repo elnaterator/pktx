@@ -61,3 +61,13 @@ variable "extra_client_redirect_uris" {
   type        = list(string)
   default     = []
 }
+
+variable "authorized_parties" {
+  description = <<-EOT
+    Extra origins (scheme://host[:port]) whose Clerk session JWTs the REST API
+    accepts, checked against the token's `azp` claim. The PKTX_PUBLIC_URL origin
+    is always allowed; empty = public origin only.
+  EOT
+  type        = list(string)
+  default     = []
+}

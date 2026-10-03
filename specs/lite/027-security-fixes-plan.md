@@ -236,7 +236,7 @@ matching tests.
 Owns: `db.py`, `server.py`, `auth.py`, `config.py`, the webhook handler in `api/routes.py`,
 `infra/**`, `docker-compose.yml`, and the auth/connection tests.
 
-- [ ] 5. **Per-request connection.**
+- [x] 5. **Per-request connection.**
   - `RequestConnection`, `DBSessionMiddleware`, the stdio tool middleware, pool `check`, webhook rewiring.
   - Remove the shared-connection globals.
   - Add `test_request_connection.py`, covering:
@@ -245,15 +245,23 @@ Owns: `db.py`, `server.py`, `auth.py`, `config.py`, the webhook handler in `api/
     - a closed connection replaced on the next request
     - `/health` never checks out a connection
     - two concurrent requests get distinct connections
-- [ ] 7. **Auth.**
+  - _Done, with divergences:_
+    - pool `check=ConnectionPool.check_connection` added inside `database.init_pool` (3-line kwarg change in Track A's file).
+    - `DBSessionMiddleware` commits when the response *starts* (before the status line goes out), so a failed commit becomes a 500 instead of a false 200; anything after that is committed at request end. Blocking calls use `anyio.to_thread` inside a shielded cancel scope (a client disconnect still returns the connection), not `asyncio.to_thread`.
+    - one FastMCP `DBSessionToolMiddleware` covers both transports: over HTTP it only marks the ASGI scope failed on a tool exception (MCP answers 200); with no scope (stdio) it owns one per tool call and sets `PKTX_USER_ID` as the user.
+    - `create_app` gained keyword-only `pool=` / `enable_auth=` for tests of the production path; `create_app(service=, conn=)` unchanged.
+    - webhook gets the connection as `service._conn` (no `create_router` signature change) and runs `delete_user` via `asyncio.to_thread`; `clerk_webhook(request: Any)` fixed to `request: Request` (adds `Request` to the `fastapi` import at the top of `routes.py`).
+- [x] 7. **Auth.**
   - Remove `UserContextMiddleware`. Move `PKTX_USER_ID` to stdio.
   - JWKS rate limit + lock.
   - `azp` check + `CLERK_AUTHORIZED_PARTIES` config.
   - Generic 401 details.
   - MCP middleware: upsert off the event loop, once per sub.
   - Tests for each.
-- [ ] 8b. **Minor (runtime).** A middleware that caps request bodies at 1 MB (413). Test it.
-- [ ] 10a. **Infra.** Wire `CLERK_AUTHORIZED_PARTIES` through dev/prod Terraform (`variables.tf`, `main.tf`, `terraform.tfvars`) and docker-compose.
+  - _Done:_ a failed JWKS fetch falls back to the stale cache and answers 401 (was 500). The MCP upsert commits right away, so a later tool rollback cannot undo it while the per-process cache skips it. Token minting in `test_auth_contract.py` / `test_multi_user.py` gained `azp`, plus a per-module `CLERK_AUTHORIZED_PARTIES` fixture.
+- [x] 8b. **Minor (runtime).** A middleware that caps request bodies at 1 MB (413). Test it.
+- [x] 10a. **Infra.** Wire `CLERK_AUTHORIZED_PARTIES` through dev/prod Terraform (`variables.tf`, `main.tf`, `terraform.tfvars`) and docker-compose.
+  - _Divergence:_ a non-empty `authorized_parties` replaces the app's default, so `main.tf` prepends the `PKTX_PUBLIC_URL` origin (regex on the SSM value) and passes `""` when the list is empty. dev = `["http://localhost:5173"]`, prod = `[]`. Compose defaults to `http://localhost:8000,http://localhost:5173`.
 
 **Track C: frontend** (fully independent)
 

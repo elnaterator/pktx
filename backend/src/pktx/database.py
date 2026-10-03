@@ -66,6 +66,9 @@ def init_pool(dsn: str, min_size: int = 1, max_size: int = 10) -> ConnectionPool
         max_size=max_size,
         open=True,
         kwargs={"row_factory": dict_row},
+        # Validate on checkout: replaces connections killed by Neon autosuspend
+        # or a frozen Lambda instead of handing a dead one to a request.
+        check=ConnectionPool.check_connection,
     )
     with pool.connection() as conn:
         apply_migrations(conn)

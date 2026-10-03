@@ -10,6 +10,13 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
 from jose import jwt
 
+
+@pytest.fixture(autouse=True)
+def _authorized_parties(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tokens minted below carry azp=http://testserver (027 / M12)."""
+    monkeypatch.setenv("CLERK_AUTHORIZED_PARTIES", "http://testserver")
+
+
 # ---------------------------------------------------------------------------
 # Helpers: generate an RSA key pair and build a minimal JWKS entry
 # ---------------------------------------------------------------------------
@@ -55,6 +62,7 @@ def _make_token(
         "iat": now,
         "exp": now + exp_offset,
         "email": "test@example.com",
+        "azp": "http://testserver",
     }
     headers = {"kid": kid}
     pem = private_key.private_bytes(
@@ -79,6 +87,7 @@ class TestJWKSCache:
 
         auth_module._JWKS_CACHE = {}
         auth_module._JWKS_FETCHED_AT = 0.0
+        auth_module._JWKS_LAST_ATTEMPT = float("-inf")
 
     def test_cache_hit_returns_key_without_fetch(self) -> None:
         """A known kid within TTL is returned without an HTTP call."""
@@ -166,6 +175,7 @@ class TestVerifyClerkJwt:
 
         auth_module._JWKS_CACHE = {}
         auth_module._JWKS_FETCHED_AT = 0.0
+        auth_module._JWKS_LAST_ATTEMPT = float("-inf")
 
     def _setup_valid_key(
         self, kid: str = "test-kid", issuer: str = "https://clerk.test"
@@ -245,7 +255,7 @@ class TestVerifyClerkJwt:
                 )
 
         assert exc_info.value.status_code == 401
-        assert "sub" in exc_info.value.detail.lower()
+        assert exc_info.value.detail == "Invalid token"
 
     def test_malformed_token_raises_401(self) -> None:
         """A garbage string raises HTTP 401."""
@@ -346,3 +356,268 @@ class TestChatGptConnectorRedirects:
 
     def test_loopback_still_allowed_alongside(self) -> None:
         assert self._validate("http://127.0.0.1:33418/callback")
+
+
+# ---------------------------------------------------------------------------
+# 027 / M10: JWKS refetch throttle
+# ---------------------------------------------------------------------------
+
+
+def _reset_jwks() -> None:
+    import pktx.auth as auth_module
+
+    auth_module._JWKS_CACHE = {}
+    auth_module._JWKS_FETCHED_AT = 0.0
+    auth_module._JWKS_LAST_ATTEMPT = float("-inf")
+
+
+class _FakeJwksResponse:
+    def __init__(self, keys: list[dict[str, Any]]) -> None:
+        self._keys = keys
+
+    def raise_for_status(self) -> None:
+        return None
+
+    def json(self) -> dict[str, Any]:
+        return {"keys": self._keys}
+
+
+class TestJwksRefetchThrottle:
+    """An unknown-kid storm costs at most one JWKS fetch per 60s window."""
+
+    def setup_method(self) -> None:
+        _reset_jwks()
+
+    def teardown_method(self) -> None:
+        _reset_jwks()
+
+    def _fetch_mock(self) -> Any:
+        from unittest.mock import MagicMock
+
+        return MagicMock(return_value=_FakeJwksResponse([{"kid": "real", "n": "x"}]))
+
+    def test_unknown_kid_storm_fetches_once(self) -> None:
+        import pktx.auth as auth_module
+
+        get = self._fetch_mock()
+        with (
+            patch.dict("os.environ", {"CLERK_JWKS_URL": "https://clerk.test/jwks"}),
+            patch("pktx.auth.httpx.get", get),
+        ):
+            for i in range(50):
+                with pytest.raises(HTTPException) as exc_info:
+                    auth_module._get_jwks_key(f"forged-{i}")
+                assert exc_info.value.status_code == 401
+                assert exc_info.value.detail == "Invalid token"
+            # The real kid is still served from the one fetch's cache.
+            assert auth_module._get_jwks_key("real")["kid"] == "real"
+
+        assert get.call_count == 1
+
+    def test_concurrent_storm_fetches_once(self) -> None:
+        import threading
+
+        import pktx.auth as auth_module
+
+        get = self._fetch_mock()
+        errors: list[int] = []
+
+        def _hit(i: int) -> None:
+            try:
+                auth_module._get_jwks_key(f"forged-{i}")
+            except HTTPException as exc:
+                errors.append(exc.status_code)
+
+        with (
+            patch.dict("os.environ", {"CLERK_JWKS_URL": "https://clerk.test/jwks"}),
+            patch("pktx.auth.httpx.get", get),
+        ):
+            threads = [threading.Thread(target=_hit, args=(i,)) for i in range(20)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        assert get.call_count == 1
+        assert errors == [401] * 20
+
+    def test_refetch_allowed_after_window(self) -> None:
+        import pktx.auth as auth_module
+
+        get = self._fetch_mock()
+        with (
+            patch.dict("os.environ", {"CLERK_JWKS_URL": "https://clerk.test/jwks"}),
+            patch("pktx.auth.httpx.get", get),
+        ):
+            with pytest.raises(HTTPException):
+                auth_module._get_jwks_key("rotated")
+            auth_module._JWKS_LAST_ATTEMPT -= 61.0
+            with pytest.raises(HTTPException):
+                auth_module._get_jwks_key("rotated")
+
+        assert get.call_count == 2
+
+    def test_fetch_failure_is_401_not_500(self) -> None:
+        import pktx.auth as auth_module
+
+        with (
+            patch.dict("os.environ", {"CLERK_JWKS_URL": "https://clerk.test/jwks"}),
+            patch("pktx.auth.httpx.get", side_effect=RuntimeError("boom")),
+        ):
+            with pytest.raises(HTTPException) as exc_info:
+                auth_module._get_jwks_key("any")
+        assert exc_info.value.status_code == 401
+        assert "boom" not in exc_info.value.detail
+
+
+# ---------------------------------------------------------------------------
+# 027 / M12 + M14: azp check, generic 401 details
+# ---------------------------------------------------------------------------
+
+
+class TestAzpAndGenericDetails:
+    def setup_method(self) -> None:
+        import pktx.auth as auth_module
+
+        _reset_jwks()
+        self.private_key, public_key = _gen_rsa_key_pair()
+        auth_module._JWKS_CACHE = {"test-kid": _public_key_to_jwk(public_key)}
+        auth_module._JWKS_FETCHED_AT = time.monotonic()
+
+    def teardown_method(self) -> None:
+        _reset_jwks()
+
+    def _verify(self, token: str, parties: Any = None) -> dict[str, Any]:
+        from pktx.auth import verify_clerk_jwt
+
+        with patch.dict("os.environ", {"CLERK_ISSUER": "https://clerk.test"}):
+            return verify_clerk_jwt(token, parties)
+
+    def _token(self, azp: str | None) -> str:
+        from tests.helpers import make_token
+
+        return make_token(self.private_key, kid="test-kid", azp=azp)
+
+    def test_matching_azp_accepted(self) -> None:
+        assert self._verify(self._token("http://testserver"))["sub"] == "user_alice"
+
+    def test_azp_trailing_slash_accepted(self) -> None:
+        assert self._verify(self._token("http://testserver/"))["sub"] == "user_alice"
+
+    def test_azp_mismatch_rejected(self) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            self._verify(self._token("https://evil.example"))
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Invalid token"
+
+    def test_azp_missing_rejected(self) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            self._verify(self._token(None))
+        assert exc_info.value.status_code == 401
+
+    def test_explicit_parties_override_env(self) -> None:
+        token = self._token("https://app.example")
+        assert self._verify(token, frozenset({"https://app.example"}))
+        with pytest.raises(HTTPException):
+            self._verify(token)  # env says http://testserver only
+
+    def test_malformed_token_detail_is_generic(self) -> None:
+        with pytest.raises(HTTPException) as exc_info:
+            self._verify("not.a.jwt")
+        assert exc_info.value.detail == "Invalid token"
+
+    def test_bad_signature_detail_does_not_echo_exception(self) -> None:
+        from tests.helpers import make_token
+
+        other_key, _ = _gen_rsa_key_pair()
+        token = make_token(other_key, kid="test-kid")
+        with pytest.raises(HTTPException) as exc_info:
+            self._verify(token)
+        assert exc_info.value.detail == "Invalid token"
+
+    def test_wrong_issuer_detail_is_generic(self) -> None:
+        from tests.helpers import make_token
+
+        token = make_token(self.private_key, kid="test-kid", issuer="https://evil")
+        with pytest.raises(HTTPException) as exc_info:
+            self._verify(token)
+        assert exc_info.value.detail == "Invalid token"
+
+    def test_build_dependency_fails_closed_without_config(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from unittest.mock import MagicMock
+
+        from pktx.auth import build_get_current_user
+
+        monkeypatch.delenv("CLERK_AUTHORIZED_PARTIES", raising=False)
+        monkeypatch.delenv("PKTX_PUBLIC_URL", raising=False)
+        with pytest.raises(ValueError):
+            build_get_current_user(MagicMock())
+
+
+# ---------------------------------------------------------------------------
+# 027 / M13: MCP tool middleware upserts once per sub, off the event loop
+# ---------------------------------------------------------------------------
+
+
+class TestUserContextToolMiddleware:
+    async def test_upsert_once_per_sub_off_event_loop(self) -> None:
+        import threading
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        from pktx.auth import UserContextToolMiddleware, current_user_id_var
+
+        conn = MagicMock()
+        calls: list[tuple[str, str]] = []
+        main_thread = threading.current_thread()
+
+        def _fake_upsert(c: Any, sub: str, email: Any, name: Any) -> None:
+            assert threading.current_thread() is not main_thread
+            calls.append((sub, threading.current_thread().name))
+
+        mw: Any = UserContextToolMiddleware(conn)
+        seen: list[str | None] = []
+
+        async def _call_next(ctx: Any) -> str:
+            seen.append(current_user_id_var.get())
+            return "ok"
+
+        for sub in ("user_a", "user_a", "user_b", "user_a", "user_b"):
+            tok = SimpleNamespace(claims={"sub": sub})
+            with (
+                patch("pktx.auth.get_access_token", return_value=tok),
+                patch("pktx.auth.upsert_user", side_effect=_fake_upsert),
+            ):
+                assert await mw.on_call_tool(MagicMock(), _call_next) == "ok"
+
+        assert [c[0] for c in calls] == ["user_a", "user_b"]
+        assert seen == ["user_a", "user_a", "user_b", "user_a", "user_b"]
+        assert conn.commit.call_count == 2
+        assert current_user_id_var.get() is None
+
+    async def test_failed_upsert_is_retried_next_call(self) -> None:
+        from types import SimpleNamespace
+        from unittest.mock import MagicMock
+
+        from pktx.auth import UserContextToolMiddleware
+
+        conn = MagicMock()
+        mw: Any = UserContextToolMiddleware(conn)
+        upsert = MagicMock(side_effect=[RuntimeError("db down"), None])
+
+        async def _call_next(ctx: Any) -> str:
+            return "ok"
+
+        tok = SimpleNamespace(claims={"sub": "user_a"})
+        with (
+            patch("pktx.auth.get_access_token", return_value=tok),
+            patch("pktx.auth.upsert_user", upsert),
+        ):
+            await mw.on_call_tool(MagicMock(), _call_next)
+            await mw.on_call_tool(MagicMock(), _call_next)
+            await mw.on_call_tool(MagicMock(), _call_next)
+
+        assert upsert.call_count == 2
+        conn.rollback.assert_called_once()

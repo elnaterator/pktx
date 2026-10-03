@@ -3,7 +3,7 @@
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
@@ -997,29 +997,26 @@ def create_router(
     # ==========================================================
 
     @router.post("/api/webhooks/clerk")
-    async def clerk_webhook(request: Any) -> dict[str, str]:
+    async def clerk_webhook(request: Request) -> dict[str, str]:
         """Handle Clerk lifecycle webhooks (user.deleted, etc.)."""
-        from fastapi import Request
-
-        if not isinstance(request, Request):
-            raise HTTPException(status_code=400, detail="Invalid request")
-        return await _handle_clerk_webhook(request)
+        # The service's connection: a RequestConnection in production (this
+        # request's pooled connection + transaction), a raw one in tests.
+        return await _handle_clerk_webhook(request, service._conn)
 
     # Include protected sub-router
     router.include_router(api)
     return router
 
 
-async def _handle_clerk_webhook(request: Any) -> dict[str, str]:
+async def _handle_clerk_webhook(request: Request, conn: Any) -> dict[str, str]:
     """Verify Svix signature and process Clerk webhook events."""
+    import asyncio
     import json
     import os
 
-    from fastapi import HTTPException, Request
     from svix.webhooks import Webhook, WebhookVerificationError
 
-    if not isinstance(request, Request):
-        raise HTTPException(status_code=400, detail="Invalid request")
+    from pktx.database import delete_user
 
     webhook_secret = os.environ.get("CLERK_WEBHOOK_SECRET", "")
     if not webhook_secret:
@@ -1043,14 +1040,8 @@ async def _handle_clerk_webhook(request: Any) -> dict[str, str]:
     if event_type == "user.deleted":
         user_id = event.get("data", {}).get("id")
         if user_id:
-            from pktx.database import delete_user
-
-            try:
-                from pktx.server import _conn
-
-                if _conn is not None:
-                    delete_user(_conn, user_id)
-            except ImportError:
-                pass
+            # Blocking DB call: run it off the event loop. to_thread copies the
+            # context, so the request's connection scope is visible.
+            await asyncio.to_thread(delete_user, conn, user_id)
 
     return {"status": "ok"}

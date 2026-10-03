@@ -51,3 +51,37 @@ class TestExtraClientRedirectUris:
             "https://client.example.com/callback",
             "https://*.other.example/cb",
         ]
+
+
+class TestAuthorizedParties:
+    """CLERK_AUTHORIZED_PARTIES: allowed azp values for REST JWTs (027 / M12)."""
+
+    def test_explicit_list_trimmed_and_slash_stripped(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv(
+            "CLERK_AUTHORIZED_PARTIES", " https://a.example/ ,http://localhost:5173,"
+        )
+        from pktx.config import resolve_authorized_parties
+
+        assert resolve_authorized_parties() == [
+            "https://a.example",
+            "http://localhost:5173",
+        ]
+
+    def test_defaults_to_public_url_origin(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("CLERK_AUTHORIZED_PARTIES", raising=False)
+        monkeypatch.setenv("PKTX_PUBLIC_URL", "https://pktx.example:8443/some/path/")
+        from pktx.config import resolve_authorized_parties
+
+        assert resolve_authorized_parties() == ["https://pktx.example:8443"]
+
+    def test_neither_set_fails_closed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("CLERK_AUTHORIZED_PARTIES", raising=False)
+        monkeypatch.delenv("PKTX_PUBLIC_URL", raising=False)
+        from pktx.config import resolve_authorized_parties
+
+        with pytest.raises(ValueError):
+            resolve_authorized_parties()
