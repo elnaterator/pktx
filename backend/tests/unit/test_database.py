@@ -32,7 +32,7 @@ class TestCreateResumeVersion:
         from pktx.database import create_resume_version
 
         data = {"contact": {"name": "Alice"}, "summary": "A test."}
-        result = create_resume_version(db_conn, "Test Resume", data)
+        result = create_resume_version(db_conn, "Test Resume", data, user_id="legacy")
 
         assert result["id"] is not None
         assert result["label"] == "Test Resume"
@@ -43,7 +43,7 @@ class TestCreateResumeVersion:
         from pktx.database import create_resume_version
 
         data = {"skills": [{"name": "Python", "category": "Languages"}]}
-        result = create_resume_version(db_conn, "Skills Resume", data)
+        result = create_resume_version(db_conn, "Skills Resume", data, user_id="legacy")
 
         assert isinstance(result["resume_data"], dict)
         assert result["resume_data"]["skills"][0]["name"] == "Python"
@@ -51,22 +51,24 @@ class TestCreateResumeVersion:
     def test_multiple_versions_get_unique_ids(self, db_conn) -> None:
         from pktx.database import create_resume_version
 
-        v1 = create_resume_version(db_conn, "Version A", {})
-        v2 = create_resume_version(db_conn, "Version B", {})
+        v1 = create_resume_version(db_conn, "Version A", {}, user_id="legacy")
+        v2 = create_resume_version(db_conn, "Version B", {}, user_id="legacy")
 
         assert v1["id"] != v2["id"]
 
     def test_new_version_not_default(self, db_conn) -> None:
         from pktx.database import create_resume_version
 
-        result = create_resume_version(db_conn, "Non-Default", {"summary": "hi"})
+        result = create_resume_version(
+            db_conn, "Non-Default", {"summary": "hi"}, user_id="legacy"
+        )
         assert result["is_default"] is False
 
     def test_returning_id_is_integer(self, db_conn) -> None:
         """RETURNING id (PostgreSQL) must yield an integer PK."""
         from pktx.database import create_resume_version
 
-        result = create_resume_version(db_conn, "Serial PK", {})
+        result = create_resume_version(db_conn, "Serial PK", {}, user_id="legacy")
         assert isinstance(result["id"], int)
         assert result["id"] > 0
 
@@ -77,8 +79,10 @@ class TestLoadResumeVersion:
     def test_loads_version_by_id(self, db_conn) -> None:
         from pktx.database import create_resume_version, load_resume_version
 
-        created = create_resume_version(db_conn, "My Resume", {"summary": "hello"})
-        loaded = load_resume_version(db_conn, created["id"])
+        created = create_resume_version(
+            db_conn, "My Resume", {"summary": "hello"}, user_id="legacy"
+        )
+        loaded = load_resume_version(db_conn, created["id"], user_id="legacy")
 
         assert loaded["id"] == created["id"]
         assert loaded["label"] == "My Resume"
@@ -88,7 +92,7 @@ class TestLoadResumeVersion:
         from pktx.database import load_resume_version
 
         with pytest.raises(ValueError, match="not found"):
-            load_resume_version(db_conn, 9999)
+            load_resume_version(db_conn, 9999, user_id="legacy")
 
     def test_json_round_trip(self, db_conn) -> None:
         """SC-001: Data written and read back must match exactly."""
@@ -101,8 +105,10 @@ class TestLoadResumeVersion:
             "education": [],
             "skills": [{"name": "Python", "category": "Languages"}],
         }
-        created = create_resume_version(db_conn, "Round Trip", original)
-        loaded = load_resume_version(db_conn, created["id"])
+        created = create_resume_version(
+            db_conn, "Round Trip", original, user_id="legacy"
+        )
+        loaded = load_resume_version(db_conn, created["id"], user_id="legacy")
 
         assert loaded["resume_data"] == original
 
@@ -113,9 +119,9 @@ class TestLoadResumeVersions:
     def test_returns_all_versions(self, db_conn) -> None:
         from pktx.database import create_resume_version, load_resume_versions
 
-        create_resume_version(db_conn, "Alpha", {})
-        create_resume_version(db_conn, "Beta", {})
-        versions = load_resume_versions(db_conn)
+        create_resume_version(db_conn, "Alpha", {}, user_id="legacy")
+        create_resume_version(db_conn, "Beta", {}, user_id="legacy")
+        versions = load_resume_versions(db_conn, user_id="legacy")
 
         # db_conn fixture already has a default version from migration
         labels = [v["label"] for v in versions]
@@ -125,7 +131,7 @@ class TestLoadResumeVersions:
     def test_includes_metadata_fields(self, db_conn) -> None:
         from pktx.database import load_resume_versions
 
-        versions = load_resume_versions(db_conn)
+        versions = load_resume_versions(db_conn, user_id="legacy")
         assert len(versions) >= 1
         v = versions[0]
         assert "id" in v
@@ -138,8 +144,8 @@ class TestLoadResumeVersions:
     def test_app_count_is_zero_for_new_version(self, db_conn) -> None:
         from pktx.database import create_resume_version, load_resume_versions
 
-        create_resume_version(db_conn, "No Apps", {})
-        versions = load_resume_versions(db_conn)
+        create_resume_version(db_conn, "No Apps", {}, user_id="legacy")
+        versions = load_resume_versions(db_conn, user_id="legacy")
         no_apps = next(v for v in versions if v["label"] == "No Apps")
 
         assert no_apps["app_count"] == 0
@@ -147,7 +153,7 @@ class TestLoadResumeVersions:
     def test_returns_list(self, db_conn) -> None:
         from pktx.database import load_resume_versions
 
-        result = load_resume_versions(db_conn)
+        result = load_resume_versions(db_conn, user_id="legacy")
         assert isinstance(result, list)
 
 
@@ -157,7 +163,7 @@ class TestLoadDefaultResumeVersion:
     def test_returns_default_version(self, db_conn) -> None:
         from pktx.database import load_default_resume_version
 
-        default = load_default_resume_version(db_conn)
+        default = load_default_resume_version(db_conn, user_id="legacy")
         assert default["is_default"] is True
 
     def test_raises_when_no_default(self, db_conn) -> None:
@@ -166,12 +172,12 @@ class TestLoadDefaultResumeVersion:
         db_conn.execute("UPDATE resume_version SET is_default = 0")
 
         with pytest.raises(ValueError, match="No default"):
-            load_default_resume_version(db_conn)
+            load_default_resume_version(db_conn, user_id="legacy")
 
     def test_returns_full_resume_data(self, db_conn_with_data) -> None:
         from pktx.database import load_default_resume_version
 
-        default = load_default_resume_version(db_conn_with_data)
+        default = load_default_resume_version(db_conn_with_data, user_id="legacy")
         assert default["resume_data"]["contact"]["name"] == "Jane Doe"
 
 
@@ -184,8 +190,10 @@ class TestUpdateResumeVersionMetadata:
             update_resume_version_metadata,
         )
 
-        version = load_default_resume_version(db_conn)
-        updated = update_resume_version_metadata(db_conn, version["id"], "New Label")
+        version = load_default_resume_version(db_conn, user_id="legacy")
+        updated = update_resume_version_metadata(
+            db_conn, version["id"], "New Label", user_id="legacy"
+        )
 
         assert updated["label"] == "New Label"
         assert updated["id"] == version["id"]
@@ -194,7 +202,7 @@ class TestUpdateResumeVersionMetadata:
         from pktx.database import update_resume_version_metadata
 
         with pytest.raises(ValueError, match="not found"):
-            update_resume_version_metadata(db_conn, 9999, "Ghost")
+            update_resume_version_metadata(db_conn, 9999, "Ghost", user_id="legacy")
 
     def test_does_not_change_resume_data(self, db_conn) -> None:
         from pktx.database import (
@@ -203,11 +211,15 @@ class TestUpdateResumeVersionMetadata:
             update_resume_version_metadata,
         )
 
-        version = load_default_resume_version(db_conn)
+        version = load_default_resume_version(db_conn, user_id="legacy")
         original_data = {"summary": "preserved"}
-        update_resume_version_data(db_conn, version["id"], original_data)
+        update_resume_version_data(
+            db_conn, version["id"], original_data, user_id="legacy"
+        )
 
-        updated = update_resume_version_metadata(db_conn, version["id"], "Renamed")
+        updated = update_resume_version_metadata(
+            db_conn, version["id"], "Renamed", user_id="legacy"
+        )
         assert updated["resume_data"] == original_data
 
 
@@ -221,11 +233,11 @@ class TestUpdateResumeVersionData:
             update_resume_version_data,
         )
 
-        version = load_default_resume_version(db_conn)
+        version = load_default_resume_version(db_conn, user_id="legacy")
         new_data = {"summary": "Updated summary", "contact": {"name": "Bob"}}
-        update_resume_version_data(db_conn, version["id"], new_data)
+        update_resume_version_data(db_conn, version["id"], new_data, user_id="legacy")
 
-        reloaded = load_resume_version(db_conn, version["id"])
+        reloaded = load_resume_version(db_conn, version["id"], user_id="legacy")
         assert reloaded["resume_data"]["summary"] == "Updated summary"
         assert reloaded["resume_data"]["contact"]["name"] == "Bob"
 
@@ -233,7 +245,7 @@ class TestUpdateResumeVersionData:
         from pktx.database import update_resume_version_data
 
         with pytest.raises(ValueError, match="not found"):
-            update_resume_version_data(db_conn, 9999, {})
+            update_resume_version_data(db_conn, 9999, {}, user_id="legacy")
 
     def test_json_round_trip_complex_data(self, db_conn) -> None:
         from pktx.database import (
@@ -242,7 +254,7 @@ class TestUpdateResumeVersionData:
             update_resume_version_data,
         )
 
-        version = load_default_resume_version(db_conn)
+        version = load_default_resume_version(db_conn, user_id="legacy")
         complex_data = {
             "contact": {"name": "Alice", "email": "alice@test.com"},
             "summary": "A summary.",
@@ -251,9 +263,11 @@ class TestUpdateResumeVersionData:
             ],
             "skills": [{"name": "Go", "category": "Languages"}],
         }
-        update_resume_version_data(db_conn, version["id"], complex_data)
+        update_resume_version_data(
+            db_conn, version["id"], complex_data, user_id="legacy"
+        )
 
-        reloaded = load_resume_version(db_conn, version["id"])
+        reloaded = load_resume_version(db_conn, version["id"], user_id="legacy")
         assert reloaded["resume_data"] == complex_data
 
 
@@ -267,33 +281,33 @@ class TestDeleteResumeVersion:
             load_resume_versions,
         )
 
-        created = create_resume_version(db_conn, "Temp", {})
-        delete_resume_version(db_conn, created["id"])
+        created = create_resume_version(db_conn, "Temp", {}, user_id="legacy")
+        delete_resume_version(db_conn, created["id"], user_id="legacy")
 
-        versions = load_resume_versions(db_conn)
+        versions = load_resume_versions(db_conn, user_id="legacy")
         ids = [v["id"] for v in versions]
         assert created["id"] not in ids
 
     def test_returns_label_of_deleted_version(self, db_conn) -> None:
         from pktx.database import create_resume_version, delete_resume_version
 
-        created = create_resume_version(db_conn, "Deletable", {})
-        label = delete_resume_version(db_conn, created["id"])
+        created = create_resume_version(db_conn, "Deletable", {}, user_id="legacy")
+        label = delete_resume_version(db_conn, created["id"], user_id="legacy")
 
         assert label == "Deletable"
 
     def test_raises_when_deleting_last_version(self, db_conn) -> None:
         from pktx.database import delete_resume_version, load_default_resume_version
 
-        default = load_default_resume_version(db_conn)
+        default = load_default_resume_version(db_conn, user_id="legacy")
         with pytest.raises(ValueError, match="last remaining"):
-            delete_resume_version(db_conn, default["id"])
+            delete_resume_version(db_conn, default["id"], user_id="legacy")
 
     def test_raises_for_missing_id(self, db_conn) -> None:
         from pktx.database import delete_resume_version
 
         with pytest.raises(ValueError, match="not found"):
-            delete_resume_version(db_conn, 9999)
+            delete_resume_version(db_conn, 9999, user_id="legacy")
 
     def test_auto_promotes_when_deleting_default(self, db_conn) -> None:
         from pktx.database import (
@@ -303,15 +317,15 @@ class TestDeleteResumeVersion:
             load_resume_versions,
         )
 
-        other = create_resume_version(db_conn, "Other", {})
-        default = load_default_resume_version(db_conn)
+        other = create_resume_version(db_conn, "Other", {}, user_id="legacy")
+        default = load_default_resume_version(db_conn, user_id="legacy")
 
-        delete_resume_version(db_conn, default["id"])
+        delete_resume_version(db_conn, default["id"], user_id="legacy")
 
-        new_default = load_default_resume_version(db_conn)
+        new_default = load_default_resume_version(db_conn, user_id="legacy")
         assert new_default["is_default"] is True
 
-        versions = load_resume_versions(db_conn)
+        versions = load_resume_versions(db_conn, user_id="legacy")
         assert len(versions) == 1
         assert versions[0]["id"] == other["id"]
 
@@ -326,10 +340,12 @@ class TestSetDefaultResumeVersion:
             set_default_resume_version,
         )
 
-        new_version = create_resume_version(db_conn, "New Default", {})
-        set_default_resume_version(db_conn, new_version["id"])
+        new_version = create_resume_version(
+            db_conn, "New Default", {}, user_id="legacy"
+        )
+        set_default_resume_version(db_conn, new_version["id"], user_id="legacy")
 
-        default = load_default_resume_version(db_conn)
+        default = load_default_resume_version(db_conn, user_id="legacy")
         assert default["id"] == new_version["id"]
 
     def test_unsets_previous_default(self, db_conn) -> None:
@@ -340,11 +356,11 @@ class TestSetDefaultResumeVersion:
             set_default_resume_version,
         )
 
-        old_default_id = load_resume_versions(db_conn)[0]["id"]
-        new_version = create_resume_version(db_conn, "New One", {})
-        set_default_resume_version(db_conn, new_version["id"])
+        old_default_id = load_resume_versions(db_conn, user_id="legacy")[0]["id"]
+        new_version = create_resume_version(db_conn, "New One", {}, user_id="legacy")
+        set_default_resume_version(db_conn, new_version["id"], user_id="legacy")
 
-        old = load_resume_version(db_conn, old_default_id)
+        old = load_resume_version(db_conn, old_default_id, user_id="legacy")
         assert old["is_default"] is False
 
     def test_returns_label(self, db_conn) -> None:
@@ -353,8 +369,8 @@ class TestSetDefaultResumeVersion:
             set_default_resume_version,
         )
 
-        v = create_resume_version(db_conn, "Promoted", {})
-        label = set_default_resume_version(db_conn, v["id"])
+        v = create_resume_version(db_conn, "Promoted", {}, user_id="legacy")
+        label = set_default_resume_version(db_conn, v["id"], user_id="legacy")
 
         assert label == "Promoted"
 
@@ -362,7 +378,7 @@ class TestSetDefaultResumeVersion:
         from pktx.database import set_default_resume_version
 
         with pytest.raises(ValueError, match="not found"):
-            set_default_resume_version(db_conn, 9999)
+            set_default_resume_version(db_conn, 9999, user_id="legacy")
 
     def test_only_one_default_after_set(self, db_conn) -> None:
         from pktx.database import (
@@ -371,12 +387,12 @@ class TestSetDefaultResumeVersion:
             set_default_resume_version,
         )
 
-        v1 = create_resume_version(db_conn, "V1", {})
-        v2 = create_resume_version(db_conn, "V2", {})
-        set_default_resume_version(db_conn, v1["id"])
-        set_default_resume_version(db_conn, v2["id"])
+        v1 = create_resume_version(db_conn, "V1", {}, user_id="legacy")
+        v2 = create_resume_version(db_conn, "V2", {}, user_id="legacy")
+        set_default_resume_version(db_conn, v1["id"], user_id="legacy")
+        set_default_resume_version(db_conn, v2["id"], user_id="legacy")
 
-        versions = load_resume_versions(db_conn)
+        versions = load_resume_versions(db_conn, user_id="legacy")
         defaults = [v for v in versions if v["is_default"]]
         assert len(defaults) == 1
         assert defaults[0]["id"] == v2["id"]
@@ -401,7 +417,7 @@ class TestCreateApplication:
             "url": "https://example.com",
             "notes": "Great company",
         }
-        result = create_application(db_conn, data)
+        result = create_application(db_conn, data, user_id="legacy")
 
         assert result["id"] is not None
         assert result["company"] == "Acme"
@@ -412,7 +428,9 @@ class TestCreateApplication:
     def test_creates_with_minimal_fields(self, db_conn) -> None:
         from pktx.database import create_application
 
-        result = create_application(db_conn, {"company": "Corp", "position": "Dev"})
+        result = create_application(
+            db_conn, {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
 
         assert result["company"] == "Corp"
         assert result["position"] == "Dev"
@@ -421,8 +439,12 @@ class TestCreateApplication:
     def test_multiple_apps_get_unique_ids(self, db_conn) -> None:
         from pktx.database import create_application
 
-        a1 = create_application(db_conn, {"company": "A", "position": "P1"})
-        a2 = create_application(db_conn, {"company": "B", "position": "P2"})
+        a1 = create_application(
+            db_conn, {"company": "A", "position": "P1"}, user_id="legacy"
+        )
+        a2 = create_application(
+            db_conn, {"company": "B", "position": "P2"}, user_id="legacy"
+        )
 
         assert a1["id"] != a2["id"]
 
@@ -434,8 +456,10 @@ class TestCreateApplication:
             load_default_resume_version,
         )
 
-        default = load_default_resume_version(db_conn)
-        app = create_application(db_conn, {"company": "X", "position": "Y"})
+        default = load_default_resume_version(db_conn, user_id="legacy")
+        app = create_application(
+            db_conn, {"company": "X", "position": "Y"}, user_id="legacy"
+        )
         link_insert(
             db_conn, "application", app["id"], "resume", default["id"], "legacy"
         )
@@ -449,7 +473,9 @@ class TestCreateApplication:
         """RETURNING id must yield an integer (not lastrowid)."""
         from pktx.database import create_application
 
-        result = create_application(db_conn, {"company": "Corp", "position": "Dev"})
+        result = create_application(
+            db_conn, {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
         assert isinstance(result["id"], int)
         assert result["id"] > 0
 
@@ -460,8 +486,10 @@ class TestLoadApplication:
     def test_loads_existing_application(self, db_conn) -> None:
         from pktx.database import create_application, load_application
 
-        created = create_application(db_conn, {"company": "Foo", "position": "Bar"})
-        loaded = load_application(db_conn, created["id"])
+        created = create_application(
+            db_conn, {"company": "Foo", "position": "Bar"}, user_id="legacy"
+        )
+        loaded = load_application(db_conn, created["id"], user_id="legacy")
 
         assert loaded["id"] == created["id"]
         assert loaded["company"] == "Foo"
@@ -471,7 +499,7 @@ class TestLoadApplication:
         from pktx.database import load_application
 
         with pytest.raises(ValueError, match="not found"):
-            load_application(db_conn, 9999)
+            load_application(db_conn, 9999, user_id="legacy")
 
 
 class TestLoadApplications:
@@ -480,9 +508,13 @@ class TestLoadApplications:
     def test_returns_all_applications(self, db_conn) -> None:
         from pktx.database import create_application, load_applications
 
-        create_application(db_conn, {"company": "A", "position": "P1"})
-        create_application(db_conn, {"company": "B", "position": "P2"})
-        results = load_applications(db_conn)
+        create_application(
+            db_conn, {"company": "A", "position": "P1"}, user_id="legacy"
+        )
+        create_application(
+            db_conn, {"company": "B", "position": "P2"}, user_id="legacy"
+        )
+        results = load_applications(db_conn, user_id="legacy")
 
         assert len(results) == 2
 
@@ -490,12 +522,16 @@ class TestLoadApplications:
         from pktx.database import create_application, load_applications
 
         create_application(
-            db_conn, {"company": "A", "position": "P1", "status": "Applied"}
+            db_conn,
+            {"company": "A", "position": "P1", "status": "Applied"},
+            user_id="legacy",
         )
         create_application(
-            db_conn, {"company": "B", "position": "P2", "status": "Interested"}
+            db_conn,
+            {"company": "B", "position": "P2", "status": "Interested"},
+            user_id="legacy",
         )
-        results = load_applications(db_conn, status="Applied")
+        results = load_applications(db_conn, status="Applied", user_id="legacy")
 
         assert len(results) == 1
         assert results[0]["company"] == "A"
@@ -504,9 +540,13 @@ class TestLoadApplications:
         """PostgreSQL ILIKE search (replaces LOWER(col) LIKE ?)."""
         from pktx.database import create_application, load_applications
 
-        create_application(db_conn, {"company": "Acme Corp", "position": "Dev"})
-        create_application(db_conn, {"company": "Other Inc", "position": "QA"})
-        results = load_applications(db_conn, q="acme")
+        create_application(
+            db_conn, {"company": "Acme Corp", "position": "Dev"}, user_id="legacy"
+        )
+        create_application(
+            db_conn, {"company": "Other Inc", "position": "QA"}, user_id="legacy"
+        )
+        results = load_applications(db_conn, q="acme", user_id="legacy")
 
         assert len(results) == 1
         assert results[0]["company"] == "Acme Corp"
@@ -514,9 +554,15 @@ class TestLoadApplications:
     def test_search_by_position(self, db_conn) -> None:
         from pktx.database import create_application, load_applications
 
-        create_application(db_conn, {"company": "Corp", "position": "Backend Engineer"})
-        create_application(db_conn, {"company": "Corp", "position": "Designer"})
-        results = load_applications(db_conn, q="engineer")
+        create_application(
+            db_conn,
+            {"company": "Corp", "position": "Backend Engineer"},
+            user_id="legacy",
+        )
+        create_application(
+            db_conn, {"company": "Corp", "position": "Designer"}, user_id="legacy"
+        )
+        results = load_applications(db_conn, q="engineer", user_id="legacy")
 
         assert len(results) == 1
         assert results[0]["position"] == "Backend Engineer"
@@ -527,12 +573,16 @@ class TestLoadApplications:
         create_application(
             db_conn,
             {"company": "Acme", "position": "Engineer", "status": "Applied"},
+            user_id="legacy",
         )
         create_application(
             db_conn,
             {"company": "Acme", "position": "Designer", "status": "Interested"},
+            user_id="legacy",
         )
-        results = load_applications(db_conn, status="Applied", q="acme")
+        results = load_applications(
+            db_conn, status="Applied", q="acme", user_id="legacy"
+        )
 
         assert len(results) == 1
         assert results[0]["position"] == "Engineer"
@@ -540,15 +590,17 @@ class TestLoadApplications:
     def test_returns_empty_list_when_no_match(self, db_conn) -> None:
         from pktx.database import create_application, load_applications
 
-        create_application(db_conn, {"company": "Foo", "position": "Bar"})
-        results = load_applications(db_conn, q="zzznomatch")
+        create_application(
+            db_conn, {"company": "Foo", "position": "Bar"}, user_id="legacy"
+        )
+        results = load_applications(db_conn, q="zzznomatch", user_id="legacy")
 
         assert results == []
 
     def test_returns_empty_list_on_empty_db(self, db_conn) -> None:
         from pktx.database import load_applications
 
-        results = load_applications(db_conn)
+        results = load_applications(db_conn, user_id="legacy")
 
         assert results == []
 
@@ -559,8 +611,12 @@ class TestUpdateApplication:
     def test_updates_single_field(self, db_conn) -> None:
         from pktx.database import create_application, update_application
 
-        app = create_application(db_conn, {"company": "Corp", "position": "Dev"})
-        updated = update_application(db_conn, app["id"], {"status": "Applied"})
+        app = create_application(
+            db_conn, {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        updated = update_application(
+            db_conn, app["id"], {"status": "Applied"}, user_id="legacy"
+        )
 
         assert updated["status"] == "Applied"
         assert updated["company"] == "Corp"
@@ -568,11 +624,14 @@ class TestUpdateApplication:
     def test_updates_multiple_fields(self, db_conn) -> None:
         from pktx.database import create_application, update_application
 
-        app = create_application(db_conn, {"company": "Corp", "position": "Dev"})
+        app = create_application(
+            db_conn, {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
         updated = update_application(
             db_conn,
             app["id"],
             {"company": "NewCorp", "notes": "Great fit"},
+            user_id="legacy",
         )
 
         assert updated["company"] == "NewCorp"
@@ -582,7 +641,7 @@ class TestUpdateApplication:
         from pktx.database import update_application
 
         with pytest.raises(ValueError, match="not found"):
-            update_application(db_conn, 9999, {"status": "Applied"})
+            update_application(db_conn, 9999, {"status": "Applied"}, user_id="legacy")
 
 
 class TestDeleteApplication:
@@ -595,9 +654,11 @@ class TestDeleteApplication:
             load_applications,
         )
 
-        app = create_application(db_conn, {"company": "Corp", "position": "Dev"})
-        delete_application(db_conn, app["id"])
-        results = load_applications(db_conn)
+        app = create_application(
+            db_conn, {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        delete_application(db_conn, app["id"], user_id="legacy")
+        results = load_applications(db_conn, user_id="legacy")
 
         assert all(r["id"] != app["id"] for r in results)
 
@@ -605,4 +666,4 @@ class TestDeleteApplication:
         from pktx.database import delete_application
 
         with pytest.raises(ValueError, match="not found"):
-            delete_application(db_conn, 9999)
+            delete_application(db_conn, 9999, user_id="legacy")

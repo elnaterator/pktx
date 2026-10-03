@@ -22,14 +22,14 @@ class TestApplicationServiceCreate:
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="Company is required"):
-            svc.create_application({"position": "Dev"})
+            svc.create_application({"position": "Dev"}, user_id="legacy")
 
     def test_requires_position(self, app_service: object) -> None:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="Position is required"):
-            svc.create_application({"company": "Corp"})
+            svc.create_application({"company": "Corp"}, user_id="legacy")
 
     def test_rejects_invalid_status(self, app_service: object) -> None:
         from pktx.application_service import ApplicationService
@@ -37,7 +37,8 @@ class TestApplicationServiceCreate:
         svc: ApplicationService = app_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="Invalid status"):
             svc.create_application(
-                {"company": "Corp", "position": "Dev", "status": "Bogus"}
+                {"company": "Corp", "position": "Dev", "status": "Bogus"},
+                user_id="legacy",
             )
 
     def test_accepts_valid_statuses(self, app_service: object) -> None:
@@ -47,7 +48,8 @@ class TestApplicationServiceCreate:
         svc: ApplicationService = app_service  # type: ignore[assignment]
         for status in APPLICATION_STATUSES:
             result = svc.create_application(
-                {"company": f"Corp_{status}", "position": "Dev", "status": status}
+                {"company": f"Corp_{status}", "position": "Dev", "status": status},
+                user_id="legacy",
             )
             assert result["status"] == status
 
@@ -55,7 +57,9 @@ class TestApplicationServiceCreate:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        result = svc.create_application({"company": "Corp", "position": "Dev"})
+        result = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
 
         assert result["id"] is not None
         assert result["status"] == "Interested"
@@ -70,8 +74,10 @@ class TestApplicationServiceGet:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "Corp", "position": "Dev"})
-        result = svc.get_application(created["id"])
+        created = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        result = svc.get_application(created["id"], user_id="legacy")
 
         assert result["id"] == created["id"]
         assert result["company"] == "Corp"
@@ -81,7 +87,7 @@ class TestApplicationServiceGet:
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.get_application(9999)
+            svc.get_application(9999, user_id="legacy")
 
 
 class TestApplicationServiceList:
@@ -91,9 +97,9 @@ class TestApplicationServiceList:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        svc.create_application({"company": "A", "position": "P1"})
-        svc.create_application({"company": "B", "position": "P2"})
-        results = svc.list_applications()
+        svc.create_application({"company": "A", "position": "P1"}, user_id="legacy")
+        svc.create_application({"company": "B", "position": "P2"}, user_id="legacy")
+        results = svc.list_applications(user_id="legacy")
 
         assert len(results) == 2
 
@@ -101,11 +107,13 @@ class TestApplicationServiceList:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        svc.create_application({"company": "A", "position": "P1", "status": "Applied"})
         svc.create_application(
-            {"company": "B", "position": "P2", "status": "Interested"}
+            {"company": "A", "position": "P1", "status": "Applied"}, user_id="legacy"
         )
-        results = svc.list_applications(status="Applied")
+        svc.create_application(
+            {"company": "B", "position": "P2", "status": "Interested"}, user_id="legacy"
+        )
+        results = svc.list_applications(status="Applied", user_id="legacy")
 
         assert len(results) == 1
         assert results[0]["company"] == "A"
@@ -114,12 +122,18 @@ class TestApplicationServiceList:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        svc.create_application({"company": "A", "position": "P1", "status": "Applied"})
         svc.create_application(
-            {"company": "B", "position": "P2", "status": "Interested"}
+            {"company": "A", "position": "P1", "status": "Applied"}, user_id="legacy"
         )
-        svc.create_application({"company": "C", "position": "P3", "status": "Rejected"})
-        results = svc.list_applications(status=["Applied", "Interested"])
+        svc.create_application(
+            {"company": "B", "position": "P2", "status": "Interested"}, user_id="legacy"
+        )
+        svc.create_application(
+            {"company": "C", "position": "P3", "status": "Rejected"}, user_id="legacy"
+        )
+        results = svc.list_applications(
+            status=["Applied", "Interested"], user_id="legacy"
+        )
 
         companies = {r["company"] for r in results}
         assert companies == {"A", "B"}
@@ -128,9 +142,13 @@ class TestApplicationServiceList:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        svc.create_application({"company": "Acme Corp", "position": "Dev"})
-        svc.create_application({"company": "Other Inc", "position": "QA"})
-        results = svc.list_applications(q="acme")
+        svc.create_application(
+            {"company": "Acme Corp", "position": "Dev"}, user_id="legacy"
+        )
+        svc.create_application(
+            {"company": "Other Inc", "position": "QA"}, user_id="legacy"
+        )
+        results = svc.list_applications(q="acme", user_id="legacy")
 
         assert len(results) == 1
         assert results[0]["company"] == "Acme Corp"
@@ -139,7 +157,7 @@ class TestApplicationServiceList:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        results = svc.list_applications()
+        results = svc.list_applications(user_id="legacy")
 
         assert results == []
 
@@ -151,8 +169,12 @@ class TestApplicationServiceUpdate:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "Corp", "position": "Dev"})
-        updated = svc.update_application(created["id"], {"status": "Applied"})
+        created = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        updated = svc.update_application(
+            created["id"], {"status": "Applied"}, user_id="legacy"
+        )
 
         assert updated["status"] == "Applied"
         assert updated["company"] == "Corp"
@@ -161,16 +183,18 @@ class TestApplicationServiceUpdate:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "Corp", "position": "Dev"})
+        created = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
         with pytest.raises(ValueError, match="Invalid status"):
-            svc.update_application(created["id"], {"status": "Fake"})
+            svc.update_application(created["id"], {"status": "Fake"}, user_id="legacy")
 
     def test_raises_for_nonexistent_app(self, app_service: object) -> None:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.update_application(9999, {"status": "Applied"})
+            svc.update_application(9999, {"status": "Applied"}, user_id="legacy")
 
 
 class TestApplicationServiceDelete:
@@ -180,18 +204,22 @@ class TestApplicationServiceDelete:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "Corp", "position": "Dev"})
-        svc.delete_application(created["id"])
+        created = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        svc.delete_application(created["id"], user_id="legacy")
 
         with pytest.raises(ValueError, match="not found"):
-            svc.get_application(created["id"])
+            svc.get_application(created["id"], user_id="legacy")
 
     def test_returns_deleted_app_data(self, app_service: object) -> None:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "Corp", "position": "Dev"})
-        result = svc.delete_application(created["id"])
+        created = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        result = svc.delete_application(created["id"], user_id="legacy")
 
         assert result["company"] == "Corp"
         assert result["position"] == "Dev"
@@ -201,7 +229,7 @@ class TestApplicationServiceDelete:
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.delete_application(9999)
+            svc.delete_application(9999, user_id="legacy")
 
 
 class TestApplicationServiceContext:
@@ -211,8 +239,10 @@ class TestApplicationServiceContext:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "Corp", "position": "Dev"})
-        context = svc.get_application_context(created["id"])
+        created = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        context = svc.get_application_context(created["id"], user_id="legacy")
 
         assert "application" in context
         assert "linked" in context
@@ -221,8 +251,10 @@ class TestApplicationServiceContext:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "Corp", "position": "Dev"})
-        context = svc.get_application_context(created["id"])
+        created = svc.create_application(
+            {"company": "Corp", "position": "Dev"}, user_id="legacy"
+        )
+        context = svc.get_application_context(created["id"], user_id="legacy")
 
         assert context["application"]["id"] == created["id"]
         assert context["application"]["company"] == "Corp"
@@ -232,7 +264,7 @@ class TestApplicationServiceContext:
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.get_application_context(9999)
+            svc.get_application_context(9999, user_id="legacy")
 
 
 class TestApplicationServiceTags:
@@ -243,7 +275,8 @@ class TestApplicationServiceTags:
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
         result = svc.create_application(
-            {"company": "A", "position": "P", "tags": ["  Python  ", "PYTHON", "go"]}
+            {"company": "A", "position": "P", "tags": ["  Python  ", "PYTHON", "go"]},
+            user_id="legacy",
         )
         assert result["tags"] == ["python", "go"]
 
@@ -254,16 +287,18 @@ class TestApplicationServiceTags:
         long_tag = "x" * 51
         with pytest.raises(ValueError, match="50 characters"):
             svc.create_application(
-                {"company": "A", "position": "P", "tags": [long_tag]}
+                {"company": "A", "position": "P", "tags": [long_tag]}, user_id="legacy"
             )
 
     def test_tags_normalized_on_update(self, app_service: object) -> None:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        created = svc.create_application({"company": "A", "position": "P"})
+        created = svc.create_application(
+            {"company": "A", "position": "P"}, user_id="legacy"
+        )
         updated = svc.update_application(
-            created["id"], {"tags": ["  Java  ", "JAVA", "rust"]}
+            created["id"], {"tags": ["  Java  ", "JAVA", "rust"]}, user_id="legacy"
         )
         assert updated["tags"] == ["java", "rust"]
 
@@ -271,9 +306,13 @@ class TestApplicationServiceTags:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        svc.create_application({"company": "A", "position": "P1", "tags": ["python"]})
-        svc.create_application({"company": "B", "position": "P2", "tags": ["java"]})
-        results = svc.list_applications(tags=["python"])
+        svc.create_application(
+            {"company": "A", "position": "P1", "tags": ["python"]}, user_id="legacy"
+        )
+        svc.create_application(
+            {"company": "B", "position": "P2", "tags": ["java"]}, user_id="legacy"
+        )
+        results = svc.list_applications(tags=["python"], user_id="legacy")
         assert len(results) == 1
         assert results[0]["company"] == "A"
 
@@ -281,7 +320,11 @@ class TestApplicationServiceTags:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_service  # type: ignore[assignment]
-        svc.create_application({"company": "A", "position": "P1", "tags": ["python"]})
-        svc.create_application({"company": "B", "position": "P2", "tags": ["java"]})
-        tags = svc.list_tags()
+        svc.create_application(
+            {"company": "A", "position": "P1", "tags": ["python"]}, user_id="legacy"
+        )
+        svc.create_application(
+            {"company": "B", "position": "P2", "tags": ["java"]}, user_id="legacy"
+        )
+        tags = svc.list_tags(user_id="legacy")
         assert sorted(tags) == ["java", "python"]

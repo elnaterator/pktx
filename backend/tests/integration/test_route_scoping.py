@@ -29,6 +29,12 @@ _EXEMPT: set[tuple[str, str]] = {
     ("POST", "/api/accomplishments"),
     ("POST", "/api/notes"),
     ("POST", "/api/contacts"),
+    # Catch-all: unknown /api paths always 404, never touch data.
+    ("GET", "/api/{path:path}"),
+    ("POST", "/api/{path:path}"),
+    ("PUT", "/api/{path:path}"),
+    ("PATCH", "/api/{path:path}"),
+    ("DELETE", "/api/{path:path}"),
 }
 
 # Routes with no alice id in the path: response body must not leak alice data.
@@ -166,7 +172,7 @@ def _walk(routes: list[Any]) -> list[APIRoute]:
 def _api_routes(app: Any) -> list[tuple[str, str]]:
     out: list[tuple[str, str]] = []
     for route in _walk(app.routes):
-        for method in sorted(route.methods - {"HEAD", "OPTIONS"}):
+        for method in sorted((route.methods or set()) - {"HEAD", "OPTIONS"}):
             out.append((method, route.path))
     return out
 

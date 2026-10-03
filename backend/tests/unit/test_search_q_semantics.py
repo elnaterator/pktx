@@ -39,9 +39,13 @@ class TestApplicationWordSplitQ:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_svc  # type: ignore[assignment]
-        svc.create_application({"company": "Acme Corp", "position": "Engineer"})
-        svc.create_application({"company": "Beta Ltd", "position": "Designer"})
-        results = svc.list_applications(q="acme")
+        svc.create_application(
+            {"company": "Acme Corp", "position": "Engineer"}, user_id="legacy"
+        )
+        svc.create_application(
+            {"company": "Beta Ltd", "position": "Designer"}, user_id="legacy"
+        )
+        results = svc.list_applications(q="acme", user_id="legacy")
         assert len(results) == 1
         assert results[0]["company"] == "Acme Corp"
 
@@ -49,10 +53,14 @@ class TestApplicationWordSplitQ:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_svc  # type: ignore[assignment]
-        svc.create_application({"company": "Acme Corp", "position": "Engineer"})
-        svc.create_application({"company": "Acme Ltd", "position": "Designer"})
+        svc.create_application(
+            {"company": "Acme Corp", "position": "Engineer"}, user_id="legacy"
+        )
+        svc.create_application(
+            {"company": "Acme Ltd", "position": "Designer"}, user_id="legacy"
+        )
         # "acme engineer" — only first matches position containing "engineer"
-        results = svc.list_applications(q="acme engineer")
+        results = svc.list_applications(q="acme engineer", user_id="legacy")
         assert len(results) == 1
         assert results[0]["company"] == "Acme Corp"
 
@@ -60,8 +68,10 @@ class TestApplicationWordSplitQ:
         from pktx.application_service import ApplicationService
 
         svc: ApplicationService = app_svc  # type: ignore[assignment]
-        svc.create_application({"company": "Acme Corp", "position": "Engineer"})
-        results = svc.list_applications(q="acme nomatch")
+        svc.create_application(
+            {"company": "Acme Corp", "position": "Engineer"}, user_id="legacy"
+        )
+        results = svc.list_applications(q="acme nomatch", user_id="legacy")
         assert len(results) == 0
 
 
@@ -70,9 +80,13 @@ class TestAccomplishmentWordSplitQ:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_svc  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "Launched product", "result": "10x growth"})
-        svc.create_accomplishment({"title": "Hired team", "result": "built great team"})
-        results = svc.list_accomplishments(q="launched")
+        svc.create_accomplishment(
+            {"title": "Launched product", "result": "10x growth"}, user_id="legacy"
+        )
+        svc.create_accomplishment(
+            {"title": "Hired team", "result": "built great team"}, user_id="legacy"
+        )
+        results = svc.list_accomplishments(q="launched", user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Launched product"
 
@@ -80,12 +94,14 @@ class TestAccomplishmentWordSplitQ:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_svc  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "Launched product", "result": "10x growth"})
         svc.create_accomplishment(
-            {"title": "Launched campaign", "result": "5x revenue"}
+            {"title": "Launched product", "result": "10x growth"}, user_id="legacy"
+        )
+        svc.create_accomplishment(
+            {"title": "Launched campaign", "result": "5x revenue"}, user_id="legacy"
         )
         # "launched growth" — only first has "growth" in result
-        results = svc.list_accomplishments(q="launched growth")
+        results = svc.list_accomplishments(q="launched growth", user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Launched product"
 
@@ -98,7 +114,7 @@ class TestCommunicationWordSplitQ:
         contact_svc = ContactService(db_conn)  # type: ignore[arg-type]
         comm_svc = ContactCommunicationService(db_conn)  # type: ignore[arg-type]
 
-        contact = contact_svc.create_contact({"name": "Alice Smith"})
+        contact = contact_svc.create_contact({"name": "Alice Smith"}, user_id="legacy")
         comm_svc.add_for_contact(
             contact["id"],
             {
@@ -108,8 +124,9 @@ class TestCommunicationWordSplitQ:
                 "body": "some body",
                 "date": "2024-01-01",
             },
+            user_id="legacy",
         )
-        results = comm_svc.search(q="UniqueSubject")
+        results = comm_svc.search(q="UniqueSubject", user_id="legacy")
         assert len(results) == 1
 
     def test_multi_word_and_both_must_match(self, db_conn: Connection[Any]) -> None:
@@ -119,7 +136,7 @@ class TestCommunicationWordSplitQ:
         contact_svc = ContactService(db_conn)  # type: ignore[arg-type]
         comm_svc = ContactCommunicationService(db_conn)  # type: ignore[arg-type]
 
-        contact = contact_svc.create_contact({"name": "Bob Jones"})
+        contact = contact_svc.create_contact({"name": "Bob Jones"}, user_id="legacy")
         comm_svc.add_for_contact(
             contact["id"],
             {
@@ -129,6 +146,7 @@ class TestCommunicationWordSplitQ:
                 "body": "beta content",
                 "date": "2024-01-01",
             },
+            user_id="legacy",
         )
         comm_svc.add_for_contact(
             contact["id"],
@@ -139,8 +157,9 @@ class TestCommunicationWordSplitQ:
                 "body": "other content",
                 "date": "2024-01-02",
             },
+            user_id="legacy",
         )
         # "alpha beta" — only first has "beta" in body
-        results = comm_svc.search(q="alpha beta")
+        results = comm_svc.search(q="alpha beta", user_id="legacy")
         assert len(results) == 1
         assert results[0]["subject"] == "Alpha subject"

@@ -13,7 +13,8 @@ class DBConnection(Protocol):
     Captures the PEP 249 DB-API 2.0 methods used by the application.
     psycopg.Connection (psycopg3) satisfies this protocol and is the
     production implementation. The protocol requires execute(), cursor(),
-    commit(), rollback(), and close() — all present on psycopg connections.
+    commit(), rollback(), close(), and transaction() — all present on
+    psycopg connections.
     """
 
     def execute(self, sql: str, parameters: Any = ..., /) -> Any: ...
@@ -25,6 +26,8 @@ class DBConnection(Protocol):
     def rollback(self) -> None: ...
 
     def close(self) -> None: ...
+
+    def transaction(self) -> Any: ...
 
 
 # ---------------------------------------------------------------------------

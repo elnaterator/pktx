@@ -217,19 +217,24 @@ Owns: `validation.py`, `database.py`, `migrations.py`, `models.py`, every `*_ser
 `link_service.py`, `api/routes.py` (everything except the webhook), `tools/*.py`, and the
 matching tests.
 
-- [ ] 2. **`validation.py` + unit tests.**
+- [x] 2. **`validation.py` + unit tests.**
   - `normalize_tags`, `validate_http_url`, `check_len`.
   - Replace the six `_normalize_tags` copies.
-- [ ] 3. **Fail-closed scoping.**
+  - _Divergence:_ also a small `check_lengths(data, limits)` helper (applies `check_len` to the fields present).
+- [x] 3. **Fail-closed scoping.**
   - Make `user_id` required throughout `database.py` and the services. Move owner checks into SQL.
   - Make the routes use a non-optional `UserContext` (`"legacy"` in no-auth mode).
   - Delete the legacy routes. Fix the accomplishment tags route and `link_tools`.
   - Update the tests that relied on `None` or on 403.
-- [ ] 4. **`delete_resume_version`.** Replace the SAVEPOINT with `conn.transaction()`. Make delete + unlink atomic, with the ownership check first.
-- [ ] 6. **Input validation in services and models.**
+  - _Divergence:_ service methods take `user_id` keyword-only (`*, user_id: str`) where it followed defaulted params. `load_contact_communications` is user-scoped too (joins contact). Tests that called services/db without a user now pass `"legacy"`; the legacy-route REST tests were rewritten against `/api/resumes/{id}/...`.
+- [x] 4. **`delete_resume_version`.** Replace the SAVEPOINT with `conn.transaction()`. Make delete + unlink atomic, with the ownership check first.
+  - _Divergence:_ applied the same ownership-first + atomic unlink/delete to note, contact and accomplishment deletes for consistency. `DBConnection` protocol gained `transaction()`.
+- [x] 6. **Input validation in services and models.**
   - URL validators, `update_entry` via `model_validate`, length limits.
   - Migration v14 to repair `"null"` tags. Add a migration test.
-- [ ] 8a. **Minor (data).** `ILIKE` escaping in `build_filters`, the `/api` catch-all 404, the communication `cid` check. Tests for each.
+  - _Divergence:_ v14 also NULLs stored non-http(s) URLs (`application.url`, `contact.linkedin_url`, resume `contact.linkedin|website|github`), otherwise the new model validators would 500 reads of old rows. `update_entry` drops unknown fields (models keep pydantic's default `extra="ignore"`; `forbid` would break clients sending extra keys) and 422s wrong types. Resume entry limits, not in the plan: name-like fields 200, other strings 500, each highlight 2,000. Note title/contact name limit dropped 255 → 200, note content/contact notes raised 10,000 → 100,000, per the agreed limits.
+- [x] 8a. **Minor (data).** `ILIKE` escaping in `build_filters`, the `/api` catch-all 404, the communication `cid` check. Tests for each.
+  - _Divergence:_ the catch-all sits on the auth-protected `api` router, so an unauthenticated unknown `/api/...` gets a JSON 401 rather than 404 (still never `index.html`). Communication `contact_id` is optional at the service level so the MCP tools (comm id only) keep working; always user-scoped. `test_route_scoping.py`: catch-all keys added to `_EXEMPT`, plus a pyright fix (`route.methods or set()`).
 
 **Track B: runtime + auth** (serial within the track)
 

@@ -11,6 +11,12 @@ from pktx.resume_service import ResumeService
 from pktx.server import create_app
 
 
+def _default_url(client: TestClient) -> str:
+    """URL prefix of the no-auth ("legacy") user's default resume version."""
+    rid = client.get("/api/resumes/default").json()["id"]
+    return f"/api/resumes/{rid}"
+
+
 class TestCrossInterfaceSharedState:
     """Integration tests verifying REST API and MCP tools share the same database."""
 
@@ -32,13 +38,13 @@ class TestCrossInterfaceSharedState:
 
         # Add skill via REST API
         response = client.post(
-            "/api/resume/skills/entries",
+            f"{_default_url(client)}/skills/entries",
             json={"name": "Docker", "category": "DevOps"},
         )
         assert response.status_code == 201
 
         # Read via service (same underlying database)
-        skills = service.get_section("skills")
+        skills = service.get_section("skills", user_id="legacy")
         skill_names = [s["name"] for s in skills]
         assert "Docker" in skill_names
 
@@ -52,10 +58,11 @@ class TestCrossInterfaceSharedState:
         service.update_section(
             "contact",
             {"name": "John Updated", "email": "updated@example.com"},
+            user_id="legacy",
         )
 
         # Read via REST API
-        response = client.get("/api/resume/contact")
+        response = client.get(f"{_default_url(client)}/contact")
         assert response.status_code == 200
         contact = response.json()
         assert contact["name"] == "John Updated"
@@ -72,7 +79,7 @@ class TestCrossInterfaceSharedState:
             if i % 2 == 0:
                 # REST API
                 client.post(
-                    "/api/resume/skills/entries",
+                    f"{_default_url(client)}/skills/entries",
                     json={"name": f"RestSkill{i}", "category": "Languages"},
                 )
             else:
@@ -80,10 +87,11 @@ class TestCrossInterfaceSharedState:
                 service.add_entry(
                     "skills",
                     {"name": f"ServiceSkill{i}", "category": "Languages"},
+                    user_id="legacy",
                 )
 
         # Verify all entries present via REST
-        response = client.get("/api/resume/skills")
+        response = client.get(f"{_default_url(client)}/skills")
         assert response.status_code == 200
         skills = response.json()
         skill_names = [s["name"] for s in skills]
@@ -129,7 +137,7 @@ class TestResumeVersionCrossInterface:
         assert resp.status_code == 201
         created_id = resp.json()["id"]
 
-        versions = service.list_resumes()
+        versions = service.list_resumes(user_id="legacy")
         ids = [v["id"] for v in versions]
         assert created_id in ids
 
@@ -139,11 +147,9 @@ class TestResumeVersionCrossInterface:
         """Update a resume version via service and verify it's visible via REST."""
         app, service, client = full_app
 
-        default = service.get_resume()
+        default = service.get_resume(user_id="legacy")
         service.update_section(
-            "contact",
-            {"name": "Updated Name"},
-            default["id"],
+            "contact", {"name": "Updated Name"}, default["id"], user_id="legacy"
         )
 
         resp = client.get(f"/api/resumes/{default['id']}/contact")
@@ -161,7 +167,7 @@ class TestResumeVersionCrossInterface:
 
         client.post(f"/api/resumes/{new_id}/default")
 
-        default = service.get_resume()
+        default = service.get_resume(user_id="legacy")
         assert default["id"] == new_id
 
 
@@ -188,7 +194,7 @@ class TestAccomplishmentCrossInterface:
         assert acc_svc is not None
 
         created = acc_svc.create_accomplishment(
-            {"title": "Cross-interface test", "result": "Success"}
+            {"title": "Cross-interface test", "result": "Success"}, user_id="legacy"
         )
 
         resp = client.get(f"/api/accomplishments/{created['id']}")
@@ -210,7 +216,7 @@ class TestAccomplishmentCrossInterface:
         assert resp.status_code == 201
         acc_id = resp.json()["id"]
 
-        acc = acc_svc.get_accomplishment(acc_id)
+        acc = acc_svc.get_accomplishment(acc_id, user_id="legacy")
         assert acc["title"] == "REST creation"
 
     def test_global_acc_service_shared(
@@ -227,12 +233,14 @@ class TestAccomplishmentCrossInterface:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc1 = AccomplishmentService(db_conn)  # type: ignore[arg-type]
-        created = svc1.create_accomplishment({"title": "Durability test"})
+        created = svc1.create_accomplishment(
+            {"title": "Durability test"}, user_id="legacy"
+        )
         acc_id = created["id"]
 
         # Second service instance on same connection — data visible within transaction
         svc2 = AccomplishmentService(db_conn)  # type: ignore[arg-type]
-        recovered = svc2.get_accomplishment(acc_id)
+        recovered = svc2.get_accomplishment(acc_id, user_id="legacy")
         assert recovered["title"] == "Durability test"
 
 
@@ -263,7 +271,8 @@ class TestNoteCrossInterface:
                 "title": "Cross-interface note",
                 "content": "Test content",
                 "tags": ["test"],
-            }
+            },
+            user_id="legacy",
         )
 
         resp = client.get(f"/api/notes/{created['id']}")
@@ -286,7 +295,7 @@ class TestNoteCrossInterface:
         assert resp.status_code == 201
         note_id = resp.json()["id"]
 
-        note = note_svc.get_note(note_id)
+        note = note_svc.get_note(note_id, user_id="legacy")
         assert note["title"] == "REST note"
         assert note["content"] == "From REST"
 
@@ -304,9 +313,9 @@ class TestNoteCrossInterface:
         from pktx.note_service import NoteService
 
         svc1 = NoteService(db_conn)  # type: ignore[arg-type]
-        created = svc1.create_note({"title": "Durability note"})
+        created = svc1.create_note({"title": "Durability note"}, user_id="legacy")
         note_id = created["id"]
 
         svc2 = NoteService(db_conn)  # type: ignore[arg-type]
-        recovered = svc2.get_note(note_id)
+        recovered = svc2.get_note(note_id, user_id="legacy")
         assert recovered["title"] == "Durability note"
