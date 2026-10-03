@@ -25,14 +25,14 @@ class TestAccomplishmentServiceCreate:
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="[Tt]itle"):
-            svc.create_accomplishment({})
+            svc.create_accomplishment({}, user_id="legacy")
 
     def test_rejects_blank_title(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="[Tt]itle"):
-            svc.create_accomplishment({"title": "   "})
+            svc.create_accomplishment({"title": "   "}, user_id="legacy")
 
     def test_stores_all_star_fields(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
@@ -45,7 +45,8 @@ class TestAccomplishmentServiceCreate:
                 "task": "Migrate 3 services.",
                 "action": "Coordinated 4 teams.",
                 "result": "80% faster deploys.",
-            }
+            },
+            user_id="legacy",
         )
         assert result["title"] == "Led migration"
         assert result["situation"] == "Monolith caused long deploys."
@@ -61,7 +62,8 @@ class TestAccomplishmentServiceCreate:
             {
                 "title": "Test",
                 "tags": ["  leadership  ", "technical", "leadership"],
-            }
+            },
+            user_id="legacy",
         )
         assert set(result["tags"]) == {"leadership", "technical"}
         assert len(result["tags"]) == 2  # deduplicated
@@ -74,7 +76,8 @@ class TestAccomplishmentServiceCreate:
             {
                 "title": "Test",
                 "tags": ["Leadership", "TECHNICAL", "Team Lead"],
-            }
+            },
+            user_id="legacy",
         )
         assert set(result["tags"]) == {"leadership", "technical", "team lead"}
 
@@ -86,7 +89,8 @@ class TestAccomplishmentServiceCreate:
             {
                 "title": "Test",
                 "tags": ["Leadership", "leadership", "LEADERSHIP"],
-            }
+            },
+            user_id="legacy",
         )
         assert result["tags"] == ["leadership"]
 
@@ -94,7 +98,7 @@ class TestAccomplishmentServiceCreate:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        result = svc.create_accomplishment({"title": "No date"})
+        result = svc.create_accomplishment({"title": "No date"}, user_id="legacy")
         assert result["accomplishment_date"] is None
 
     def test_accomplishment_date_stored(self, acc_service: object) -> None:
@@ -102,7 +106,7 @@ class TestAccomplishmentServiceCreate:
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         result = svc.create_accomplishment(
-            {"title": "Dated", "accomplishment_date": "2024-03-15"}
+            {"title": "Dated", "accomplishment_date": "2024-03-15"}, user_id="legacy"
         )
         assert result["accomplishment_date"] == "2024-03-15"
 
@@ -110,7 +114,9 @@ class TestAccomplishmentServiceCreate:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        result = svc.create_accomplishment({"title": "Timestamp test"})
+        result = svc.create_accomplishment(
+            {"title": "Timestamp test"}, user_id="legacy"
+        )
         assert isinstance(result["created_at"], str) and result["created_at"] != ""
         assert isinstance(result["updated_at"], str) and result["updated_at"] != ""
 
@@ -118,15 +124,15 @@ class TestAccomplishmentServiceCreate:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        a = svc.create_accomplishment({"title": "First"})
-        b = svc.create_accomplishment({"title": "Second"})
+        a = svc.create_accomplishment({"title": "First"}, user_id="legacy")
+        b = svc.create_accomplishment({"title": "Second"}, user_id="legacy")
         assert a["id"] != b["id"]
 
     def test_partial_star_allowed(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        result = svc.create_accomplishment({"title": "Partial"})
+        result = svc.create_accomplishment({"title": "Partial"}, user_id="legacy")
         assert result["situation"] == ""
         assert result["task"] == ""
         assert result["action"] == ""
@@ -138,7 +144,8 @@ class TestAccomplishmentServiceCreate:
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="[Dd]ate"):
             svc.create_accomplishment(
-                {"title": "Bad date", "accomplishment_date": "March 2024"}
+                {"title": "Bad date", "accomplishment_date": "March 2024"},
+                user_id="legacy",
             )
 
 
@@ -149,8 +156,8 @@ class TestAccomplishmentServiceGet:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        created = svc.create_accomplishment({"title": "Find me"})
-        result = svc.get_accomplishment(created["id"])
+        created = svc.create_accomplishment({"title": "Find me"}, user_id="legacy")
+        result = svc.get_accomplishment(created["id"], user_id="legacy")
         assert result["id"] == created["id"]
         assert result["title"] == "Find me"
 
@@ -159,7 +166,7 @@ class TestAccomplishmentServiceGet:
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.get_accomplishment(9999)
+            svc.get_accomplishment(9999, user_id="legacy")
 
 
 # ── US2: List / Tags ──────────────────────────────────────────────────────────
@@ -172,24 +179,28 @@ class TestAccomplishmentServiceList:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "A"})
-        svc.create_accomplishment({"title": "B"})
-        results = svc.list_accomplishments()
+        svc.create_accomplishment({"title": "A"}, user_id="legacy")
+        svc.create_accomplishment({"title": "B"}, user_id="legacy")
+        results = svc.list_accomplishments(user_id="legacy")
         assert len(results) == 2
 
     def test_returns_empty_when_none(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        assert svc.list_accomplishments() == []
+        assert svc.list_accomplishments(user_id="legacy") == []
 
     def test_filter_by_tag(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "Leader", "tags": ["leadership"]})
-        svc.create_accomplishment({"title": "Coder", "tags": ["technical"]})
-        results = svc.list_accomplishments(tags=["leadership"])
+        svc.create_accomplishment(
+            {"title": "Leader", "tags": ["leadership"]}, user_id="legacy"
+        )
+        svc.create_accomplishment(
+            {"title": "Coder", "tags": ["technical"]}, user_id="legacy"
+        )
+        results = svc.list_accomplishments(tags=["leadership"], user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Leader"
 
@@ -197,17 +208,20 @@ class TestAccomplishmentServiceList:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "A", "tags": ["technical"]})
-        assert svc.list_accomplishments(tags=["leadership"]) == []
+        svc.create_accomplishment(
+            {"title": "A", "tags": ["technical"]}, user_id="legacy"
+        )
+        assert svc.list_accomplishments(tags=["leadership"], user_id="legacy") == []
 
     def test_returns_summary_shape_no_star_body(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         svc.create_accomplishment(
-            {"title": "Test", "situation": "A situation", "result": "Good"}
+            {"title": "Test", "situation": "A situation", "result": "Good"},
+            user_id="legacy",
         )
-        results = svc.list_accomplishments()
+        results = svc.list_accomplishments(user_id="legacy")
         assert len(results) == 1
         item = results[0]
         assert "situation" not in item
@@ -220,12 +234,12 @@ class TestAccomplishmentServiceList:
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         svc.create_accomplishment(
-            {"title": "Older", "accomplishment_date": "2023-01-01"}
+            {"title": "Older", "accomplishment_date": "2023-01-01"}, user_id="legacy"
         )
         svc.create_accomplishment(
-            {"title": "Newer", "accomplishment_date": "2024-01-01"}
+            {"title": "Newer", "accomplishment_date": "2024-01-01"}, user_id="legacy"
         )
-        results = svc.list_accomplishments()
+        results = svc.list_accomplishments(user_id="legacy")
         assert results[0]["title"] == "Newer"
         assert results[1]["title"] == "Older"
 
@@ -233,11 +247,11 @@ class TestAccomplishmentServiceList:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "No date"})
+        svc.create_accomplishment({"title": "No date"}, user_id="legacy")
         svc.create_accomplishment(
-            {"title": "Has date", "accomplishment_date": "2024-01-01"}
+            {"title": "Has date", "accomplishment_date": "2024-01-01"}, user_id="legacy"
         )
-        results = svc.list_accomplishments()
+        results = svc.list_accomplishments(user_id="legacy")
         assert results[0]["title"] == "Has date"
         assert results[1]["title"] == "No date"
 
@@ -250,11 +264,17 @@ class TestAccomplishmentServiceMultiTagFilter:
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         svc.create_accomplishment(
-            {"title": "Both", "tags": ["leadership", "technical"]}
+            {"title": "Both", "tags": ["leadership", "technical"]}, user_id="legacy"
         )
-        svc.create_accomplishment({"title": "Leader only", "tags": ["leadership"]})
-        svc.create_accomplishment({"title": "Tech only", "tags": ["technical"]})
-        results = svc.list_accomplishments(tags=["leadership", "technical"])
+        svc.create_accomplishment(
+            {"title": "Leader only", "tags": ["leadership"]}, user_id="legacy"
+        )
+        svc.create_accomplishment(
+            {"title": "Tech only", "tags": ["technical"]}, user_id="legacy"
+        )
+        results = svc.list_accomplishments(
+            tags=["leadership", "technical"], user_id="legacy"
+        )
         assert len(results) == 1
         assert results[0]["title"] == "Both"
 
@@ -262,9 +282,13 @@ class TestAccomplishmentServiceMultiTagFilter:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "Leader", "tags": ["leadership"]})
-        svc.create_accomplishment({"title": "Coder", "tags": ["technical"]})
-        results = svc.list_accomplishments(tags=["leadership"])
+        svc.create_accomplishment(
+            {"title": "Leader", "tags": ["leadership"]}, user_id="legacy"
+        )
+        svc.create_accomplishment(
+            {"title": "Coder", "tags": ["technical"]}, user_id="legacy"
+        )
+        results = svc.list_accomplishments(tags=["leadership"], user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Leader"
 
@@ -272,18 +296,28 @@ class TestAccomplishmentServiceMultiTagFilter:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "A", "tags": ["leadership"]})
-        svc.create_accomplishment({"title": "B", "tags": ["technical"]})
-        results = svc.list_accomplishments(tags=[])
+        svc.create_accomplishment(
+            {"title": "A", "tags": ["leadership"]}, user_id="legacy"
+        )
+        svc.create_accomplishment(
+            {"title": "B", "tags": ["technical"]}, user_id="legacy"
+        )
+        results = svc.list_accomplishments(tags=[], user_id="legacy")
         assert len(results) == 2
 
     def test_no_match_for_and_filter_returns_empty(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "Leader only", "tags": ["leadership"]})
-        svc.create_accomplishment({"title": "Tech only", "tags": ["technical"]})
-        results = svc.list_accomplishments(tags=["leadership", "technical"])
+        svc.create_accomplishment(
+            {"title": "Leader only", "tags": ["leadership"]}, user_id="legacy"
+        )
+        svc.create_accomplishment(
+            {"title": "Tech only", "tags": ["technical"]}, user_id="legacy"
+        )
+        results = svc.list_accomplishments(
+            tags=["leadership", "technical"], user_id="legacy"
+        )
         assert results == []
 
 
@@ -294,18 +328,20 @@ class TestAccomplishmentServiceListTags:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        svc.create_accomplishment({"title": "A", "tags": ["technical", "leadership"]})
         svc.create_accomplishment(
-            {"title": "B", "tags": ["leadership", "cross-functional"]}
+            {"title": "A", "tags": ["technical", "leadership"]}, user_id="legacy"
         )
-        tags = svc.list_tags()
+        svc.create_accomplishment(
+            {"title": "B", "tags": ["leadership", "cross-functional"]}, user_id="legacy"
+        )
+        tags = svc.list_tags(user_id="legacy")
         assert tags == sorted({"technical", "leadership", "cross-functional"})
 
     def test_empty_when_no_accomplishments(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        assert svc.list_tags() == []
+        assert svc.list_tags(user_id="legacy") == []
 
 
 # ── US3: Update ───────────────────────────────────────────────────────────────
@@ -319,9 +355,11 @@ class TestAccomplishmentServiceUpdate:
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         created = svc.create_accomplishment(
-            {"title": "Original", "situation": "Old situation"}
+            {"title": "Original", "situation": "Old situation"}, user_id="legacy"
         )
-        updated = svc.update_accomplishment(created["id"], {"result": "New result"})
+        updated = svc.update_accomplishment(
+            created["id"], {"result": "New result"}, user_id="legacy"
+        )
         assert updated["result"] == "New result"
         assert updated["situation"] == "Old situation"
         assert updated["title"] == "Original"
@@ -330,25 +368,25 @@ class TestAccomplishmentServiceUpdate:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        created = svc.create_accomplishment({"title": "Original"})
+        created = svc.create_accomplishment({"title": "Original"}, user_id="legacy")
         with pytest.raises(ValueError, match="[Tt]itle"):
-            svc.update_accomplishment(created["id"], {"title": ""})
+            svc.update_accomplishment(created["id"], {"title": ""}, user_id="legacy")
 
     def test_unknown_id_raises(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.update_accomplishment(9999, {"result": "x"})
+            svc.update_accomplishment(9999, {"result": "x"}, user_id="legacy")
 
     def test_date_format_validated(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        created = svc.create_accomplishment({"title": "Original"})
+        created = svc.create_accomplishment({"title": "Original"}, user_id="legacy")
         with pytest.raises(ValueError, match="[Dd]ate"):
             svc.update_accomplishment(
-                created["id"], {"accomplishment_date": "not-a-date"}
+                created["id"], {"accomplishment_date": "not-a-date"}, user_id="legacy"
             )
 
     def test_updated_at_changes(self, acc_service: object) -> None:
@@ -357,9 +395,11 @@ class TestAccomplishmentServiceUpdate:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        created = svc.create_accomplishment({"title": "Original"})
+        created = svc.create_accomplishment({"title": "Original"}, user_id="legacy")
         time.sleep(0.01)
-        updated = svc.update_accomplishment(created["id"], {"result": "New"})
+        updated = svc.update_accomplishment(
+            created["id"], {"result": "New"}, user_id="legacy"
+        )
         # updated_at should be set (non-empty); it may equal created_at in fast DBs
         assert isinstance(updated["updated_at"], str) and updated["updated_at"] != ""
 
@@ -368,9 +408,11 @@ class TestAccomplishmentServiceUpdate:
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         created = svc.create_accomplishment(
-            {"title": "Original", "result": "Some result"}
+            {"title": "Original", "result": "Some result"}, user_id="legacy"
         )
-        updated = svc.update_accomplishment(created["id"], {"result": ""})
+        updated = svc.update_accomplishment(
+            created["id"], {"result": ""}, user_id="legacy"
+        )
         assert updated["result"] == ""
 
 
@@ -384,8 +426,8 @@ class TestAccomplishmentServiceDelete:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        created = svc.create_accomplishment({"title": "Delete me"})
-        deleted = svc.delete_accomplishment(created["id"])
+        created = svc.create_accomplishment({"title": "Delete me"}, user_id="legacy")
+        deleted = svc.delete_accomplishment(created["id"], user_id="legacy")
         assert deleted["title"] == "Delete me"
         assert deleted["id"] == created["id"]
 
@@ -393,14 +435,14 @@ class TestAccomplishmentServiceDelete:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
-        created = svc.create_accomplishment({"title": "Delete me"})
-        svc.delete_accomplishment(created["id"])
+        created = svc.create_accomplishment({"title": "Delete me"}, user_id="legacy")
+        svc.delete_accomplishment(created["id"], user_id="legacy")
         with pytest.raises(ValueError, match="not found"):
-            svc.get_accomplishment(created["id"])
+            svc.get_accomplishment(created["id"], user_id="legacy")
 
     def test_unknown_id_raises(self, acc_service: object) -> None:
         from pktx.accomplishment_service import AccomplishmentService
 
         svc: AccomplishmentService = acc_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.delete_accomplishment(9999)
+            svc.delete_accomplishment(9999, user_id="legacy")

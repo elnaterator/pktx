@@ -39,14 +39,12 @@ class ExportService:
         self._comms = comm_service
         self._links = link_service
 
-    def export_user_data(self, user_id: str | None = None) -> dict[str, Any]:
+    def export_user_data(self, user_id: str) -> dict[str, Any]:
         """Return every resource owned by ``user_id``.
 
         List endpoints return summaries, so each item is re-fetched by id to get
         full bodies (resume sections, note content, STAR fields, links).
         """
-        uid = user_id or "legacy"
-
         resumes = [
             self._resumes.get_resume(r["id"], user_id=user_id)
             for r in self._resumes.list_resumes(user_id=user_id)
@@ -89,7 +87,7 @@ class ExportService:
 
         links: list[dict[str, Any]] = []
         if self._links is not None:
-            links = self._links.list_all(uid)
+            links = self._links.list_all(user_id)
 
         return {
             "exported_at": datetime.now(timezone.utc).isoformat(),

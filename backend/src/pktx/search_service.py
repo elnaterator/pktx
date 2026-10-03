@@ -113,7 +113,7 @@ class SearchService:
         q: str | None,
         tags: list[str] | None,
         types: list[str] | None,
-        user_id: str | None,
+        user_id: str,
     ) -> list[SearchResult]:
         if not q and not tags:
             return []

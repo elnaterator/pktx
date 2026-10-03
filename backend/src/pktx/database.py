@@ -14,8 +14,16 @@ from pktx.migrations import apply_migrations
 logger = logging.getLogger("pktx")
 
 
+def escape_like(value: str) -> str:
+    """Escape LIKE/ILIKE wildcards so ``value`` matches literally.
+
+    Pair with ``ESCAPE '\\'`` in the SQL.
+    """
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def build_filters(
-    user_id: str | None,
+    user_id: str,
     tags: list[str] | None,
     q: str | None,
     q_columns: list[str],
@@ -26,31 +34,34 @@ def build_filters(
     """Build WHERE conditions + params for user_id, tag, and q filters.
 
     Returns (conditions, params). Caller appends any extra conditions then
-    joins with " AND " and prepends " WHERE ".
+    joins with " AND " and prepends " WHERE ". The user condition is always
+    present — there is no unscoped query.
 
     q is split into words; each word must match at least one q_column (AND
     semantics across words, OR across columns). Tags use JSON-text matching:
-    ``tags ILIKE '%"tag"%'``.
+    ``tags ILIKE '%"tag"%'``. ``%``, ``_`` and ``\\`` in q words and tags are
+    escaped so they match literally.
     """
-    conditions: list[str] = []
-    params: list[Any] = []
-
-    if user_id is not None:
-        conditions.append(f"{user_id_column} = %s")
-        params.append(user_id)
+    conditions: list[str] = [f"{user_id_column} = %s"]
+    params: list[Any] = [user_id]
 
     for tag in tags or []:
-        conditions.append(f"{tags_column} ILIKE %s")
-        params.append(f'%"{tag}"%')
+        conditions.append(f"{tags_column} ILIKE %s ESCAPE '\\'")
+        params.append(f'%"{escape_like(tag)}"%')
 
     if q:
         for word in q.strip().split():
-            pattern = f"%{word}%"
-            col_expr = " OR ".join(f"{col} ILIKE %s" for col in q_columns)
+            pattern = f"%{escape_like(word)}%"
+            col_expr = " OR ".join(f"{col} ILIKE %s ESCAPE '\\'" for col in q_columns)
             conditions.append(f"({col_expr})")
             params.extend([pattern] * len(q_columns))
 
     return conditions, params
+
+
+def _load_tags(raw: str | None) -> list[str]:
+    """Parse a stored tags JSON column; legacy ``'null'`` rows read as []."""
+    return (json.loads(raw) if raw else None) or []
 
 
 def init_pool(dsn: str, min_size: int = 1, max_size: int = 10) -> ConnectionPool[Any]:
@@ -100,6 +111,35 @@ def delete_user(conn: DBConnection, user_id: str) -> None:
     conn.execute("DELETE FROM users WHERE id = %s", (user_id,))
 
 
+# --- Ownership helpers ---
+
+
+def _load_owned(
+    conn: DBConnection, table: str, row_id: int, user_id: str, label: str
+) -> Any:
+    """SELECT * for one row owned by ``user_id``; ValueError if absent.
+
+    Ownership is part of the WHERE clause, so another user's row is
+    indistinguishable from a missing one (no existence oracle).
+    """
+    row = conn.execute(
+        f"SELECT * FROM {table} WHERE id = %s AND user_id = %s",
+        (row_id, user_id),
+    ).fetchone()
+    if row is None:
+        raise ValueError(f"{label} {row_id} not found")
+    return row
+
+
+def _user_tags(conn: DBConnection, sql: str, user_id: str) -> list[str]:
+    """Run a ``SELECT tags ...`` query scoped by user and return sorted uniques."""
+    rows = conn.execute(sql, (user_id,)).fetchall()
+    all_tags: set[str] = set()
+    for row in rows:
+        all_tags.update(_load_tags(row["tags"]))
+    return sorted(all_tags)
+
+
 # --- Resume Version operations ---
 
 
@@ -110,7 +150,7 @@ def _row_to_resume_data(row: Any) -> dict[str, Any]:
         "label": row["label"],
         "is_default": bool(row["is_default"]),
         "resume_data": json.loads(row["resume_data"]),
-        "tags": json.loads(row["tags"]) if "tags" in dict(row) else [],
+        "tags": _load_tags(row["tags"]) if "tags" in dict(row) else [],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
@@ -120,60 +160,40 @@ def create_resume_version(
     conn: DBConnection,
     label: str,
     resume_data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
     """Create a new resume version. Returns the created version."""
-    effective_uid = user_id or "legacy"
-    data_json = json.dumps(resume_data)
     row = conn.execute(
         "INSERT INTO resume_version (user_id, label, is_default, resume_data, tags) "
-        "VALUES (%s, %s, 0, %s, %s) RETURNING id",
-        (effective_uid, label, data_json, json.dumps(tags or [])),
+        "VALUES (%s, %s, 0, %s, %s) RETURNING *",
+        (user_id, label, json.dumps(resume_data), json.dumps(tags or [])),
     ).fetchone()
-    new_id = row["id"]
-    result_row = conn.execute(
-        "SELECT * FROM resume_version WHERE id = %s",
-        (new_id,),
-    ).fetchone()
-    return _row_to_resume_data(result_row)
+    return _row_to_resume_data(row)
 
 
 def load_resume_version(
     conn: DBConnection,
     version_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Load a resume version by ID. Raises ValueError if not found."""
-    row = conn.execute(
-        "SELECT * FROM resume_version WHERE id = %s", (version_id,)
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Resume version {version_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(
-            f"Resume version {version_id} belongs to a different user"
-        )
+    """Load a user's resume version by ID. Raises ValueError if not found."""
+    row = _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
     return _row_to_resume_data(row)
 
 
 def load_resume_versions(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
     tags: list[str] | None = None,
     q: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Load all resume versions (app_count set to 0; populated by caller)."""
-    query = (
-        "SELECT id, label, is_default, tags, created_at, updated_at FROM resume_version"
-    )
+    """Load a user's resume versions (app_count set to 0; populated by caller)."""
     conditions, params = build_filters(user_id, tags, q, ["label"])
-
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
-    query += " ORDER BY id"
-
+    query = (
+        "SELECT id, label, is_default, tags, created_at, updated_at "
+        "FROM resume_version WHERE " + " AND ".join(conditions) + " ORDER BY id"
+    )
     rows = conn.execute(query, params).fetchall()
     return [
         {
@@ -181,7 +201,7 @@ def load_resume_versions(
             "label": row["label"],
             "is_default": bool(row["is_default"]),
             "app_count": 0,
-            "tags": json.loads(row["tags"]),
+            "tags": _load_tags(row["tags"]),
             "created_at": row["created_at"],
             "updated_at": row["updated_at"],
         }
@@ -191,19 +211,13 @@ def load_resume_versions(
 
 def load_default_resume_version(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Load the default resume version. Raises ValueError if none."""
-    if user_id is not None:
-        row = conn.execute(
-            "SELECT * FROM resume_version WHERE user_id = %s AND is_default = 1",
-            (user_id,),
-        ).fetchone()
-    else:
-        row = conn.execute(
-            "SELECT * FROM resume_version WHERE is_default = 1"
-        ).fetchone()
-
+    """Load the user's default resume version. Raises ValueError if none."""
+    row = conn.execute(
+        "SELECT * FROM resume_version WHERE user_id = %s AND is_default = 1",
+        (user_id,),
+    ).fetchone()
     if row is None:
         raise ValueError("No default resume version found")
     return _row_to_resume_data(row)
@@ -213,175 +227,107 @@ def update_resume_version_metadata(
     conn: DBConnection,
     version_id: int,
     label: str,
-    user_id: str | None = None,
+    user_id: str,
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
     """Update resume version label (and optionally tags). Returns updated version."""
-    row = conn.execute(
-        "SELECT * FROM resume_version WHERE id = %s", (version_id,)
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Resume version {version_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(
-            f"Resume version {version_id} belongs to a different user"
-        )
-
+    _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
     if tags is not None:
         conn.execute(
             "UPDATE resume_version SET label = %s, tags = %s, "
-            "updated_at = CURRENT_TIMESTAMP WHERE id = %s",
-            (label, json.dumps(tags), version_id),
+            "updated_at = CURRENT_TIMESTAMP WHERE id = %s AND user_id = %s",
+            (label, json.dumps(tags), version_id, user_id),
         )
     else:
         conn.execute(
             "UPDATE resume_version SET label = %s, updated_at = CURRENT_TIMESTAMP "
-            "WHERE id = %s",
-            (label, version_id),
+            "WHERE id = %s AND user_id = %s",
+            (label, version_id, user_id),
         )
-    return load_resume_version(conn, version_id)
+    return load_resume_version(conn, version_id, user_id)
 
 
 def update_resume_version_data(
     conn: DBConnection,
     version_id: int,
     resume_data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> None:
-    """Update the resume_data JSON blob for a version."""
-    row = conn.execute(
-        "SELECT * FROM resume_version WHERE id = %s", (version_id,)
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Resume version {version_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(
-            f"Resume version {version_id} belongs to a different user"
-        )
-
+    """Update the resume_data JSON blob for a user's version."""
+    _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
     conn.execute(
         "UPDATE resume_version "
         "SET resume_data = %s, updated_at = CURRENT_TIMESTAMP "
-        "WHERE id = %s",
-        (json.dumps(resume_data), version_id),
+        "WHERE id = %s AND user_id = %s",
+        (json.dumps(resume_data), version_id, user_id),
     )
 
 
 def delete_resume_version(
     conn: DBConnection,
     version_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> str:
-    """Delete a resume version. Returns label of deleted version.
+    """Delete a user's resume version. Returns label of deleted version.
 
     If deleting the default and other versions exist, auto-promotes
     the most recently updated version. Rejects deleting the last version.
+    Delete + promote run in one ``conn.transaction()`` block, which is a real
+    transaction on an autocommit connection and a savepoint inside an
+    already-open one.
     """
-    row = conn.execute(
-        "SELECT * FROM resume_version WHERE id = %s", (version_id,)
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Resume version {version_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(
-            f"Resume version {version_id} belongs to a different user"
-        )
-
+    row = _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
     label = row["label"]
     is_default = bool(row["is_default"])
 
-    if user_id is not None:
-        count = conn.execute(
-            "SELECT COUNT(*) AS cnt FROM resume_version WHERE user_id = %s",
-            (user_id,),
-        ).fetchone()["cnt"]
-    else:
-        count = conn.execute("SELECT COUNT(*) AS cnt FROM resume_version").fetchone()[
-            "cnt"
-        ]
-
+    count = conn.execute(
+        "SELECT COUNT(*) AS cnt FROM resume_version WHERE user_id = %s",
+        (user_id,),
+    ).fetchone()["cnt"]
     if count <= 1:
         raise ValueError("Cannot delete the last remaining resume version")
 
-    conn.execute("SAVEPOINT delete_and_promote")
-    try:
-        conn.execute("DELETE FROM resume_version WHERE id = %s", (version_id,))
-
+    with conn.transaction():
+        conn.execute(
+            "DELETE FROM resume_version WHERE id = %s AND user_id = %s",
+            (version_id, user_id),
+        )
         if is_default:
-            if user_id is not None:
-                conn.execute(
-                    "UPDATE resume_version SET is_default = 1 "
-                    "WHERE id = ("
-                    "  SELECT id FROM resume_version "
-                    "  WHERE user_id = %s ORDER BY updated_at DESC LIMIT 1"
-                    ")",
-                    (user_id,),
-                )
-            else:
-                conn.execute(
-                    "UPDATE resume_version SET is_default = 1 "
-                    "WHERE id = ("
-                    "  SELECT id FROM resume_version "
-                    "  ORDER BY updated_at DESC LIMIT 1"
-                    ")"
-                )
-
-    except Exception:
-        conn.execute("ROLLBACK TO SAVEPOINT delete_and_promote")
-        raise
-    conn.execute("RELEASE SAVEPOINT delete_and_promote")
+            conn.execute(
+                "UPDATE resume_version SET is_default = 1 "
+                "WHERE id = ("
+                "  SELECT id FROM resume_version "
+                "  WHERE user_id = %s ORDER BY updated_at DESC, id DESC LIMIT 1"
+                ")",
+                (user_id,),
+            )
     return label
 
 
 def set_default_resume_version(
     conn: DBConnection,
     version_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> str:
-    """Set a resume version as default. Returns its label."""
-    row = conn.execute(
-        "SELECT * FROM resume_version WHERE id = %s", (version_id,)
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Resume version {version_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(
-            f"Resume version {version_id} belongs to a different user"
-        )
-
-    label = row["label"]
-
-    if user_id is not None:
-        conn.execute(
-            "UPDATE resume_version "
-            "SET is_default = CASE WHEN id = %s THEN 1 ELSE 0 END "
-            "WHERE user_id = %s",
-            (version_id, user_id),
-        )
-    else:
-        conn.execute(
-            "UPDATE resume_version "
-            "SET is_default = CASE WHEN id = %s THEN 1 ELSE 0 END",
-            (version_id,),
-        )
-    return label
+    """Set a user's resume version as their default. Returns its label."""
+    row = _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
+    conn.execute(
+        "UPDATE resume_version "
+        "SET is_default = CASE WHEN id = %s THEN 1 ELSE 0 END "
+        "WHERE user_id = %s",
+        (version_id, user_id),
+    )
+    return row["label"]
 
 
 def load_resume_version_tags(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
 ) -> list[str]:
-    """Return a sorted unique list of all tags across all resume versions."""
-    if user_id is not None:
-        rows = conn.execute(
-            "SELECT tags FROM resume_version WHERE user_id = %s", (user_id,)
-        ).fetchall()
-    else:
-        rows = conn.execute("SELECT tags FROM resume_version").fetchall()
-    all_tags: set[str] = set()
-    for row in rows:
-        all_tags.update(json.loads(row["tags"]))
-    return sorted(all_tags)
+    """Return a sorted unique list of the user's resume version tags."""
+    return _user_tags(
+        conn, "SELECT tags FROM resume_version WHERE user_id = %s", user_id
+    )
 
 
 # --- Application operations ---
@@ -390,66 +336,57 @@ def load_resume_version_tags(
 def _row_to_application(row: Any) -> dict[str, Any]:
     """Convert an application row to a dict with parsed tags."""
     d = dict(row)
-    d["tags"] = json.loads(d.get("tags", "[]"))
+    d["tags"] = _load_tags(d.get("tags"))
     return d
 
 
 def create_application(
     conn: DBConnection,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
     """Create a new application. Returns the created application."""
-    effective_uid = user_id or "legacy"
     row = conn.execute(
         "INSERT INTO application "
         "(user_id, company, position, description, status, url, notes, tags) "
         "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
         (
-            effective_uid,
+            user_id,
             data["company"],
             data["position"],
             data.get("description") or "",
             data.get("status", "Interested"),
             data.get("url"),
             data.get("notes") or "",
-            json.dumps(data.get("tags", [])),
+            json.dumps(data.get("tags") or []),
         ),
     ).fetchone()
-    return load_application(conn, row["id"])
+    return load_application(conn, row["id"], user_id)
 
 
 def load_application(
     conn: DBConnection,
     app_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Load a single application by ID."""
-    row = conn.execute("SELECT * FROM application WHERE id = %s", (app_id,)).fetchone()
-    if row is None:
-        raise ValueError(f"Application {app_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(f"Application {app_id} belongs to a different user")
-    return _row_to_application(row)
+    """Load a user's application by ID. Raises ValueError if not found."""
+    return _row_to_application(
+        _load_owned(conn, "application", app_id, user_id, "Application")
+    )
 
 
 def load_applications(
     conn: DBConnection,
+    user_id: str,
     status: str | list[str] | None = None,
     tags: list[str] | None = None,
     q: str | None = None,
-    user_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Load applications with optional status/tag filter and search.
+    """Load a user's applications with optional status/tag filter and search.
 
     status accepts a single status or a list; a list matches ANY of the
     given statuses (OR semantics), unlike tags which require ALL (AND).
     """
-    query = (
-        "SELECT id, company, position, status, url, "
-        "tags, created_at, updated_at "
-        "FROM application"
-    )
     conditions, params = build_filters(user_id, tags, q, ["company", "position"])
 
     statuses = [status] if isinstance(status, str) else status
@@ -458,11 +395,12 @@ def load_applications(
         conditions.append(f"status IN ({placeholders})")
         params.extend(statuses)
 
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
-    query += " ORDER BY updated_at DESC"
-
+    query = (
+        "SELECT id, company, position, status, url, tags, created_at, updated_at "
+        "FROM application WHERE "
+        + " AND ".join(conditions)
+        + " ORDER BY updated_at DESC"
+    )
     rows = conn.execute(query, params).fetchall()
     return [_row_to_application(row) for row in rows]
 
@@ -471,10 +409,10 @@ def update_application(
     conn: DBConnection,
     app_id: int,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Update application fields. Returns updated application."""
-    existing = load_application(conn, app_id, user_id=user_id)
+    """Update a user's application fields. Returns updated application."""
+    existing = load_application(conn, app_id, user_id)
 
     updatable = (
         "company",
@@ -493,46 +431,39 @@ def update_application(
 
     if "tags" in data:
         sets.append("tags = %s")
-        params.append(json.dumps(data["tags"]))
+        params.append(json.dumps(data["tags"] or []))
 
     if not sets:
         return existing
 
     sets.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(app_id)
+    params.extend([app_id, user_id])
 
     conn.execute(
-        f"UPDATE application SET {', '.join(sets)} WHERE id = %s",
+        f"UPDATE application SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
         params,
     )
-    return load_application(conn, app_id)
+    return load_application(conn, app_id, user_id)
 
 
 def load_application_tags(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
 ) -> list[str]:
-    """Return a sorted unique list of all tags across all applications."""
-    if user_id is not None:
-        rows = conn.execute(
-            "SELECT tags FROM application WHERE user_id = %s", (user_id,)
-        ).fetchall()
-    else:
-        rows = conn.execute("SELECT tags FROM application").fetchall()
-    all_tags: set[str] = set()
-    for row in rows:
-        all_tags.update(json.loads(row["tags"]))
-    return sorted(all_tags)
+    """Return a sorted unique list of the user's application tags."""
+    return _user_tags(conn, "SELECT tags FROM application WHERE user_id = %s", user_id)
 
 
 def delete_application(
     conn: DBConnection,
     app_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Delete an application and cascade. Returns deleted app data."""
-    app = load_application(conn, app_id, user_id=user_id)
-    conn.execute("DELETE FROM application WHERE id = %s", (app_id,))
+    """Delete a user's application and cascade. Returns deleted app data."""
+    app = load_application(conn, app_id, user_id)
+    conn.execute(
+        "DELETE FROM application WHERE id = %s AND user_id = %s", (app_id, user_id)
+    )
     return app
 
 
@@ -542,33 +473,48 @@ def delete_application(
 def _row_to_communication(row: Any) -> dict[str, Any]:
     """Convert a communication row to dict with parsed tags."""
     d = dict(row)
-    d["tags"] = json.loads(d.get("tags", "[]"))
+    d["tags"] = _load_tags(d.get("tags"))
     return d
+
+
+def load_communication(
+    conn: DBConnection,
+    comm_id: int,
+    user_id: str,
+    contact_id: int | None = None,
+) -> dict[str, Any]:
+    """Load a communication whose parent contact belongs to ``user_id``.
+
+    When ``contact_id`` is given the communication must also belong to that
+    contact. Any mismatch raises ValueError "not found".
+    """
+    query = (
+        "SELECT c.* FROM communication c "
+        "JOIN contact ct ON c.contact_ref_id = ct.id "
+        "WHERE c.id = %s AND ct.user_id = %s"
+    )
+    params: list[Any] = [comm_id, user_id]
+    if contact_id is not None:
+        query += " AND c.contact_ref_id = %s"
+        params.append(contact_id)
+    row = conn.execute(query, params).fetchone()
+    if row is None:
+        raise ValueError(f"Communication {comm_id} not found")
+    return _row_to_communication(row)
 
 
 def create_contact_communication(
     conn: DBConnection,
     contact_id: int,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Create a communication attached to a networking contact."""
-    contact_row = conn.execute(
-        "SELECT id FROM contact WHERE id = %s", (contact_id,)
-    ).fetchone()
-    if contact_row is None:
-        raise ValueError(f"Contact {contact_id} not found")
-    if user_id is not None:
-        owner_row = conn.execute(
-            "SELECT user_id FROM contact WHERE id = %s", (contact_id,)
-        ).fetchone()
-        if owner_row and owner_row["user_id"] != user_id:
-            raise PermissionError(f"Contact {contact_id} belongs to a different user")
-
+    """Create a communication attached to one of the user's contacts."""
+    _load_owned(conn, "contact", contact_id, user_id, "Contact")
     row = conn.execute(
         "INSERT INTO communication "
         "(contact_ref_id, type, direction, subject, body, date, status, tags) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
         (
             contact_id,
             data["type"],
@@ -577,37 +523,35 @@ def create_contact_communication(
             data["body"],
             data["date"],
             data.get("status", "sent"),
-            json.dumps(data.get("tags", [])),
+            json.dumps(data.get("tags") or []),
         ),
     ).fetchone()
-    result_row = conn.execute(
-        "SELECT * FROM communication WHERE id = %s",
-        (row["id"],),
-    ).fetchone()
-    return _row_to_communication(result_row)
+    return _row_to_communication(row)
 
 
 def load_contact_communications(
-    conn: DBConnection, contact_id: int
+    conn: DBConnection, contact_id: int, user_id: str
 ) -> list[dict[str, Any]]:
-    """Load communications for a networking contact, sorted by date desc."""
+    """Load communications for one of the user's contacts, sorted by date desc."""
     rows = conn.execute(
-        "SELECT * FROM communication "
-        "WHERE contact_ref_id = %s ORDER BY date DESC, id DESC",
-        (contact_id,),
+        "SELECT c.* FROM communication c "
+        "JOIN contact ct ON c.contact_ref_id = ct.id "
+        "WHERE c.contact_ref_id = %s AND ct.user_id = %s "
+        "ORDER BY c.date DESC, c.id DESC",
+        (contact_id, user_id),
     ).fetchall()
     return [_row_to_communication(row) for row in rows]
 
 
 def update_communication(
-    conn: DBConnection, comm_id: int, data: dict[str, Any]
+    conn: DBConnection,
+    comm_id: int,
+    data: dict[str, Any],
+    user_id: str,
+    contact_id: int | None = None,
 ) -> dict[str, Any]:
-    """Update a communication. Returns updated communication."""
-    row = conn.execute(
-        "SELECT * FROM communication WHERE id = %s", (comm_id,)
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Communication {comm_id} not found")
+    """Update a user's communication. Returns updated communication."""
+    existing = load_communication(conn, comm_id, user_id, contact_id)
 
     updatable = ("type", "direction", "subject", "body", "date", "status")
     sets: list[str] = []
@@ -619,57 +563,38 @@ def update_communication(
 
     if "tags" in data:
         sets.append("tags = %s")
-        params.append(json.dumps(data["tags"]))
+        params.append(json.dumps(data["tags"] or []))
 
     if not sets:
-        return _row_to_communication(row)
+        return existing
 
     params.append(comm_id)
     conn.execute(
         f"UPDATE communication SET {', '.join(sets)} WHERE id = %s",
         params,
     )
-    return _row_to_communication(
-        conn.execute("SELECT * FROM communication WHERE id = %s", (comm_id,)).fetchone()
-    )
+    return load_communication(conn, comm_id, user_id)
 
 
 def delete_communication_owned(
-    conn: DBConnection, comm_id: int, user_id: str | None = None
+    conn: DBConnection,
+    comm_id: int,
+    user_id: str,
+    contact_id: int | None = None,
 ) -> str:
-    """Delete a communication with ownership check. Returns subject."""
-    row = conn.execute(
-        "SELECT c.*, ct.user_id AS contact_user_id "
-        "FROM communication c "
-        "JOIN contact ct ON c.contact_ref_id = ct.id "
-        "WHERE c.id = %s",
-        (comm_id,),
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Communication {comm_id} not found")
-    if user_id is not None and row["contact_user_id"] != user_id:
-        raise PermissionError(f"Communication {comm_id} belongs to a different user")
-    subject = row["subject"] or "(no subject)"
+    """Delete a user's communication. Returns its subject."""
+    comm = load_communication(conn, comm_id, user_id, contact_id)
     conn.execute("DELETE FROM communication WHERE id = %s", (comm_id,))
-    return subject
+    return comm["subject"] or "(no subject)"
 
 
 def search_communications(
     conn: DBConnection,
+    user_id: str,
     q: str | None = None,
     tags: list[str] | None = None,
-    user_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Search communications attached to networking contacts."""
-    query = (
-        "SELECT c.id, c.contact_ref_id, c.type, c.direction, c.subject, "
-        "c.body, c.date, c.status, c.tags, c.created_at, "
-        "'contact' AS parent_type, "
-        "c.contact_ref_id AS parent_id, "
-        "ct.name AS parent_name "
-        "FROM communication c "
-        "JOIN contact ct ON c.contact_ref_id = ct.id"
-    )
+    """Search communications attached to the user's networking contacts."""
     conditions, params = build_filters(
         user_id,
         tags,
@@ -678,39 +603,34 @@ def search_communications(
         user_id_column="ct.user_id",
         tags_column="c.tags",
     )
-
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
-    query += " ORDER BY c.date DESC, c.id DESC LIMIT 200"
-
+    query = (
+        "SELECT c.id, c.contact_ref_id, c.type, c.direction, c.subject, "
+        "c.body, c.date, c.status, c.tags, c.created_at, "
+        "'contact' AS parent_type, "
+        "c.contact_ref_id AS parent_id, "
+        "ct.name AS parent_name "
+        "FROM communication c "
+        "JOIN contact ct ON c.contact_ref_id = ct.id "
+        "WHERE "
+        + " AND ".join(conditions)
+        + " ORDER BY c.date DESC, c.id DESC LIMIT 200"
+    )
     rows = conn.execute(query, params).fetchall()
-    results = []
-    for row in rows:
-        d = dict(row)
-        d["tags"] = json.loads(d.get("tags", "[]"))
-        results.append(d)
-    return results
+    return [_row_to_communication(row) for row in rows]
 
 
 def load_communication_tags(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
 ) -> list[str]:
-    """Return sorted unique tags across all communications for a user."""
-    if user_id is not None:
-        rows = conn.execute(
-            "SELECT c.tags FROM communication c "
-            "JOIN contact ct ON c.contact_ref_id = ct.id "
-            "WHERE ct.user_id = %s",
-            (user_id,),
-        ).fetchall()
-    else:
-        rows = conn.execute("SELECT tags FROM communication").fetchall()
-    all_tags: set[str] = set()
-    for row in rows:
-        all_tags.update(json.loads(row["tags"]))
-    return sorted(all_tags)
+    """Return sorted unique tags across the user's communications."""
+    return _user_tags(
+        conn,
+        "SELECT c.tags FROM communication c "
+        "JOIN contact ct ON c.contact_ref_id = ct.id "
+        "WHERE ct.user_id = %s",
+        user_id,
+    )
 
 
 # --- Accomplishment operations ---
@@ -733,7 +653,7 @@ def _row_to_accomplishment(row: Any) -> dict[str, Any]:
         "action": row["action"],
         "result": row["result"],
         "accomplishment_date": _dt(row["accomplishment_date"]),
-        "tags": json.loads(row["tags"]),
+        "tags": _load_tags(row["tags"]),
         "created_at": _dt(row["created_at"]),
         "updated_at": _dt(row["updated_at"]),
     }
@@ -745,7 +665,7 @@ def _row_to_accomplishment_summary(row: Any) -> dict[str, Any]:
         "id": row["id"],
         "title": row["title"],
         "accomplishment_date": _dt(row["accomplishment_date"]),
-        "tags": json.loads(row["tags"]),
+        "tags": _load_tags(row["tags"]),
         "created_at": _dt(row["created_at"]),
         "updated_at": _dt(row["updated_at"]),
     }
@@ -754,69 +674,55 @@ def _row_to_accomplishment_summary(row: Any) -> dict[str, Any]:
 def create_accomplishment(
     conn: DBConnection,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
     """Insert a new accomplishment row and return it."""
-    effective_uid = user_id or "legacy"
     row = conn.execute(
         "INSERT INTO accomplishment "
         "(user_id, title, situation, task, action, result, accomplishment_date, tags) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
         (
-            effective_uid,
+            user_id,
             data["title"],
             data.get("situation", ""),
             data.get("task", ""),
             data.get("action", ""),
             data.get("result", ""),
             data.get("accomplishment_date"),
-            json.dumps(data.get("tags", [])),
+            json.dumps(data.get("tags") or []),
         ),
     ).fetchone()
-    return load_accomplishment(conn, row["id"])
+    return _row_to_accomplishment(row)
 
 
 def load_accomplishment(
     conn: DBConnection,
     acc_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Load a single accomplishment by ID. Raises ValueError if not found."""
-    row = conn.execute(
-        "SELECT * FROM accomplishment WHERE id = %s", (acc_id,)
-    ).fetchone()
-    if row is None:
-        raise ValueError(f"Accomplishment {acc_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(f"Accomplishment {acc_id} belongs to a different user")
-    return _row_to_accomplishment(row)
+    """Load a user's accomplishment by ID. Raises ValueError if not found."""
+    return _row_to_accomplishment(
+        _load_owned(conn, "accomplishment", acc_id, user_id, "Accomplishment")
+    )
 
 
 def load_accomplishments(
     conn: DBConnection,
+    user_id: str,
     tags: list[str] | None = None,
     q: str | None = None,
-    user_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """List accomplishments ordered reverse-chronologically with optional filters."""
-    query = (
-        "SELECT id, title, accomplishment_date, tags, created_at, updated_at "
-        "FROM accomplishment"
-    )
+    """List a user's accomplishments reverse-chronologically with filters."""
     conditions, params = build_filters(
         user_id, tags, q, ["title", "situation", "task", "action", "result"]
     )
-
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
-    query += (
-        " ORDER BY "
+    query = (
+        "SELECT id, title, accomplishment_date, tags, created_at, updated_at "
+        "FROM accomplishment WHERE " + " AND ".join(conditions) + " ORDER BY "
         "CASE WHEN accomplishment_date IS NULL THEN 1 ELSE 0 END, "
         "accomplishment_date DESC, "
         "created_at DESC"
     )
-
     rows = conn.execute(query, params).fetchall()
     return [_row_to_accomplishment_summary(row) for row in rows]
 
@@ -825,10 +731,10 @@ def update_accomplishment(
     conn: DBConnection,
     acc_id: int,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Patch an accomplishment with provided fields. Raises ValueError if not found."""
-    load_accomplishment(conn, acc_id, user_id=user_id)
+    """Patch a user's accomplishment. Raises ValueError if not found."""
+    existing = load_accomplishment(conn, acc_id, user_id)
 
     updatable = (
         "title",
@@ -848,48 +754,42 @@ def update_accomplishment(
 
     if "tags" in data:
         sets.append("tags = %s")
-        params.append(json.dumps(data["tags"]))
+        params.append(json.dumps(data["tags"] or []))
 
     if not sets:
-        return load_accomplishment(conn, acc_id)
+        return existing
 
     sets.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(acc_id)
+    params.extend([acc_id, user_id])
 
     conn.execute(
-        f"UPDATE accomplishment SET {', '.join(sets)} WHERE id = %s",
+        f"UPDATE accomplishment SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
         params,
     )
-    return load_accomplishment(conn, acc_id)
+    return load_accomplishment(conn, acc_id, user_id)
 
 
 def delete_accomplishment(
     conn: DBConnection,
     acc_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Delete an accomplishment. Returns the deleted row. ValueError if not found."""
-    acc = load_accomplishment(conn, acc_id, user_id=user_id)
-    conn.execute("DELETE FROM accomplishment WHERE id = %s", (acc_id,))
+    """Delete a user's accomplishment. Returns the deleted row."""
+    acc = load_accomplishment(conn, acc_id, user_id)
+    conn.execute(
+        "DELETE FROM accomplishment WHERE id = %s AND user_id = %s", (acc_id, user_id)
+    )
     return acc
 
 
 def load_accomplishment_tags(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
 ) -> list[str]:
-    """Return a sorted unique list of all tags across all accomplishments."""
-    if user_id is not None:
-        rows = conn.execute(
-            "SELECT tags FROM accomplishment WHERE user_id = %s", (user_id,)
-        ).fetchall()
-    else:
-        rows = conn.execute("SELECT tags FROM accomplishment").fetchall()
-    all_tags: set[str] = set()
-    for row in rows:
-        tags = json.loads(row["tags"])
-        all_tags.update(tags)
-    return sorted(all_tags)
+    """Return a sorted unique list of the user's accomplishment tags."""
+    return _user_tags(
+        conn, "SELECT tags FROM accomplishment WHERE user_id = %s", user_id
+    )
 
 
 # --- Note operations ---
@@ -902,7 +802,7 @@ def _row_to_note(row: Any) -> dict[str, Any]:
         "user_id": row["user_id"],
         "title": row["title"],
         "content": row["content"],
-        "tags": json.loads(row["tags"]),
+        "tags": _load_tags(row["tags"]),
         "created_at": _dt(row["created_at"]),
         "updated_at": _dt(row["updated_at"]),
     }
@@ -913,7 +813,7 @@ def _row_to_note_summary(row: Any) -> dict[str, Any]:
     return {
         "id": row["id"],
         "title": row["title"],
-        "tags": json.loads(row["tags"]),
+        "tags": _load_tags(row["tags"]),
         "created_at": _dt(row["created_at"]),
         "updated_at": _dt(row["updated_at"]),
     }
@@ -922,53 +822,44 @@ def _row_to_note_summary(row: Any) -> dict[str, Any]:
 def create_note(
     conn: DBConnection,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
     """Insert a new note row and return it."""
-    effective_uid = user_id or "legacy"
     row = conn.execute(
-        "INSERT INTO note "
-        "(user_id, title, content, tags) "
-        "VALUES (%s, %s, %s, %s) RETURNING id",
+        "INSERT INTO note (user_id, title, content, tags) "
+        "VALUES (%s, %s, %s, %s) RETURNING *",
         (
-            effective_uid,
+            user_id,
             data["title"],
             data.get("content", ""),
-            json.dumps(data.get("tags", [])),
+            json.dumps(data.get("tags") or []),
         ),
     ).fetchone()
-    return load_note(conn, row["id"])
+    return _row_to_note(row)
 
 
 def load_note(
     conn: DBConnection,
     note_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Load a single note by ID. Raises ValueError if not found."""
-    row = conn.execute("SELECT * FROM note WHERE id = %s", (note_id,)).fetchone()
-    if row is None:
-        raise ValueError(f"Note {note_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(f"Note {note_id} belongs to a different user")
-    return _row_to_note(row)
+    """Load a user's note by ID. Raises ValueError if not found."""
+    return _row_to_note(_load_owned(conn, "note", note_id, user_id, "Note"))
 
 
 def load_notes(
     conn: DBConnection,
+    user_id: str,
     tags: list[str] | None = None,
     q: str | None = None,
-    user_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """List notes as summaries ordered by updated_at DESC."""
-    query = "SELECT id, title, tags, created_at, updated_at FROM note"
+    """List a user's notes as summaries ordered by updated_at DESC."""
     conditions, params = build_filters(user_id, tags, q, ["title", "content"])
-
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
-    query += " ORDER BY updated_at DESC"
-
+    query = (
+        "SELECT id, title, tags, created_at, updated_at FROM note WHERE "
+        + " AND ".join(conditions)
+        + " ORDER BY updated_at DESC"
+    )
     rows = conn.execute(query, params).fetchall()
     return [_row_to_note_summary(row) for row in rows]
 
@@ -977,10 +868,10 @@ def update_note(
     conn: DBConnection,
     note_id: int,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Patch a note with provided fields. Raises ValueError if not found."""
-    load_note(conn, note_id, user_id=user_id)
+    """Patch a user's note. Raises ValueError if not found."""
+    existing = load_note(conn, note_id, user_id)
 
     updatable = ("title", "content")
     sets: list[str] = []
@@ -993,48 +884,38 @@ def update_note(
 
     if "tags" in data:
         sets.append("tags = %s")
-        params.append(json.dumps(data["tags"]))
+        params.append(json.dumps(data["tags"] or []))
 
     if not sets:
-        return load_note(conn, note_id)
+        return existing
 
     sets.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(note_id)
+    params.extend([note_id, user_id])
 
     conn.execute(
-        f"UPDATE note SET {', '.join(sets)} WHERE id = %s",
+        f"UPDATE note SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
         params,
     )
-    return load_note(conn, note_id)
+    return load_note(conn, note_id, user_id)
 
 
 def delete_note(
     conn: DBConnection,
     note_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Delete a note. Returns the deleted row. ValueError if not found."""
-    note = load_note(conn, note_id, user_id=user_id)
-    conn.execute("DELETE FROM note WHERE id = %s", (note_id,))
+    """Delete a user's note. Returns the deleted row."""
+    note = load_note(conn, note_id, user_id)
+    conn.execute("DELETE FROM note WHERE id = %s AND user_id = %s", (note_id, user_id))
     return note
 
 
 def load_note_tags(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
 ) -> list[str]:
-    """Return a sorted unique list of all tags across all notes."""
-    if user_id is not None:
-        rows = conn.execute(
-            "SELECT tags FROM note WHERE user_id = %s", (user_id,)
-        ).fetchall()
-    else:
-        rows = conn.execute("SELECT tags FROM note").fetchall()
-    all_tags: set[str] = set()
-    for row in rows:
-        tags = json.loads(row["tags"])
-        all_tags.update(tags)
-    return sorted(all_tags)
+    """Return a sorted unique list of the user's note tags."""
+    return _user_tags(conn, "SELECT tags FROM note WHERE user_id = %s", user_id)
 
 
 # --- Contact operations ---
@@ -1069,7 +950,7 @@ def _row_to_contact(row: Any) -> dict[str, Any]:
         "last_contacted_date": row["last_contacted_date"],
         "followup_date": row["followup_date"],
         "notes": row["notes"],
-        "tags": json.loads(row["tags"]),
+        "tags": _load_tags(row["tags"]),
         "created_at": _dt(row["created_at"]),
         "updated_at": _dt(row["updated_at"]),
     }
@@ -1084,7 +965,7 @@ def _row_to_contact_summary(row: Any) -> dict[str, Any]:
         "title": row["title"],
         "relationship": row["relationship"],
         "followup_date": row["followup_date"],
-        "tags": json.loads(row["tags"]),
+        "tags": _load_tags(row["tags"]),
         "updated_at": _dt(row["updated_at"]),
     }
 
@@ -1092,17 +973,16 @@ def _row_to_contact_summary(row: Any) -> dict[str, Any]:
 def create_contact(
     conn: DBConnection,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
     """Insert a new contact row and return it."""
-    effective_uid = user_id or "legacy"
     row = conn.execute(
         "INSERT INTO contact "
         "(user_id, name, email, phone, company, title, relationship, "
         "linkedin_url, location, last_contacted_date, followup_date, notes, tags) "
-        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+        "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING *",
         (
-            effective_uid,
+            user_id,
             data["name"],
             data.get("email"),
             data.get("phone"),
@@ -1114,46 +994,37 @@ def create_contact(
             data.get("last_contacted_date"),
             data.get("followup_date"),
             data.get("notes", ""),
-            json.dumps(data.get("tags", [])),
+            json.dumps(data.get("tags") or []),
         ),
     ).fetchone()
-    return load_contact(conn, row["id"])
+    return _row_to_contact(row)
 
 
 def load_contact(
     conn: DBConnection,
     contact_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Load a single contact by ID. Raises ValueError if not found."""
-    row = conn.execute("SELECT * FROM contact WHERE id = %s", (contact_id,)).fetchone()
-    if row is None:
-        raise ValueError(f"Contact {contact_id} not found")
-    if user_id is not None and row["user_id"] != user_id:
-        raise PermissionError(f"Contact {contact_id} belongs to a different user")
-    return _row_to_contact(row)
+    """Load a user's contact by ID. Raises ValueError if not found."""
+    return _row_to_contact(_load_owned(conn, "contact", contact_id, user_id, "Contact"))
 
 
 def load_contacts(
     conn: DBConnection,
+    user_id: str,
     tags: list[str] | None = None,
     q: str | None = None,
-    user_id: str | None = None,
 ) -> list[dict[str, Any]]:
-    """List contacts as summaries ordered by updated_at DESC."""
-    query = (
-        "SELECT id, name, company, title, relationship, "
-        "followup_date, tags, updated_at FROM contact"
-    )
+    """List a user's contacts as summaries ordered by updated_at DESC."""
     conditions, params = build_filters(
         user_id, tags, q, ["name", "company", "title", "notes"]
     )
-
-    if conditions:
-        query += " WHERE " + " AND ".join(conditions)
-
-    query += " ORDER BY updated_at DESC"
-
+    query = (
+        "SELECT id, name, company, title, relationship, "
+        "followup_date, tags, updated_at FROM contact WHERE "
+        + " AND ".join(conditions)
+        + " ORDER BY updated_at DESC"
+    )
     rows = conn.execute(query, params).fetchall()
     return [_row_to_contact_summary(row) for row in rows]
 
@@ -1162,10 +1033,10 @@ def update_contact(
     conn: DBConnection,
     contact_id: int,
     data: dict[str, Any],
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Patch a contact with provided fields. Raises ValueError if not found."""
-    load_contact(conn, contact_id, user_id=user_id)
+    """Patch a user's contact. Raises ValueError if not found."""
+    existing = load_contact(conn, contact_id, user_id)
 
     updatable = ("name",) + _CONTACT_FIELDS
     sets: list[str] = []
@@ -1178,48 +1049,40 @@ def update_contact(
 
     if "tags" in data:
         sets.append("tags = %s")
-        params.append(json.dumps(data["tags"]))
+        params.append(json.dumps(data["tags"] or []))
 
     if not sets:
-        return load_contact(conn, contact_id)
+        return existing
 
     sets.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(contact_id)
+    params.extend([contact_id, user_id])
 
     conn.execute(
-        f"UPDATE contact SET {', '.join(sets)} WHERE id = %s",
+        f"UPDATE contact SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
         params,
     )
-    return load_contact(conn, contact_id)
+    return load_contact(conn, contact_id, user_id)
 
 
 def delete_contact(
     conn: DBConnection,
     contact_id: int,
-    user_id: str | None = None,
+    user_id: str,
 ) -> dict[str, Any]:
-    """Delete a contact. Returns the deleted row. ValueError if not found."""
-    contact = load_contact(conn, contact_id, user_id=user_id)
-    conn.execute("DELETE FROM contact WHERE id = %s", (contact_id,))
+    """Delete a user's contact. Returns the deleted row."""
+    contact = load_contact(conn, contact_id, user_id)
+    conn.execute(
+        "DELETE FROM contact WHERE id = %s AND user_id = %s", (contact_id, user_id)
+    )
     return contact
 
 
 def load_contact_tags(
     conn: DBConnection,
-    user_id: str | None = None,
+    user_id: str,
 ) -> list[str]:
-    """Return a sorted unique list of all tags across all contacts."""
-    if user_id is not None:
-        rows = conn.execute(
-            "SELECT tags FROM contact WHERE user_id = %s", (user_id,)
-        ).fetchall()
-    else:
-        rows = conn.execute("SELECT tags FROM contact").fetchall()
-    all_tags: set[str] = set()
-    for row in rows:
-        tags = json.loads(row["tags"])
-        all_tags.update(tags)
-    return sorted(all_tags)
+    """Return a sorted unique list of the user's contact tags."""
+    return _user_tags(conn, "SELECT tags FROM contact WHERE user_id = %s", user_id)
 
 
 # --- Resource Link operations ---

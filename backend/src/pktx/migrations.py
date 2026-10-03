@@ -3,6 +3,8 @@
 import json
 import logging
 
+from psycopg.rows import dict_row
+
 logger = logging.getLogger("pktx")
 
 
@@ -666,6 +668,74 @@ def migrate_v12_to_v13(conn) -> None:
     conn.commit()
 
 
+_TAGGED_TABLES = (
+    "resume_version",
+    "application",
+    "accomplishment",
+    "note",
+    "contact",
+    "communication",
+)
+
+
+def _is_http_url(value: object) -> bool:
+    from urllib.parse import urlparse
+
+    if not isinstance(value, str):
+        return False
+    parsed = urlparse(value.strip())
+    return parsed.scheme.lower() in ("http", "https") and bool(parsed.netloc)
+
+
+def migrate_v13_to_v14(conn) -> None:
+    """Repair data the 027 input validation now rejects (data-only).
+
+    - ``tags = 'null'`` (stored by ``PATCH {"tags": null}``) → ``'[]'``; the
+      'null' rows broke every later tag listing for that user.
+    - Non-http(s) URLs (``javascript:`` etc.) in ``application.url``,
+      ``contact.linkedin_url`` and resume ``contact.linkedin|website|github``
+      → NULL, so the new model validators can still read every stored row.
+    """
+    for table in _TAGGED_TABLES:
+        conn.execute(
+            f"UPDATE {table} SET tags = '[]' WHERE tags IS NULL OR tags = 'null'"
+        )
+
+    # Explicit dict rows: the migration connection may use the default factory.
+    cur = conn.cursor(row_factory=dict_row)
+    for table, column in (("application", "url"), ("contact", "linkedin_url")):
+        rows = cur.execute(
+            f"SELECT id, {column} AS url FROM {table} "
+            f"WHERE {column} IS NOT NULL AND {column} <> ''"
+        ).fetchall()
+        for row in rows:
+            if not _is_http_url(row["url"]):
+                conn.execute(
+                    f"UPDATE {table} SET {column} = NULL WHERE id = %s", (row["id"],)
+                )
+
+    rows = cur.execute("SELECT id, resume_data FROM resume_version").fetchall()
+    for row in rows:
+        data = json.loads(row["resume_data"] or "{}")
+        contact = data.get("contact") if isinstance(data, dict) else None
+        if not isinstance(contact, dict):
+            continue
+        changed = False
+        for key in ("linkedin", "website", "github"):
+            value = contact.get(key)
+            if value and not _is_http_url(value):
+                contact[key] = None
+                changed = True
+        if changed:
+            conn.execute(
+                "UPDATE resume_version SET resume_data = %s WHERE id = %s",
+                (json.dumps(data), row["id"]),
+            )
+
+    conn.execute("UPDATE schema_version SET version = %s", (14,))
+    conn.commit()
+
+
 MIGRATIONS: list = [
     migrate_v0_to_v1,
     migrate_v1_to_v2,
@@ -680,6 +750,7 @@ MIGRATIONS: list = [
     migrate_v10_to_v11,
     migrate_v11_to_v12,
     migrate_v12_to_v13,
+    migrate_v13_to_v14,
 ]
 
 SCHEMA_VERSION: int = len(MIGRATIONS)

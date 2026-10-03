@@ -187,7 +187,7 @@ def register_contact_tools(
         svc: ContactCommunicationService = get_comm_service()
         try:
             return svc.list_for_contact(contact_id, user_id=user_id)
-        except (ValueError, PermissionError) as e:
+        except ValueError as e:
             return f"Error: {e}"
 
     @mcp.tool()
@@ -230,7 +230,7 @@ def register_contact_tools(
                 user_id=user_id,
             )
             return f"Added communication (id={comm['id']}) to contact {contact_id}"
-        except (ValueError, PermissionError) as e:
+        except ValueError as e:
             return f"Error: {e}"
 
     @mcp.tool()
@@ -273,7 +273,7 @@ def register_contact_tools(
         try:
             svc.update(comm_id, data, user_id=user_id)
             return f"Updated communication {comm_id}"
-        except (ValueError, PermissionError) as e:
+        except ValueError as e:
             return f"Error: {e}"
 
     @mcp.tool()
@@ -288,7 +288,7 @@ def register_contact_tools(
         try:
             subject = svc.remove(comm_id, user_id=user_id)
             return f"Removed communication '{subject}' (id={comm_id})"
-        except (ValueError, PermissionError) as e:
+        except ValueError as e:
             return f"Error: {e}"
 
     @mcp.tool()

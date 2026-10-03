@@ -1,7 +1,7 @@
 """Contract tests for authentication and authorisation on all API routes.
 
 Phase 3 tests (T009): 401 on missing token, 200 on valid mock JWT.
-Phase 4 tests (T016, T035, T036): 403 on cross-user access.
+Phase 4 tests (T016, T035, T036): 404 on cross-user access.
 Plan 016 (T15-T19): MCP OAuth2 resource server contract tests.
 """
 
@@ -153,12 +153,12 @@ class TestBasicAuthContract:
 
 
 # ---------------------------------------------------------------------------
-# Phase 4 — T016: 403 on cross-user access for resume/application routes
+# Phase 4 — T016: 404 on cross-user access for resume/application routes
 # ---------------------------------------------------------------------------
 
 
 class TestCrossUserOwnershipContract:
-    """Valid JWT for wrong user → 403 on detail/mutation endpoints."""
+    """Valid JWT for wrong user → 404 on detail/mutation endpoints."""
 
     def _make_user_client(
         self,
@@ -229,7 +229,7 @@ class TestCrossUserOwnershipContract:
             "private_key": private_key,
         }
 
-    def test_get_resume_by_id_wrong_user_returns_403(
+    def test_get_resume_by_id_wrong_user_returns_404(
         self, two_user_setup: dict
     ) -> None:
         client = two_user_setup["client"]
@@ -246,15 +246,15 @@ class TestCrossUserOwnershipContract:
         assert resp.status_code == 201
         alice_resume_id = resp.json()["id"]
 
-        # Bob tries to access Alice's resume → 403
+        # Bob tries to access Alice's resume → 404 (no existence oracle)
         with patch.dict("os.environ", {"CLERK_ISSUER": "https://clerk.test"}):
             resp = client.get(
                 f"/api/resumes/{alice_resume_id}",
                 headers={"Authorization": f"Bearer {bob_token}"},
             )
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
-    def test_patch_resume_wrong_user_returns_403(self, two_user_setup: dict) -> None:
+    def test_patch_resume_wrong_user_returns_404(self, two_user_setup: dict) -> None:
         client = two_user_setup["client"]
         alice_token = two_user_setup["alice_token"]
         bob_token = two_user_setup["bob_token"]
@@ -273,9 +273,9 @@ class TestCrossUserOwnershipContract:
                 json={"label": "Hacked"},
                 headers={"Authorization": f"Bearer {bob_token}"},
             )
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
-    def test_delete_resume_wrong_user_returns_403(self, two_user_setup: dict) -> None:
+    def test_delete_resume_wrong_user_returns_404(self, two_user_setup: dict) -> None:
         client = two_user_setup["client"]
         alice_token = two_user_setup["alice_token"]
         bob_token = two_user_setup["bob_token"]
@@ -293,7 +293,7 @@ class TestCrossUserOwnershipContract:
                 f"/api/resumes/{alice_resume_id}",
                 headers={"Authorization": f"Bearer {bob_token}"},
             )
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
 
 # ---------------------------------------------------------------------------

@@ -47,7 +47,13 @@ def _make_full_client(svc: ResumeService, app_svc: ApplicationService) -> TestCl
     return TestClient(app)
 
 
-# --- T012: GET /health, GET /api/resume, GET /api/resume/{section} ---
+def _default_url(client: TestClient) -> str:
+    """URL prefix of the caller's default resume version."""
+    rid = client.get("/api/resumes/default").json()["id"]
+    return f"/api/resumes/{rid}"
+
+
+# --- T012: GET /health, GET /api/resumes/default, GET .../{section} ---
 
 
 class TestHealthEndpoint:
@@ -61,9 +67,9 @@ class TestHealthEndpoint:
 class TestGetResume:
     def test_get_empty_resume(self, service: ResumeService) -> None:
         client = _make_client(service)
-        resp = client.get("/api/resume")
+        resp = client.get("/api/resumes/default")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["resume_data"]
         assert "contact" in data
         assert "summary" in data
         assert "experience" in data
@@ -72,9 +78,9 @@ class TestGetResume:
 
     def test_get_populated_resume(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.get("/api/resume")
+        resp = client.get("/api/resumes/default")
         assert resp.status_code == 200
-        data = resp.json()
+        data = resp.json()["resume_data"]
         assert data["contact"]["name"] == "Jane Doe"
         assert data["summary"] != ""
         assert len(data["experience"]) == 2
@@ -85,63 +91,70 @@ class TestGetResume:
 class TestGetSection:
     def test_get_contact_section(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.get("/api/resume/contact")
+        base = _default_url(client)
+        resp = client.get(f"{base}/contact")
         assert resp.status_code == 200
         assert resp.json()["name"] == "Jane Doe"
 
     def test_get_summary_section(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.get("/api/resume/summary")
+        base = _default_url(client)
+        resp = client.get(f"{base}/summary")
         assert resp.status_code == 200
         assert "software engineer" in resp.json().lower()
 
     def test_get_experience_section(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.get("/api/resume/experience")
+        base = _default_url(client)
+        resp = client.get(f"{base}/experience")
         assert resp.status_code == 200
         assert len(resp.json()) == 2
 
     def test_get_education_section(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.get("/api/resume/education")
+        base = _default_url(client)
+        resp = client.get(f"{base}/education")
         assert resp.status_code == 200
         assert len(resp.json()) == 2
 
     def test_get_skills_section(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.get("/api/resume/skills")
+        base = _default_url(client)
+        resp = client.get(f"{base}/skills")
         assert resp.status_code == 200
         assert len(resp.json()) == 8
 
 
-# --- T013: PUT /api/resume/contact, PUT /api/resume/summary ---
+# --- T013: PUT .../contact, PUT .../summary ---
 
 
 class TestUpdateContact:
     def test_update_contact_partial(self, service: ResumeService) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.put(
-            "/api/resume/contact",
+            f"{base}/contact",
             json={"name": "John Doe", "email": "john@example.com"},
         )
         assert resp.status_code == 200
         assert "message" in resp.json()
 
         # Verify the data was saved
-        get_resp = client.get("/api/resume/contact")
+        get_resp = client.get(f"{base}/contact")
         assert get_resp.json()["name"] == "John Doe"
         assert get_resp.json()["email"] == "john@example.com"
 
     def test_update_contact_merge(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
+        base = _default_url(client)
         # Update only email, other fields should be preserved
         resp = client.put(
-            "/api/resume/contact",
+            f"{base}/contact",
             json={"email": "newemail@example.com"},
         )
         assert resp.status_code == 200
 
-        get_resp = client.get("/api/resume/contact")
+        get_resp = client.get(f"{base}/contact")
         assert get_resp.json()["email"] == "newemail@example.com"
         assert get_resp.json()["name"] == "Jane Doe"  # preserved
 
@@ -149,21 +162,23 @@ class TestUpdateContact:
 class TestUpdateSummary:
     def test_update_summary(self, service: ResumeService) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.put(
-            "/api/resume/summary",
+            f"{base}/summary",
             json={"text": "A new summary text."},
         )
         assert resp.status_code == 200
         assert "message" in resp.json()
 
-        get_resp = client.get("/api/resume/summary")
+        get_resp = client.get(f"{base}/summary")
         assert get_resp.json() == "A new summary text."
 
     def test_update_summary_empty_text_returns_422(
         self, service: ResumeService
     ) -> None:
         client = _make_client(service)
-        resp = client.put("/api/resume/summary", json={"text": ""})
+        base = _default_url(client)
+        resp = client.put(f"{base}/summary", json={"text": ""})
         assert resp.status_code == 422
         assert "detail" in resp.json()
 
@@ -174,22 +189,24 @@ class TestUpdateSummary:
 class TestAddEntry:
     def test_add_experience_entry(self, service: ResumeService) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.post(
-            "/api/resume/experience/entries",
+            f"{base}/experience/entries",
             json={"title": "Engineer", "company": "TestCo"},
         )
         assert resp.status_code == 201
         assert "message" in resp.json()
 
         # Verify it was added
-        get_resp = client.get("/api/resume/experience")
+        get_resp = client.get(f"{base}/experience")
         assert len(get_resp.json()) == 1
         assert get_resp.json()[0]["title"] == "Engineer"
 
     def test_add_education_entry(self, service: ResumeService) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.post(
-            "/api/resume/education/entries",
+            f"{base}/education/entries",
             json={"institution": "MIT", "degree": "B.S."},
         )
         assert resp.status_code == 201
@@ -197,8 +214,9 @@ class TestAddEntry:
 
     def test_add_skill_entry(self, service: ResumeService) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.post(
-            "/api/resume/skills/entries",
+            f"{base}/skills/entries",
             json={"name": "Python", "category": "Languages"},
         )
         assert resp.status_code == 201
@@ -208,20 +226,22 @@ class TestAddEntry:
 class TestUpdateEntry:
     def test_update_experience_entry(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
+        base = _default_url(client)
         resp = client.put(
-            "/api/resume/experience/entries/0",
+            f"{base}/experience/entries/0",
             json={"title": "Staff Engineer"},
         )
         assert resp.status_code == 200
         assert "message" in resp.json()
 
-        get_resp = client.get("/api/resume/experience")
+        get_resp = client.get(f"{base}/experience")
         assert get_resp.json()[0]["title"] == "Staff Engineer"
 
     def test_update_skill_entry(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
+        base = _default_url(client)
         resp = client.put(
-            "/api/resume/skills/entries/0",
+            f"{base}/skills/entries/0",
             json={"category": "Core Languages"},
         )
         assert resp.status_code == 200
@@ -230,19 +250,21 @@ class TestUpdateEntry:
 class TestDeleteEntry:
     def test_delete_experience_entry(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.delete("/api/resume/experience/entries/0")
+        base = _default_url(client)
+        resp = client.delete(f"{base}/experience/entries/0")
         assert resp.status_code == 200
         assert "message" in resp.json()
 
-        get_resp = client.get("/api/resume/experience")
+        get_resp = client.get(f"{base}/experience")
         assert len(get_resp.json()) == 1
 
     def test_delete_skill_entry(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
-        resp = client.delete("/api/resume/skills/entries/0")
+        base = _default_url(client)
+        resp = client.delete(f"{base}/skills/entries/0")
         assert resp.status_code == 200
 
-        get_resp = client.get("/api/resume/skills")
+        get_resp = client.get(f"{base}/skills")
         assert len(get_resp.json()) == 7
 
 
@@ -252,7 +274,8 @@ class TestDeleteEntry:
 class TestErrorCases:
     def test_invalid_section_returns_404(self, service: ResumeService) -> None:
         client = _make_client(service)
-        resp = client.get("/api/resume/invalid_section")
+        base = _default_url(client)
+        resp = client.get(f"{base}/invalid_section")
         assert resp.status_code == 404
         assert "detail" in resp.json()
 
@@ -260,8 +283,9 @@ class TestErrorCases:
         self, service: ResumeService
     ) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.post(
-            "/api/resume/contact/entries",
+            f"{base}/contact/entries",
             json={"name": "test"},
         )
         assert resp.status_code == 400
@@ -271,8 +295,9 @@ class TestErrorCases:
         self, service: ResumeService
     ) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.put(
-            "/api/resume/experience/entries/99",
+            f"{base}/experience/entries/99",
             json={"title": "Ghost"},
         )
         assert resp.status_code == 404
@@ -282,7 +307,8 @@ class TestErrorCases:
         self, service: ResumeService
     ) -> None:
         client = _make_client(service)
-        resp = client.delete("/api/resume/experience/entries/99")
+        base = _default_url(client)
+        resp = client.delete(f"{base}/experience/entries/99")
         assert resp.status_code == 404
         assert "detail" in resp.json()
 
@@ -290,8 +316,9 @@ class TestErrorCases:
         self, service: ResumeService
     ) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.post(
-            "/api/resume/experience/entries",
+            f"{base}/experience/entries",
             json={"title": "Engineer"},  # missing 'company'
         )
         assert resp.status_code == 422
@@ -299,8 +326,9 @@ class TestErrorCases:
 
     def test_malformed_json_returns_422(self, service: ResumeService) -> None:
         client = _make_client(service)
+        base = _default_url(client)
         resp = client.put(
-            "/api/resume/contact",
+            f"{base}/contact",
             content=b"not json",
             headers={"Content-Type": "application/json"},
         )

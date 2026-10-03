@@ -319,3 +319,68 @@ class TestMigrateV11ToV12:
         pg_conn.commit()
         migrate_v11_to_v12(pg_conn)
         assert not _column_exists(pg_conn, "application", "resume_version_id")
+
+
+class TestMigrateV13ToV14:
+    """v13→v14 repairs data the 027 validation now rejects."""
+
+    def test_repairs_null_tags_and_non_http_urls(self, pg_conn) -> None:
+        import json
+
+        from pktx.migrations import MIGRATIONS, apply_migrations, migrate_v13_to_v14
+
+        original = MIGRATIONS.copy()
+        MIGRATIONS[:] = original[:13]
+        try:
+            apply_migrations(pg_conn)
+        finally:
+            MIGRATIONS[:] = original
+
+        resume = {
+            "contact": {
+                "name": "Jo",
+                "website": "javascript:alert(1)",
+                "github": "https://github.com/jo",
+            }
+        }
+        pg_conn.execute("INSERT INTO users (id) VALUES ('u1')")
+        pg_conn.execute(
+            "INSERT INTO resume_version (user_id, label, resume_data, tags) "
+            "VALUES ('u1', 'R', %s, 'null')",
+            (json.dumps(resume),),
+        )
+        pg_conn.execute(
+            "INSERT INTO application (user_id, company, position, url, tags) "
+            "VALUES ('u1', 'Co', 'Dev', 'javascript:alert(1)', 'null')"
+        )
+        pg_conn.execute(
+            "INSERT INTO note (user_id, title, tags) VALUES ('u1', 'N', '[\"ok\"]')"
+        )
+        contact_id = pg_conn.execute(
+            "INSERT INTO contact (user_id, name, linkedin_url, tags) "
+            "VALUES ('u1', 'C', 'https://linkedin.com/in/c', 'null') RETURNING id"
+        ).fetchone()["id"]
+        pg_conn.execute(
+            "INSERT INTO communication "
+            "(contact_ref_id, type, direction, body, date, tags) "
+            "VALUES (%s, 'email', 'sent', 'b', '2024-01-01', 'null')",
+            (contact_id,),
+        )
+        pg_conn.commit()
+
+        migrate_v13_to_v14(pg_conn)
+
+        def one(sql: str) -> Any:
+            return next(iter(pg_conn.execute(sql).fetchone().values()))
+
+        for table in ("resume_version", "application", "contact", "communication"):
+            assert one(f"SELECT tags FROM {table} ORDER BY id DESC") == "[]", table
+        assert one("SELECT tags FROM note") == '["ok"]'
+        assert one("SELECT url FROM application") is None
+        assert one("SELECT linkedin_url FROM contact") == "https://linkedin.com/in/c"
+        stored = json.loads(
+            one("SELECT resume_data FROM resume_version WHERE user_id = 'u1'")
+        )
+        assert stored["contact"]["website"] is None
+        assert stored["contact"]["github"] == "https://github.com/jo"
+        assert _get_version(pg_conn) == 14

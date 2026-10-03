@@ -25,20 +25,22 @@ class TestNoteServiceCreate:
 
         svc: NoteService = note_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="[Tt]itle"):
-            svc.create_note({})
+            svc.create_note({}, user_id="legacy")
 
     def test_rejects_blank_title(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="[Tt]itle"):
-            svc.create_note({"title": "   "})
+            svc.create_note({"title": "   "}, user_id="legacy")
 
     def test_stores_title_and_content(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        result = svc.create_note({"title": "My Note", "content": "Some content"})
+        result = svc.create_note(
+            {"title": "My Note", "content": "Some content"}, user_id="legacy"
+        )
         assert result["title"] == "My Note"
         assert result["content"] == "Some content"
 
@@ -46,21 +48,23 @@ class TestNoteServiceCreate:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        result = svc.create_note({"title": "No content"})
+        result = svc.create_note({"title": "No content"}, user_id="legacy")
         assert result["content"] == ""
 
     def test_tags_persisted(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        result = svc.create_note({"title": "Tagged", "tags": ["python", "async"]})
+        result = svc.create_note(
+            {"title": "Tagged", "tags": ["python", "async"]}, user_id="legacy"
+        )
         assert set(result["tags"]) == {"python", "async"}
 
     def test_timestamps_are_non_empty_strings(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        result = svc.create_note({"title": "Timestamp test"})
+        result = svc.create_note({"title": "Timestamp test"}, user_id="legacy")
         assert isinstance(result["created_at"], str) and result["created_at"] != ""
         assert isinstance(result["updated_at"], str) and result["updated_at"] != ""
 
@@ -68,30 +72,32 @@ class TestNoteServiceCreate:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        a = svc.create_note({"title": "First"})
-        b = svc.create_note({"title": "Second"})
+        a = svc.create_note({"title": "First"}, user_id="legacy")
+        b = svc.create_note({"title": "Second"}, user_id="legacy")
         assert a["id"] != b["id"]
 
     def test_title_max_length_enforced(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        with pytest.raises(ValueError, match="255"):
-            svc.create_note({"title": "x" * 256})
+        with pytest.raises(ValueError, match="200"):
+            svc.create_note({"title": "x" * 201}, user_id="legacy")
 
     def test_content_max_length_enforced(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        with pytest.raises(ValueError, match="10000"):
-            svc.create_note({"title": "Test", "content": "x" * 10001})
+        with pytest.raises(ValueError, match="100000"):
+            svc.create_note(
+                {"title": "Test", "content": "x" * 100_001}, user_id="legacy"
+            )
 
     def test_tag_max_length_enforced(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="50"):
-            svc.create_note({"title": "Test", "tags": ["x" * 51]})
+            svc.create_note({"title": "Test", "tags": ["x" * 51]}, user_id="legacy")
 
 
 class TestNoteServiceGet:
@@ -101,8 +107,8 @@ class TestNoteServiceGet:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        created = svc.create_note({"title": "Find me"})
-        result = svc.get_note(created["id"])
+        created = svc.create_note({"title": "Find me"}, user_id="legacy")
+        result = svc.get_note(created["id"], user_id="legacy")
         assert result["id"] == created["id"]
         assert result["title"] == "Find me"
 
@@ -111,16 +117,17 @@ class TestNoteServiceGet:
 
         svc: NoteService = note_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.get_note(9999)
+            svc.get_note(9999, user_id="legacy")
 
     def test_returns_full_note_with_content(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
         created = svc.create_note(
-            {"title": "Full", "content": "Body text", "tags": ["test"]}
+            {"title": "Full", "content": "Body text", "tags": ["test"]},
+            user_id="legacy",
         )
-        result = svc.get_note(created["id"])
+        result = svc.get_note(created["id"], user_id="legacy")
         assert result["content"] == "Body text"
         assert result["tags"] == ["test"]
 
@@ -135,23 +142,25 @@ class TestNoteServiceList:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "A"})
-        svc.create_note({"title": "B"})
-        results = svc.list_notes()
+        svc.create_note({"title": "A"}, user_id="legacy")
+        svc.create_note({"title": "B"}, user_id="legacy")
+        results = svc.list_notes(user_id="legacy")
         assert len(results) == 2
 
     def test_returns_empty_when_none(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        assert svc.list_notes() == []
+        assert svc.list_notes(user_id="legacy") == []
 
     def test_returns_summary_shape_no_content(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Test", "content": "Some body text"})
-        results = svc.list_notes()
+        svc.create_note(
+            {"title": "Test", "content": "Some body text"}, user_id="legacy"
+        )
+        results = svc.list_notes(user_id="legacy")
         assert len(results) == 1
         item = results[0]
         assert "content" not in item
@@ -164,8 +173,8 @@ class TestNoteServiceList:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Older"})
-        newer = svc.create_note({"title": "Newer"})
+        svc.create_note({"title": "Older"}, user_id="legacy")
+        newer = svc.create_note({"title": "Newer"}, user_id="legacy")
         # Force distinct updated_at via raw SQL (CURRENT_TIMESTAMP
         # is fixed per-transaction in non-autocommit mode)
         db_conn.execute(
@@ -173,7 +182,7 @@ class TestNoteServiceList:
             " + INTERVAL '1 second' WHERE id = %s",
             (newer["id"],),
         )
-        results = svc.list_notes()
+        results = svc.list_notes(user_id="legacy")
         assert results[0]["title"] == "Newer"
         assert results[1]["title"] == "Older"
 
@@ -188,8 +197,12 @@ class TestNoteServiceUpdate:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        created = svc.create_note({"title": "Original", "content": "Old content"})
-        updated = svc.update_note(created["id"], {"content": "New content"})
+        created = svc.create_note(
+            {"title": "Original", "content": "Old content"}, user_id="legacy"
+        )
+        updated = svc.update_note(
+            created["id"], {"content": "New content"}, user_id="legacy"
+        )
         assert updated["content"] == "New content"
         assert updated["title"] == "Original"
 
@@ -197,16 +210,16 @@ class TestNoteServiceUpdate:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        created = svc.create_note({"title": "Original"})
+        created = svc.create_note({"title": "Original"}, user_id="legacy")
         with pytest.raises(ValueError, match="[Tt]itle"):
-            svc.update_note(created["id"], {"title": ""})
+            svc.update_note(created["id"], {"title": ""}, user_id="legacy")
 
     def test_unknown_id_raises(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.update_note(9999, {"content": "x"})
+            svc.update_note(9999, {"content": "x"}, user_id="legacy")
 
     def test_updated_at_changes(self, note_service: object) -> None:
         import time
@@ -214,9 +227,9 @@ class TestNoteServiceUpdate:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        created = svc.create_note({"title": "Original"})
+        created = svc.create_note({"title": "Original"}, user_id="legacy")
         time.sleep(0.01)
-        updated = svc.update_note(created["id"], {"content": "New"})
+        updated = svc.update_note(created["id"], {"content": "New"}, user_id="legacy")
         assert isinstance(updated["updated_at"], str) and updated["updated_at"] != ""
 
 
@@ -230,14 +243,18 @@ class TestNoteServiceNormalizeTags:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        result = svc.create_note({"title": "Test", "tags": ["Python", "ASYNC"]})
+        result = svc.create_note(
+            {"title": "Test", "tags": ["Python", "ASYNC"]}, user_id="legacy"
+        )
         assert result["tags"] == ["python", "async"]
 
     def test_trimming(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        result = svc.create_note({"title": "Test", "tags": ["  python  ", "  async  "]})
+        result = svc.create_note(
+            {"title": "Test", "tags": ["  python  ", "  async  "]}, user_id="legacy"
+        )
         assert result["tags"] == ["python", "async"]
 
     def test_deduplication(self, note_service: object) -> None:
@@ -245,7 +262,7 @@ class TestNoteServiceNormalizeTags:
 
         svc: NoteService = note_service  # type: ignore[assignment]
         result = svc.create_note(
-            {"title": "Test", "tags": ["python", "Python", "PYTHON"]}
+            {"title": "Test", "tags": ["python", "Python", "PYTHON"]}, user_id="legacy"
         )
         assert result["tags"] == ["python"]
 
@@ -254,7 +271,7 @@ class TestNoteServiceNormalizeTags:
 
         svc: NoteService = note_service  # type: ignore[assignment]
         result = svc.create_note(
-            {"title": "Test", "tags": ["python", "", "  ", "async"]}
+            {"title": "Test", "tags": ["python", "", "  ", "async"]}, user_id="legacy"
         )
         assert result["tags"] == ["python", "async"]
 
@@ -266,10 +283,12 @@ class TestNoteServiceMultiTagFilter:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Both", "tags": ["python", "async"]})
-        svc.create_note({"title": "Python only", "tags": ["python"]})
-        svc.create_note({"title": "Async only", "tags": ["async"]})
-        results = svc.list_notes(tags=["python", "async"])
+        svc.create_note(
+            {"title": "Both", "tags": ["python", "async"]}, user_id="legacy"
+        )
+        svc.create_note({"title": "Python only", "tags": ["python"]}, user_id="legacy")
+        svc.create_note({"title": "Async only", "tags": ["async"]}, user_id="legacy")
+        results = svc.list_notes(tags=["python", "async"], user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Both"
 
@@ -277,9 +296,9 @@ class TestNoteServiceMultiTagFilter:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Python note", "tags": ["python"]})
-        svc.create_note({"title": "Async note", "tags": ["async"]})
-        results = svc.list_notes(tags=["python"])
+        svc.create_note({"title": "Python note", "tags": ["python"]}, user_id="legacy")
+        svc.create_note({"title": "Async note", "tags": ["async"]}, user_id="legacy")
+        results = svc.list_notes(tags=["python"], user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Python note"
 
@@ -287,18 +306,18 @@ class TestNoteServiceMultiTagFilter:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "A", "tags": ["python"]})
-        svc.create_note({"title": "B", "tags": ["async"]})
-        results = svc.list_notes(tags=[])
+        svc.create_note({"title": "A", "tags": ["python"]}, user_id="legacy")
+        svc.create_note({"title": "B", "tags": ["async"]}, user_id="legacy")
+        results = svc.list_notes(tags=[], user_id="legacy")
         assert len(results) == 2
 
     def test_no_match_for_and_filter_returns_empty(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Python only", "tags": ["python"]})
-        svc.create_note({"title": "Async only", "tags": ["async"]})
-        results = svc.list_notes(tags=["python", "async"])
+        svc.create_note({"title": "Python only", "tags": ["python"]}, user_id="legacy")
+        svc.create_note({"title": "Async only", "tags": ["async"]}, user_id="legacy")
+        results = svc.list_notes(tags=["python", "async"], user_id="legacy")
         assert results == []
 
 
@@ -309,16 +328,16 @@ class TestNoteServiceListTags:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "A", "tags": ["python", "async"]})
-        svc.create_note({"title": "B", "tags": ["async", "fastapi"]})
-        tags = svc.list_tags()
+        svc.create_note({"title": "A", "tags": ["python", "async"]}, user_id="legacy")
+        svc.create_note({"title": "B", "tags": ["async", "fastapi"]}, user_id="legacy")
+        tags = svc.list_tags(user_id="legacy")
         assert tags == ["async", "fastapi", "python"]
 
     def test_empty_when_no_notes(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        assert svc.list_tags() == []
+        assert svc.list_tags(user_id="legacy") == []
 
 
 # ── US4: Delete ──────────────────────────────────────────────────────────────
@@ -331,8 +350,8 @@ class TestNoteServiceDelete:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        created = svc.create_note({"title": "Delete me"})
-        deleted = svc.delete_note(created["id"])
+        created = svc.create_note({"title": "Delete me"}, user_id="legacy")
+        deleted = svc.delete_note(created["id"], user_id="legacy")
         assert deleted["title"] == "Delete me"
         assert deleted["id"] == created["id"]
 
@@ -340,17 +359,17 @@ class TestNoteServiceDelete:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        created = svc.create_note({"title": "Delete me"})
-        svc.delete_note(created["id"])
+        created = svc.create_note({"title": "Delete me"}, user_id="legacy")
+        svc.delete_note(created["id"], user_id="legacy")
         with pytest.raises(ValueError, match="not found"):
-            svc.get_note(created["id"])
+            svc.get_note(created["id"], user_id="legacy")
 
     def test_unknown_id_raises(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
         with pytest.raises(ValueError, match="not found"):
-            svc.delete_note(9999)
+            svc.delete_note(9999, user_id="legacy")
 
 
 # ── US5: Search and Filter ───────────────────────────────────────────────────
@@ -363,9 +382,9 @@ class TestNoteServiceSearch:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Python note", "tags": ["python"]})
-        svc.create_note({"title": "Go note", "tags": ["go"]})
-        results = svc.list_notes(tags=["python"])
+        svc.create_note({"title": "Python note", "tags": ["python"]}, user_id="legacy")
+        svc.create_note({"title": "Go note", "tags": ["go"]}, user_id="legacy")
+        results = svc.list_notes(tags=["python"], user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Python note"
 
@@ -373,9 +392,11 @@ class TestNoteServiceSearch:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Python patterns", "content": "Body"})
-        svc.create_note({"title": "Go patterns", "content": "Body"})
-        results = svc.list_notes(q="python")
+        svc.create_note(
+            {"title": "Python patterns", "content": "Body"}, user_id="legacy"
+        )
+        svc.create_note({"title": "Go patterns", "content": "Body"}, user_id="legacy")
+        results = svc.list_notes(q="python", user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Python patterns"
 
@@ -383,9 +404,11 @@ class TestNoteServiceSearch:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Note", "content": "Python is great"})
-        svc.create_note({"title": "Note2", "content": "Go is fast"})
-        results = svc.list_notes(q="python")
+        svc.create_note(
+            {"title": "Note", "content": "Python is great"}, user_id="legacy"
+        )
+        svc.create_note({"title": "Note2", "content": "Go is fast"}, user_id="legacy")
+        results = svc.list_notes(q="python", user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Note"
 
@@ -393,17 +416,21 @@ class TestNoteServiceSearch:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "PYTHON patterns"})
-        results = svc.list_notes(q="python")
+        svc.create_note({"title": "PYTHON patterns"}, user_id="legacy")
+        results = svc.list_notes(q="python", user_id="legacy")
         assert len(results) == 1
 
     def test_search_multi_word_and(self, note_service: object) -> None:
         from pktx.note_service import NoteService
 
         svc: NoteService = note_service  # type: ignore[assignment]
-        svc.create_note({"title": "Python async patterns", "content": "FastAPI"})
-        svc.create_note({"title": "Python sync patterns", "content": "Flask"})
-        results = svc.list_notes(q="python async")
+        svc.create_note(
+            {"title": "Python async patterns", "content": "FastAPI"}, user_id="legacy"
+        )
+        svc.create_note(
+            {"title": "Python sync patterns", "content": "Flask"}, user_id="legacy"
+        )
+        results = svc.list_notes(q="python async", user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Python async patterns"
 
@@ -412,12 +439,17 @@ class TestNoteServiceSearch:
 
         svc: NoteService = note_service  # type: ignore[assignment]
         svc.create_note(
-            {"title": "Python note", "tags": ["python"], "content": "async stuff"}
+            {"title": "Python note", "tags": ["python"], "content": "async stuff"},
+            user_id="legacy",
         )
-        svc.create_note({"title": "Go note", "tags": ["go"], "content": "async stuff"})
         svc.create_note(
-            {"title": "Python sync", "tags": ["python"], "content": "sync stuff"}
+            {"title": "Go note", "tags": ["go"], "content": "async stuff"},
+            user_id="legacy",
         )
-        results = svc.list_notes(tags=["python"], q="async")
+        svc.create_note(
+            {"title": "Python sync", "tags": ["python"], "content": "sync stuff"},
+            user_id="legacy",
+        )
+        results = svc.list_notes(tags=["python"], q="async", user_id="legacy")
         assert len(results) == 1
         assert results[0]["title"] == "Python note"
