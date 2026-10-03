@@ -267,7 +267,7 @@ Owns: `db.py`, `server.py`, `auth.py`, `config.py`, the webhook handler in `api/
 
 Owns: `frontend/**`.
 
-- [ ] 9. **Frontend.** `safeHref`, `ExternalLink`, the zod `httpUrl`, and swapping out the 4 call sites. Vitest coverage. Run `cd frontend && make check`.
+- [x] 9. **Frontend.** `safeHref`, `ExternalLink`, the zod `httpUrl`, and swapping out the 4 call sites. Vitest coverage. Run `cd frontend && make check`. _Divergence: the `mailto:` link also goes through `ExternalLink` (`allowMailto`, same tab, no `target`); `httpUrl()` also caps length at 2,048 to mirror the backend; `safeHref` returns the trimmed input (not `URL.href`) so stored URLs render unnormalized. Grep found no other dynamic `href`s; `MarkdownContent` relies on react-markdown's default `urlTransform`, which already drops `javascript:`._
 
 **Wave 1 rules:**
 

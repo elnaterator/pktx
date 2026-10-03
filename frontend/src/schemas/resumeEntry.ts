@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { httpUrl } from './httpUrl'
 
 const optionalTrimmed = (max?: number) => {
   const s = z.string().trim()
@@ -18,12 +19,9 @@ export const contactInfoSchema = z.object({
     .pipe(z.string().email('Invalid email').optional()),
   phone: optionalTrimmed(50),
   location: optionalTrimmed(200),
-  linkedin: optionalTrimmed()
-    .pipe(z.string().url('Invalid URL').optional()),
-  website: optionalTrimmed()
-    .pipe(z.string().url('Invalid URL').optional()),
-  github: optionalTrimmed()
-    .pipe(z.string().url('Invalid URL').optional()),
+  linkedin: httpUrl(),
+  website: httpUrl(),
+  github: httpUrl(),
 })
 
 export type ContactInfoInput = z.infer<typeof contactInfoSchema>

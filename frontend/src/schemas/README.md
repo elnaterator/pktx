@@ -8,7 +8,7 @@ Zod schemas mirror backend Pydantic models. One file per resource. Each exports 
 |---|---|
 | `Field(..., min_length=1, max_length=200)` | `z.string().trim().min(1).max(200)` |
 | `EmailStr` | `z.string().email()` |
-| `HttpUrl` | `z.string().url()` |
+| `HttpUrl` (http/https only) | `httpUrl()` from `httpUrl.ts` — `z.string().url()` alone accepts `javascript:` |
 | `field_validator("date")` ISO date | `z.string().regex(/^\d{4}-\d{2}-\d{2}$/)` |
 | `Optional[str]` empty → None | `z.string().trim().transform((v) => v \|\| undefined).optional()` |
 | `Literal["a", "b"]` | `z.enum(['a', 'b'])` |
