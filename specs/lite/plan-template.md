@@ -1,34 +1,50 @@
-# Plan <3-digit-seq-num> - <title>
+---
+roadmap_id: <NNN>
+issue: <id or n/a>
+---
 
-Date: <current_date>
+# Plan: <NNN> <title>
 
-1-3 sentence fix or feature summary
+Drop any section that adds no signal for this item — keep what helps, skip the rest.
 
+## Overview
 
-## Requirements
+Summarize the roadmap item text. Why this work. What this must do. Bullet the concrete capabilities/behaviors in scope.
 
-### R1 - Requirement Title
+## Acceptance criteria
 
-Requirement description
+Testable conditions that must all be true to mark the item BUILT.
 
-* Between 2 and 8 acceptance criteria bullets
+- [ ] Observable outcome 1
+- [ ] Observable outcome 2
 
+## Open questions
+
+Decisions that need the user. **Default to taking obvious guesses — do not burden the user
+with what you can reasonably infer.** Only raise a question here when getting it wrong is
+costly or hard to reverse (data model, public API, UX direction, security). For each:
+state your proposed answer so the user can confirm fast or redirect.
+
+- [ ] Question — _proposed: <your default>_
 
 ## Design
 
-Flexible design section, when applicable include architecture, interfaces, contracts, valuable research summary, etc. Keep short and concise as possible.
+How it fits together. Key decisions, trade-offs, and any structure worth sketching
+(data shapes, interfaces, flow). Skip or keep brief for small features.
 
+**Touches:** files expected to change — mark `(new)` / `(mod)` / `(del)`.
 
-## Tasks
+## Steps
 
-### P1 - Phase Title
+Ordered, each small and verifiable.
 
-Phase description
+- [ ] Step 1
+- [ ] Step 2
 
-- [ ] T01 Task description
-- [ ] T02 Task description
+## Testing
 
+How to verify. Exact commands to run, plus any manual checks.
 
-### Implementation Notes
+## Out of scope
 
-Recommendations, clarifications, notes sequence, parallel opportunities, etc.
+What this plan intentionally does not do.
