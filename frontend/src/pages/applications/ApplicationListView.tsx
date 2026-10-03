@@ -14,6 +14,7 @@ import { ApplicationPanel } from './ApplicationPanel'
 import { StatusFilter } from './StatusFilter'
 import type { ApplicationPanelInput } from './ApplicationPanel'
 import type { SearchValue } from '../../types'
+import { ExternalLink } from '../../components/ExternalLink'
 import styles from './ApplicationListView.module.css'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -153,14 +154,9 @@ export default function ApplicationListView() {
                 </div>
               </Link>
               {app.url && (
-                <a
-                  href={app.url}
-                  className={styles.metaLink}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
+                <ExternalLink href={app.url} className={styles.metaLink}>
                   Job posting
-                </a>
+                </ExternalLink>
               )}
             </li>
           ))}

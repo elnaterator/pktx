@@ -42,6 +42,25 @@ describe('contactCreateSchema', () => {
     expect(result.success).toBe(false)
   })
 
+  it.each(['javascript:alert(1)', 'ftp://example.com', 'vbscript:msgbox(1)'])(
+    'rejects non-http(s) linkedin_url %j',
+    (linkedin_url) => {
+      const result = contactCreateSchema.safeParse({ name: 'Alice', linkedin_url })
+      expect(result.success).toBe(false)
+    },
+  )
+
+  it('accepts https linkedin_url', () => {
+    const result = contactCreateSchema.safeParse({ name: 'Alice', linkedin_url: 'https://linkedin.com/in/alice' })
+    expect(result.success).toBe(true)
+  })
+
+  it('normalizes empty linkedin_url to undefined', () => {
+    const result = contactCreateSchema.safeParse({ name: 'Alice', linkedin_url: '' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.linkedin_url).toBeUndefined()
+  })
+
   it('defaults tags to empty array', () => {
     const result = contactCreateSchema.safeParse({ name: 'Alice' })
     expect(result.success).toBe(true)

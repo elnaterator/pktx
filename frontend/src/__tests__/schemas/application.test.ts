@@ -39,6 +39,20 @@ describe('applicationCreateSchema', () => {
     if (result.success) expect(result.data.url).toBeUndefined()
   })
 
+  it.each(['javascript:alert(1)', 'JaVaScRiPt:alert(1)', 'ftp://example.com/file', 'data:text/html,x'])(
+    'rejects non-http(s) url %j',
+    (url) => {
+      const result = applicationCreateSchema.safeParse({ company: 'A', position: 'B', url })
+      expect(result.success).toBe(false)
+    },
+  )
+
+  it('accepts and trims an https url', () => {
+    const result = applicationCreateSchema.safeParse({ company: 'A', position: 'B', url: ' https://acme.com/job ' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.url).toBe('https://acme.com/job')
+  })
+
   it('defaults status to Interested', () => {
     const result = applicationCreateSchema.safeParse({ company: 'A', position: 'B' })
     expect(result.success).toBe(true)
