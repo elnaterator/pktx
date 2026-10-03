@@ -39,28 +39,28 @@ In scope:
 
 ## Acceptance criteria
 
-- [ ] `/api/resume`, `/api/resume/{section}` and the legacy `/api/resume/...entries` routes are gone (404).
-- [ ] No `database.py` or service function accepts `user_id=None`. Every call site passes a real user id. In no-auth test mode the user is `"legacy"`.
-- [ ] `GET /api/accomplishments/tags` returns only the caller's tags.
-- [ ] Server rejects (422 REST / tool error MCP) any non-`http(s)` value for `application.url`, `contact.linkedin_url`, and resume `contact.linkedin|website|github`.
-- [ ] The frontend renders a stored non-http URL as plain text, never as `href`. The zod schemas reject non-http(s) URLs.
-- [ ] Deleting a non-last resume works on an autocommit connection and on the production pool path. Default promotion is atomic.
-- [ ] Each request (REST, MCP HTTP tool call, stdio tool call, webhook) checks out its own pooled connection on first DB use and runs in one transaction: commit on success, rollback on error. `/health` and static files never touch the DB.
-- [ ] Killing the DB connection between requests does not break later requests: the pool's `check` validates the connection and replaces it.
-- [ ] `tags: null` → stored `[]`. `tags: "x"`, `[1]` or a non-list value → 422. Existing `"null"` rows are repaired by a migration.
-- [ ] Bad `update_entry` data (unknown types, wrong field types) → 422. Stored data stays valid.
-- [ ] A token with an unknown `kid` triggers at most one JWKS fetch per 60s window. No sync HTTP call runs on the event loop. The REST JWT is verified once per request.
-- [ ] With `PKTX_USER_ID` set, an HTTP request without a valid token → 401. The stdio MCP server runs tools as `PKTX_USER_ID`, and refuses to start without it.
-- [ ] A REST JWT whose `azp` is not in the authorized-parties list → 401.
-- [ ] The MCP tool middleware does no sync DB work on the event loop, and upserts each `sub` at most once per process.
-- [ ] 401 details are generic.
-- [ ] Unknown `/api/...` paths → JSON 404, not `index.html`.
-- [ ] `%` and `_` in `q` and tags match literally.
-- [ ] Text fields have max lengths (422 when exceeded).
-- [ ] Communication PATCH/DELETE → 404 when `cmid` is not under `cid`.
-- [ ] `link_resources` and `unlink_resources` require an authenticated user.
-- [ ] New tests (see Testing) pass, and every fix has a test that fails before it.
-- [ ] `make check` is green (backend + frontend).
+- [x] `/api/resume`, `/api/resume/{section}` and the legacy `/api/resume/...entries` routes are gone (404).
+- [x] No `database.py` or service function accepts `user_id=None`. Every call site passes a real user id. In no-auth test mode the user is `"legacy"`.
+- [x] `GET /api/accomplishments/tags` returns only the caller's tags.
+- [x] Server rejects (422 REST / tool error MCP) any non-`http(s)` value for `application.url`, `contact.linkedin_url`, and resume `contact.linkedin|website|github`.
+- [x] The frontend renders a stored non-http URL as plain text, never as `href`. The zod schemas reject non-http(s) URLs.
+- [x] Deleting a non-last resume works on an autocommit connection and on the production pool path. Default promotion is atomic.
+- [x] Each request (REST, MCP HTTP tool call, stdio tool call, webhook) checks out its own pooled connection on first DB use and runs in one transaction: commit on success, rollback on error. `/health` and static files never touch the DB.
+- [x] Killing the DB connection between requests does not break later requests: the pool's `check` validates the connection and replaces it.
+- [x] `tags: null` → stored `[]`. `tags: "x"`, `[1]` or a non-list value → 422. Existing `"null"` rows are repaired by a migration.
+- [x] Bad `update_entry` data (unknown types, wrong field types) → 422. Stored data stays valid. _(Divergence: unknown fields are dropped rather than rejected, which is pydantic's default `extra="ignore"`; wrong types → 422.)_
+- [x] A token with an unknown `kid` triggers at most one JWKS fetch per 60s window. No sync HTTP call runs on the event loop. The REST JWT is verified once per request.
+- [x] With `PKTX_USER_ID` set, an HTTP request without a valid token → 401. The stdio MCP server runs tools as `PKTX_USER_ID`, and refuses to start without it.
+- [x] A REST JWT whose `azp` is not in the authorized-parties list → 401.
+- [x] The MCP tool middleware does no sync DB work on the event loop, and upserts each `sub` at most once per process.
+- [x] 401 details are generic.
+- [x] Unknown `/api/...` paths → JSON 404, not `index.html`. _(Unauthenticated callers get a JSON 401, because the catch-all route sits behind auth.)_
+- [x] `%` and `_` in `q` and tags match literally.
+- [x] Text fields have max lengths (422 when exceeded).
+- [x] Communication PATCH/DELETE → 404 when `cmid` is not under `cid`.
+- [x] `link_resources` and `unlink_resources` require an authenticated user.
+- [x] New tests (see Testing) pass, and every fix has a test that fails before it.
+- [x] `make check` is green (backend + frontend).
 
 ## Open questions
 
@@ -283,10 +283,15 @@ Owns: `frontend/**`.
 
 ### Wave 2: serial, main agent (integration)
 
-- [ ] 11. **Merge** the A, B and C worktrees into `fix/027-security-fixes`, in the order B, then A, then C. Resolve the `routes.py` webhook overlap.
-- [ ] 12. **Finish `test_route_scoping.py`.** It needs the final route set from A plus the per-request connection from B. Run it against the merged app.
-- [ ] 13. **Docs.** Update `AGENTS.md` (request-connection model, fail-closed scoping, new env var), the README env table, and `research/security-review.md` (mark findings fixed).
-- [ ] 14. `make check` from the root, all green. Manual checks are listed in Testing.
+- [x] 11. **Merge** the A, B and C worktrees into `fix/027-security-fixes`, in the order B, then A, then C. Resolve the `routes.py` webhook overlap.
+  - _Done:_ B and C merged cleanly. A merged with one conflict in `db.py`: kept `DBConnection.transaction()` and B's `RequestConnection`. `routes.py` and `test_auth_contract.py` auto-merged.
+  - **Integration fix:** A's v14 migration set bare-host URLs such as `linkedin.com/in/x` to NULL, and the validator rejected them on write, which would silently lose data. `validate_http_url` and the frozen copy in the migration now prepend `https://` to bare hosts. Only values that are still not web URLs (`javascript:`, `data:`, `mailto:`, userinfo, no dotted host) are rejected or set to NULL.
+- [x] 12. **Finish `test_route_scoping.py`.** It needs the final route set from A plus the per-request connection from B. Run it against the merged app.
+  - _Done:_ A completed the test (the catch-all route is exempt), and it passes on the merged tree. The production pool path is covered by `test_request_connection.py`.
+- [x] 13. **Docs.** Update `AGENTS.md` (request-connection model, fail-closed scoping, new env var), the README env table, and `research/security-review.md` (mark findings fixed).
+- [x] 14. `make check` from the root, all green. Manual checks are listed in Testing.
+  - _Done:_ root `make check` exits 0 (backend: 732 passed, ruff and pyright clean; frontend: 456 passed, eslint clean), and `npm run build` succeeds.
+  - **Not yet done:** the manual checks (run the app locally, restart Postgres while it runs, connect Claude Desktop). Do them before deploying.
 
 ## Testing
 

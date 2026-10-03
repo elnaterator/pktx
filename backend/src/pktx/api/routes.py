@@ -75,7 +75,7 @@ def create_router(
     _auth_deps = [Depends(get_current_user)] if get_current_user is not None else []
     api = APIRouter(dependencies=_auth_deps)
 
-    # Optional-user dependency: always returns UserContext | None.
+    # Current-user dependency: always a UserContext ("legacy" when auth is off).
     _user_dep = _make_user_dep(get_current_user)
 
     # ------------------------------------------------------------------

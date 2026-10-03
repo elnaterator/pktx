@@ -1,5 +1,10 @@
 # Security review (2026-10-02)
 
+**Status: all findings fixed in roadmap item 027** (`fix/027-security-fixes`, plan
+`specs/lite/027-security-fixes-plan.md`). Each has a regression test; the route-wide
+scoping guard is `backend/tests/integration/test_route_scoping.py`. Out of scope and
+still open: CSP/security headers on the SPA, general API rate limiting.
+
 Full-codebase review: auth, server wiring, OAuth store, REST routes, services, `database.py`,
 MCP tools, frontend link rendering, infra redirect allowlist, test fixtures. Items marked
 **verified** were reproduced against a real Postgres 16 container with `autocommit=True`

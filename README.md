@@ -52,6 +52,8 @@ Once running:
 | `CLERK_OAUTH_CLIENT_SECRET` | Client secret of that Clerk OAuth application (also derives the at-rest encryption key for proxy state) |
 | `CLERK_WEBHOOK_SECRET` | Webhook signing secret from Clerk dashboard |
 | `PKTX_EXTRA_CLIENT_REDIRECT_URIS` | Optional. Comma-separated redirect-URI patterns for hosted MCP clients (loopback is always allowed) |
+| `CLERK_AUTHORIZED_PARTIES` | Optional. Comma-separated browser origins whose Clerk session tokens the REST API accepts (`azp` claim). Defaults to the origin of `PKTX_PUBLIC_URL`; add `http://localhost:5173` for `vite dev` |
+| `PKTX_USER_ID` | stdio MCP mode only (required there): the user id tools run as. Ignored by the HTTP server |
 
 ### Keyless OAuth connect flow
 
