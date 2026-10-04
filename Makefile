@@ -63,6 +63,9 @@ endif
 	  -target=aws_ssm_parameter.clerk_issuer \
 	  -target=aws_ssm_parameter.clerk_webhook_secret \
 	  -target=aws_ssm_parameter.clerk_secret_key \
+	  -target=aws_ssm_parameter.pktx_public_url \
+	  -target=aws_ssm_parameter.clerk_oauth_client_id \
+	  -target=aws_ssm_parameter.clerk_oauth_client_secret \
 	  -auto-approve
 	@echo "==> [3/5] build and push Docker image to ECR"
 	@set -e; \

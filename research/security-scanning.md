@@ -77,3 +77,14 @@ CVEs show up in code that hasn't changed, mostly in the base image's OS packages
 builds and scans; deploying a rebuilt image stays manual (`make deploy`). Trivy goes red
 on HIGH/CRITICAL with a fix available (`--ignore-unfixed`); waivers live in
 `.trivyignore` with a reason and an expiry date.
+
+## Follow-ups (2026-10-03)
+
+- **vitest 2 → 4: done in 028.** It was a drop-in (simple `vite.config.ts` test block,
+  all 456 tests green) and cleared the dev-only critical advisory. `npm audit` is 0
+  across all deps.
+- **python-jose → PyJWT: item 029.** Surface: `auth.py` (`get_unverified_header`,
+  `get_unverified_claims`, `decode` with the JWKS key, `JWTError` /
+  `ExpiredSignatureError` mapping) plus `RSAKey`-based token minting in 4 test modules.
+  About half a day including review. Kept separate because it changes signature
+  verification on every REST request.

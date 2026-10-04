@@ -112,6 +112,12 @@ No dependency, image, IaC or secret scanning today, nothing opens update PRs, an
 Notes: research/security-scanning.md
 
 
+## 029 Replace python-jose with PyJWT
+
+python-jose is barely maintained and drags in `ecdsa` (unfixed timing side channel, waived in 028 until 2027-01-01), `rsa` and `pyasn1`. PyJWT is already installed through `mcp[crypto]`. Port `auth.py` (header/claims/decode, JWKS key lookup via `PyJWK`, error mapping) and the test token helpers; drop python-jose and the `PIP_AUDIT_IGNORE` waiver. Auth-sensitive, so keep it a standalone PR.
+Notes: research/security-scanning.md
+
+
 ## 021 Error tracking and feedback loop
 Add error tracking (Sentry free tier or similar) for backend and frontend, wired to alert the developer on new errors. Add one low-friction in-app feedback channel (footer link to a form or shared chat). Goal: see errors before beta users report them, and make giving feedback effortless.
 

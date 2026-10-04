@@ -192,8 +192,14 @@ stays manual (`make deploy`); CI gets no AWS credentials.
 - **One pip-audit waiver:** `PYSEC-2026-1325` (ecdsa, no upstream fix; python-jose uses
   the cryptography backend). Expires 2027-01-01. Real fix: replace python-jose with
   pyjwt (follow-up).
-- **Dev-only:** vitest 2.x has a critical advisory; the fix is vitest 4 (major). Left
-  for Renovate's major PR. `--omit=dev` keeps it out of the gate.
+- **Dev-only:** vitest 2.x had a critical advisory. Upgraded to vitest 4 (drop-in, all
+  tests green), so `npm audit` is 0 across all deps.
+- **python-jose → PyJWT** (removes the ecdsa waiver) split out as roadmap item 029.
+- **docs/deployment.md cleanup:** removed the nonexistent `terraform-ci.yml` / OIDC
+  section; documented all 9 SSM parameters; fixed the claim that Lambda reads SSM at
+  cold start (Terraform bakes the values into env vars at apply); arm64 + Clerk
+  build-arg in the manual build; five-step `make deploy`. Fixed `make deploy` step 2,
+  which skipped 3 SSM placeholders (`pktx_public_url`, `clerk_oauth_client_id`/`_secret`).
 - **Dockerfile runtime stage** now runs `apt-get upgrade` (Debian had fixed libpcre2 but
   the pinned base didn't include it yet) and removes the system pip/setuptools (their
   vendored jaraco.context/wheel CVEs; the app runs from `/app/.venv`).
