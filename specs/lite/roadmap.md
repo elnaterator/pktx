@@ -106,6 +106,12 @@ Fix all findings from the 2026-10-02 review. Critical: legacy `/api/resume*` rou
 Notes: research/security-review.md
 
 
+## 028 Security scanning and automated patching
+
+No dependency, image, IaC or secret scanning today, nothing opens update PRs, and the Dockerfile ships an EOL `node:18-slim` plus an unpinned `uv:latest`. Add free, low-tool-count coverage: Renovate for patching (Dependabot alerts as backstop), pip-audit + npm audit + ruff bandit rules in `make check`, Trivy for image/IaC/secrets (replaces Checkov), CodeQL default setup, GitHub push protection, a weekly scheduled scan, and pinned base images and Action SHAs. AWS Inspector deferred. Must land before beta (021+).
+Notes: research/security-scanning.md
+
+
 ## 021 Error tracking and feedback loop
 Add error tracking (Sentry free tier or similar) for backend and frontend, wired to alert the developer on new errors. Add one low-friction in-app feedback channel (footer link to a form or shared chat). Goal: see errors before beta users report them, and make giving feedback effortless.
 
