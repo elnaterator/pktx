@@ -3,6 +3,8 @@
 import json
 import logging
 
+from psycopg.rows import dict_row
+
 logger = logging.getLogger("pktx")
 
 
@@ -666,6 +668,99 @@ def migrate_v12_to_v13(conn) -> None:
     conn.commit()
 
 
+_TAGGED_TABLES = (
+    "resume_version",
+    "application",
+    "accomplishment",
+    "note",
+    "contact",
+    "communication",
+)
+
+
+def _normalize_http_url(value: object) -> str | None:
+    """Frozen copy of 027's URL rule: absolute http(s) URL, or ``None``.
+
+    Bare hosts (``linkedin.com/in/jane``) get ``https://`` prepended so v14
+    keeps them; only values that are still not a web URL (``javascript:``,
+    ``data:``, ``mailto:``…) are dropped. Kept local so later changes to
+    ``pktx.validation`` cannot alter what this migration did.
+    """
+    from urllib.parse import urlparse
+
+    if not isinstance(value, str) or not value.strip():
+        return None
+    url = value.strip()
+    if "://" not in url and not url.startswith("//"):
+        url = "https://" + url
+    parsed = urlparse(url)
+    if parsed.scheme.lower() not in ("http", "https") or not parsed.hostname:
+        return None
+    if parsed.username is not None or parsed.password is not None:
+        return None
+    try:
+        parsed.port  # noqa: B018 — raises ValueError on a malformed port
+    except ValueError:
+        return None
+    if "." not in parsed.hostname and parsed.hostname != "localhost":
+        return None
+    return url
+
+
+def migrate_v13_to_v14(conn) -> None:
+    """Repair data the 027 input validation now rejects (data-only).
+
+    - ``tags = 'null'`` (stored by ``PATCH {"tags": null}``) → ``'[]'``; the
+      'null' rows broke every later tag listing for that user.
+    - Non-http(s) URLs (``javascript:`` etc.) in ``application.url``,
+      ``contact.linkedin_url`` and resume ``contact.linkedin|website|github``
+      → bare hosts get ``https://`` prepended; anything still not a web URL
+      → NULL, so the new model validators can still read every stored row.
+    """
+    for table in _TAGGED_TABLES:
+        conn.execute(
+            f"UPDATE {table} SET tags = '[]' WHERE tags IS NULL OR tags = 'null'"
+        )
+
+    # Explicit dict rows: the migration connection may use the default factory.
+    cur = conn.cursor(row_factory=dict_row)
+    for table, column in (("application", "url"), ("contact", "linkedin_url")):
+        rows = cur.execute(
+            f"SELECT id, {column} AS url FROM {table} "
+            f"WHERE {column} IS NOT NULL AND {column} <> ''"
+        ).fetchall()
+        for row in rows:
+            fixed = _normalize_http_url(row["url"])
+            if fixed != row["url"]:
+                conn.execute(
+                    f"UPDATE {table} SET {column} = %s WHERE id = %s",
+                    (fixed, row["id"]),
+                )
+
+    rows = cur.execute("SELECT id, resume_data FROM resume_version").fetchall()
+    for row in rows:
+        data = json.loads(row["resume_data"] or "{}")
+        contact = data.get("contact") if isinstance(data, dict) else None
+        if not isinstance(contact, dict):
+            continue
+        changed = False
+        for key in ("linkedin", "website", "github"):
+            value = contact.get(key)
+            if value:
+                fixed = _normalize_http_url(value)
+                if fixed != value:
+                    contact[key] = fixed
+                    changed = True
+        if changed:
+            conn.execute(
+                "UPDATE resume_version SET resume_data = %s WHERE id = %s",
+                (json.dumps(data), row["id"]),
+            )
+
+    conn.execute("UPDATE schema_version SET version = %s", (14,))
+    conn.commit()
+
+
 MIGRATIONS: list = [
     migrate_v0_to_v1,
     migrate_v1_to_v2,
@@ -680,6 +775,7 @@ MIGRATIONS: list = [
     migrate_v10_to_v11,
     migrate_v11_to_v12,
     migrate_v12_to_v13,
+    migrate_v13_to_v14,
 ]
 
 SCHEMA_VERSION: int = len(MIGRATIONS)

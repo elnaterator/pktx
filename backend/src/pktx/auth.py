@@ -1,8 +1,11 @@
 """Clerk JWT validation and FastAPI dependency for authenticated user context."""
 
+import asyncio
 import logging
 import os
+import threading
 import time
+from collections.abc import Collection
 from contextvars import ContextVar
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -52,8 +55,19 @@ def require_user_id() -> str:
 # ---------------------------------------------------------------------------
 
 _JWKS_CACHE: dict[str, Any] = {}  # kid -> key dict
-_JWKS_FETCHED_AT: float = 0.0
+_JWKS_FETCHED_AT: float = 0.0  # last *successful* fetch
 _JWKS_TTL: float = 3600.0  # 1 hour
+# Refetch throttle: an unknown kid triggers at most one JWKS fetch per window,
+# so a storm of forged kids cannot amplify into a storm of upstream requests.
+_JWKS_MIN_REFETCH_INTERVAL: float = 60.0
+_JWKS_LAST_ATTEMPT: float = float("-inf")  # last fetch attempt (success or not)
+_JWKS_LOCK = threading.Lock()
+
+_INVALID_TOKEN = "Invalid token"
+
+
+def _unauthorized(detail: str = _INVALID_TOKEN) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
 
 
 def _jwks_url() -> str:
@@ -85,24 +99,38 @@ def _fetch_jwks() -> dict[str, Any]:
 
 
 def _get_jwks_key(kid: str) -> dict[str, Any]:
-    """Return the JWK for the given kid, refreshing cache if needed."""
-    global _JWKS_CACHE, _JWKS_FETCHED_AT
+    """Return the JWK for ``kid``, refreshing the cache when allowed.
 
-    now = time.monotonic()
-    cache_age = now - _JWKS_FETCHED_AT
+    Blocking (sync HTTP): runs only inside the threadpool-executed REST auth
+    dependency, never on the event loop. A refetch (TTL expiry or unknown kid)
+    happens at most once per ``_JWKS_MIN_REFETCH_INTERVAL`` seconds, serialized
+    by a lock; otherwise an unknown kid is rejected with 401 straight away. A
+    failed fetch falls back to the (stale) cache.
+    """
+    global _JWKS_LAST_ATTEMPT
 
-    # Serve from cache if fresh and kid is present
-    if cache_age < _JWKS_TTL and kid in _JWKS_CACHE:
+    if time.monotonic() - _JWKS_FETCHED_AT < _JWKS_TTL and kid in _JWKS_CACHE:
         return _JWKS_CACHE[kid]
 
-    # Refresh cache (either expired TTL or unknown kid)
-    keys = _fetch_jwks()
-    if kid not in keys:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Unknown signing key",
-        )
-    return keys[kid]
+    with _JWKS_LOCK:
+        now = time.monotonic()
+        # Another thread may have refreshed while we waited for the lock.
+        if now - _JWKS_FETCHED_AT < _JWKS_TTL and kid in _JWKS_CACHE:
+            return _JWKS_CACHE[kid]
+        if now - _JWKS_LAST_ATTEMPT >= _JWKS_MIN_REFETCH_INTERVAL:
+            _JWKS_LAST_ATTEMPT = now
+            try:
+                _fetch_jwks()
+            except Exception as exc:
+                logger.warning("JWKS fetch failed: %s", exc)
+        else:
+            logger.debug("JWKS refetch throttled (kid=%s)", kid)
+        key = _JWKS_CACHE.get(kid)
+
+    if key is None:
+        logger.debug("JWT rejected: unknown signing key kid=%s", kid)
+        raise _unauthorized()
+    return key
 
 
 # ---------------------------------------------------------------------------
@@ -110,29 +138,36 @@ def _get_jwks_key(kid: str) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 
 
-def verify_clerk_jwt(token: str) -> dict[str, Any]:
-    """Validate a Clerk JWT and return its claims.
+def verify_clerk_jwt(
+    token: str, authorized_parties: Collection[str] | None = None
+) -> dict[str, Any]:
+    """Validate a Clerk session JWT and return its claims.
+
+    Checks signature (JWKS), issuer, expiry, ``sub``, and that ``azp`` is
+    present and one of ``authorized_parties`` (resolved from config when not
+    given). 401 details are fixed strings; the cause is logged at DEBUG.
 
     Raises:
-        HTTPException 401: If the token is missing, expired, wrong issuer, or invalid.
+        HTTPException 401: If the token is invalid for any reason.
     """
+    if authorized_parties is None:
+        from pktx.config import resolve_authorized_parties
+
+        authorized_parties = resolve_authorized_parties()
+
     try:
         unverified_header = jwt.get_unverified_header(token)
     except JWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Invalid token header: {exc}",
-        ) from exc
+        logger.debug("JWT rejected: bad header (%s)", exc)
+        raise _unauthorized() from exc
 
     kid = unverified_header.get("kid", "")
     key = _get_jwks_key(kid)
 
     issuer = _issuer()
     if not issuer:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="CLERK_ISSUER is not configured",
-        )
+        logger.error("CLERK_ISSUER is not configured; rejecting REST JWT")
+        raise _unauthorized()
 
     try:
         claims = jwt.decode(
@@ -143,21 +178,22 @@ def verify_clerk_jwt(token: str) -> dict[str, Any]:
             options={"verify_aud": False},
         )
     except ExpiredSignatureError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-        ) from exc
+        raise _unauthorized("Token has expired") from exc
     except JWTError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=f"Token validation failed: {exc}",
-        ) from exc
+        logger.debug("JWT rejected: %s", exc)
+        raise _unauthorized() from exc
 
     if not claims.get("sub"):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token missing 'sub' claim",
-        )
+        logger.debug("JWT rejected: missing sub")
+        raise _unauthorized()
+
+    # Authorized parties: Clerk session tokens always carry azp (the origin of
+    # the frontend that minted them). Reject tokens from other origins and
+    # tokens without azp (e.g. OAuth access tokens from the same instance).
+    azp = claims.get("azp")
+    if not isinstance(azp, str) or azp.rstrip("/") not in authorized_parties:
+        logger.debug("JWT rejected: azp %r not in authorized parties", azp)
+        raise _unauthorized()
 
     return claims
 
@@ -179,8 +215,21 @@ class UserContext:
 _bearer = HTTPBearer(auto_error=False)
 
 
-def build_get_current_user(conn: DBConnection):  # type: ignore[no-untyped-def]
-    """Return a FastAPI dependency that validates JWTs and upserts users."""
+def build_get_current_user(  # type: ignore[no-untyped-def]
+    conn: DBConnection, authorized_parties: Collection[str] | None = None
+):
+    """Return a FastAPI dependency that validates JWTs and upserts users.
+
+    ``authorized_parties`` defaults to ``config.resolve_authorized_parties()``,
+    read once here (dependency-build time) so a misconfigured deploy fails at
+    startup instead of per request. The dependency is sync, so FastAPI runs it
+    in the threadpool: the JWKS fetch and the upsert never block the event loop.
+    """
+    if authorized_parties is None:
+        from pktx.config import resolve_authorized_parties
+
+        authorized_parties = resolve_authorized_parties()
+    parties = frozenset(authorized_parties)
 
     def _dep(
         credentials: HTTPAuthorizationCredentials | None = Depends(_bearer),
@@ -190,7 +239,7 @@ def build_get_current_user(conn: DBConnection):  # type: ignore[no-untyped-def]
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Authorization header missing",
             )
-        claims = verify_clerk_jwt(credentials.credentials)
+        claims = verify_clerk_jwt(credentials.credentials, parties)
 
         user_id: str = claims["sub"]
         email: str | None = claims.get("email") or claims.get("primary_email_address")
@@ -339,21 +388,43 @@ def build_mcp_auth(pool: "ConnectionPool[Any]") -> OAuthProxy:
 # MCP tool middleware: bridge access token sub → current_user_id_var
 # ---------------------------------------------------------------------------
 
-# Module-level reference to DB connection, set by server.py at startup.
-_conn: DBConnection | None = None
+
+def _upsert_and_commit(conn: DBConnection, sub: str) -> None:
+    """Ensure the users row exists, committed independently of the tool call.
+
+    Committed right away (nothing else is in the scope's transaction yet) so a
+    later tool error that rolls the scope back cannot undo it — the per-process
+    cache below would otherwise skip the upsert for this sub from then on.
+    """
+    try:
+        upsert_user(conn, sub, None, None)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
 
 
 class UserContextToolMiddleware(Middleware):
-    """Set current_user_id_var from the FastMCP access token for each tool call."""
+    """Set current_user_id_var from the FastMCP access token for each tool call.
+
+    The first call per ``sub`` in this process upserts the users row, off the
+    event loop (``asyncio.to_thread``, which copies the context so the request
+    connection scope is visible). Later calls for that sub skip the DB.
+    """
+
+    def __init__(self, conn: DBConnection | None = None) -> None:
+        self._conn = conn
+        self._upserted: set[str] = set()
 
     async def on_call_tool(self, context, call_next):  # type: ignore[override]
         tok = get_access_token()
         sub = (tok.claims or {}).get("sub") if tok else None
         reset = current_user_id_var.set(sub)
         try:
-            if sub and _conn is not None:
+            if sub and self._conn is not None and sub not in self._upserted:
                 try:
-                    upsert_user(_conn, sub, None, None)
+                    await asyncio.to_thread(_upsert_and_commit, self._conn, sub)
+                    self._upserted.add(sub)
                 except Exception as exc:
                     logger.warning("upsert_user failed in MCP tool middleware: %s", exc)
             return await call_next(context)

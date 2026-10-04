@@ -164,7 +164,7 @@ class TestResumeToolUserScoping:
         alice_resumes = svc.list_resumes(user_id="user_alice")
         alice_id = alice_resumes[0]["id"]
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ValueError, match="not found"):
             svc.get_resume(alice_id, user_id="user_bob")
 
     def test_create_resume_uses_user_id(self, two_user_db: Connection[Any]) -> None:
@@ -234,7 +234,7 @@ class TestApplicationToolUserScoping:
             {"company": "AliceCo", "position": "Dev"}, user_id="user_alice"
         )
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ValueError, match="not found"):
             svc.get_application(app["id"], user_id="user_bob")
 
     def test_delete_application_rejects_cross_user(
@@ -247,7 +247,7 @@ class TestApplicationToolUserScoping:
             {"company": "AliceCo", "position": "Dev"}, user_id="user_alice"
         )
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ValueError, match="not found"):
             svc.delete_application(app["id"], user_id="user_bob")
 
 
@@ -282,7 +282,7 @@ class TestAccomplishmentToolUserScoping:
         svc = AccomplishmentService(two_user_db)  # type: ignore[arg-type]
         acc = svc.create_accomplishment({"title": "Alice win"}, user_id="user_alice")
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ValueError, match="not found"):
             svc.get_accomplishment(acc["id"], user_id="user_bob")
 
 
@@ -341,5 +341,5 @@ class TestApplicationContextUserScoping:
             {"company": "AliceCo", "position": "Dev"}, user_id="user_alice"
         )
 
-        with pytest.raises(PermissionError):
+        with pytest.raises(ValueError, match="not found"):
             svc.get_application_context(app["id"], user_id="user_bob")

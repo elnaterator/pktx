@@ -5,6 +5,8 @@ from typing import Literal
 
 from pydantic import BaseModel, field_validator
 
+from pktx.validation import validate_http_url
+
 RESOURCE_TYPES_LITERAL = Literal[
     "application", "accomplishment", "resume", "note", "contact"
 ]
@@ -32,6 +34,11 @@ class ContactInfo(BaseModel):
     linkedin: str | None = None
     website: str | None = None
     github: str | None = None
+
+    @field_validator("linkedin", "website", "github", mode="before")
+    @classmethod
+    def http_url_only(cls, v: object) -> str | None:
+        return validate_http_url(v)
 
 
 class WorkExperience(BaseModel):
@@ -150,6 +157,11 @@ class Application(BaseModel):
     updated_at: str = ""
     links: GroupedLinks = {}
 
+    @field_validator("url", mode="before")
+    @classmethod
+    def http_url_only(cls, v: object) -> str | None:
+        return validate_http_url(v, "url")
+
     @field_validator("status")
     @classmethod
     def validate_status(cls, v: str) -> str:
@@ -255,6 +267,11 @@ class Contact(BaseModel):
         if len(v.strip()) > 255:
             raise ValueError("Name must not exceed 255 characters")
         return v.strip()
+
+    @field_validator("linkedin_url", mode="before")
+    @classmethod
+    def http_url_only(cls, v: object) -> str | None:
+        return validate_http_url(v, "linkedin_url")
 
     @field_validator("last_contacted_date", "followup_date", mode="before")
     @classmethod

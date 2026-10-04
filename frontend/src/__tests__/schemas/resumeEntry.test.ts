@@ -79,4 +79,15 @@ describe('contactInfoSchema', () => {
     const result = contactInfoSchema.safeParse({ linkedin: 'not-a-url' })
     expect(result.success).toBe(false)
   })
+
+  it.each(['linkedin', 'website', 'github'] as const)('rejects javascript: and ftp: for %s', (field) => {
+    expect(contactInfoSchema.safeParse({ [field]: 'javascript:alert(1)' }).success).toBe(false)
+    expect(contactInfoSchema.safeParse({ [field]: 'ftp://example.com' }).success).toBe(false)
+  })
+
+  it.each(['linkedin', 'website', 'github'] as const)('accepts https for %s', (field) => {
+    const result = contactInfoSchema.safeParse({ [field]: 'https://example.com' })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data[field]).toBe('https://example.com')
+  })
 })

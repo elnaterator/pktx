@@ -8,6 +8,7 @@ import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
 import { contactCreateSchema, type ContactCreateInput } from '../../schemas/contact'
 import type { Contact } from '../../types'
+import { ExternalLink } from '../../components/ExternalLink'
 import styles from './ContactPanel.module.css'
 
 const RELATIONSHIP_SUGGESTIONS = [
@@ -241,7 +242,9 @@ export function ContactPanel({
               {contact?.email && (
                 <div className={styles.fieldItem}>
                   <Mail size={14} className={styles.fieldIcon} />
-                  <a href={`mailto:${contact.email}`} className={styles.fieldLink}>{contact.email}</a>
+                  <ExternalLink href={`mailto:${contact.email}`} className={styles.fieldLink} allowMailto>
+                    {contact.email}
+                  </ExternalLink>
                 </div>
               )}
               {contact?.phone && (
@@ -271,9 +274,9 @@ export function ContactPanel({
               {contact?.linkedin_url && (
                 <div className={styles.fieldItem}>
                   <Linkedin size={14} className={styles.fieldIcon} />
-                  <a href={contact.linkedin_url} target="_blank" rel="noopener noreferrer" className={styles.fieldLink}>
+                  <ExternalLink href={contact.linkedin_url} className={styles.fieldLink}>
                     {contact.linkedin_url.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, '').replace(/\/$/, '')}
-                  </a>
+                  </ExternalLink>
                 </div>
               )}
               {contact?.last_contacted_date && (

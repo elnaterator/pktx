@@ -9,6 +9,7 @@ import { MarkdownContent } from '../../components/MarkdownContent'
 import { applicationCreateSchema, APPLICATION_STATUSES } from '../../schemas/application'
 import type { ApplicationCreateInput } from '../../schemas/application'
 import type { Application } from '../../types'
+import { ExternalLink } from '../../components/ExternalLink'
 import styles from './ApplicationPanel.module.css'
 
 export type ApplicationPanelInput = ApplicationCreateInput
@@ -231,9 +232,9 @@ export function ApplicationPanel({
                 <>
                   <span className={styles.detailsLabel}>URL</span>
                   {application?.url ? (
-                    <a href={application.url} className={styles.urlLink} target="_blank" rel="noopener noreferrer">
+                    <ExternalLink href={application.url} className={styles.urlLink}>
                       {application.url}
-                    </a>
+                    </ExternalLink>
                   ) : (
                     <span className={styles.emptyText}>—</span>
                   )}

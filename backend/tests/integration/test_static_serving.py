@@ -92,12 +92,21 @@ class TestStaticFileServing:
     def test_api_routes_still_work(self, app_with_frontend):
         """Test that API routes are not affected by static file serving."""
         client = TestClient(app_with_frontend)
-        response = client.get("/api/resume")
+        response = client.get("/api/resumes/default")
 
         assert response.status_code == 200
-        data = response.json()
+        data = response.json()["resume_data"]
         assert "contact" in data
         assert "summary" in data
+
+    def test_unknown_api_path_returns_json_404(self, app_with_frontend):
+        """Unknown /api/* paths must 404 as JSON, not fall through to index.html."""
+        client = TestClient(app_with_frontend)
+        for method in ("GET", "POST", "PUT", "PATCH", "DELETE"):
+            response = client.request(method, "/api/does-not-exist/1")
+            assert response.status_code == 404, method
+            assert response.headers["content-type"].startswith("application/json")
+            assert "Test Frontend" not in response.text
 
     def test_health_endpoint_still_works(self, app_with_frontend):
         """Test that health endpoint is not affected."""
@@ -126,7 +135,7 @@ class TestStaticFileServing:
         assert response.status_code == 200
 
         # API should still work
-        response = client.get("/api/resume")
+        response = client.get("/api/resumes/default")
         assert response.status_code == 200
 
         # Root path should return 404 since no static files are mounted
@@ -150,13 +159,14 @@ class TestStaticFileServing:
         """Test that API routes take priority over static files with same name."""
         # Create a file that conflicts with an API route
         (temp_frontend_dir / "api").mkdir(exist_ok=True)
-        (temp_frontend_dir / "api" / "resume").write_text("fake static content")
+        (temp_frontend_dir / "api" / "resumes").mkdir(exist_ok=True)
+        (temp_frontend_dir / "api" / "resumes" / "default").write_text("fake")
 
         client = TestClient(app_with_frontend)
-        response = client.get("/api/resume")
+        response = client.get("/api/resumes/default")
 
         # Should get JSON from API, not the static file
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("application/json")
-        data = response.json()
+        data = response.json()["resume_data"]
         assert "contact" in data

@@ -74,7 +74,8 @@ backend/                  # Python FastAPI + MCP server
     config.py             # Configuration (env-var resolvers)
     database.py           # PostgreSQL operations (psycopg + pool)
     migrations.py         # Schema migration framework (schema_version table)
-    db.py                 # DBConnection protocol
+    db.py                 # DBConnection protocol + per-request RequestConnection
+    validation.py         # Shared input validation (tags, http(s) URLs, lengths)
     auth.py               # Clerk JWT (REST) + MCP OAuth proxy (build_mcp_auth)
     oauth_store.py        # PostgreSQL-backed AsyncKeyValue for OAuth-proxy state
     resume_service.py     # Shared business logic (one *_service.py per resource)
@@ -118,8 +119,10 @@ is Clerk's client id and is not checked — there we are the OAuth client, not t
 resource. RFC 9728 metadata is served at `/.well-known/oauth-protected-resource/mcp`
 and aliased at the root path (`server._add_root_resource_metadata_alias`). Redirect
 URIs are restricted to loopback plus whatever `PKTX_EXTRA_CLIENT_REDIRECT_URIS` adds
-(for hosted clients). REST `/api/*` auth is unchanged (Clerk JWT via
-`build_get_current_user`). stdio mode uses `PKTX_USER_ID`, no token.
+(for hosted clients). REST `/api/*` auth is a Clerk session JWT via
+`build_get_current_user`: signature + issuer + `azp` must be in
+`CLERK_AUTHORIZED_PARTIES` (default: origin of `PKTX_PUBLIC_URL`). stdio mode uses
+`PKTX_USER_ID` (required there, ignored over HTTP), no token.
 
 Proxy state (DCR registrations, encrypted upstream tokens, JTI mappings, transient
 authorize state) is stored in PostgreSQL via `oauth_store.PostgresKVStore` (table
@@ -127,7 +130,23 @@ authorize state) is stored in PostgreSQL via `oauth_store.PostgresKVStore` (tabl
 instances. Values are Fernet-encrypted at rest, keyed off the Clerk OAuth client
 secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 `CLERK_JWKS_URL`, `CLERK_OAUTH_CLIENT_ID`, `CLERK_OAUTH_CLIENT_SECRET`. Optional:
-`PKTX_EXTRA_CLIENT_REDIRECT_URIS`.
+`PKTX_EXTRA_CLIENT_REDIRECT_URIS`, `CLERK_AUTHORIZED_PARTIES`.
+
+## Data Access Rules (027)
+
+- **Per-request connection.** Services are built once with a `db.RequestConnection`;
+  it lazily checks a pooled connection out per HTTP request (`DBSessionMiddleware`)
+  or per stdio tool call. One transaction per scope: commit on success, rollback on
+  exception / 5xx / MCP tool error. Never hold a raw connection globally.
+- **Fail-closed user scoping.** Every `database.py` function and service method takes
+  a required `user_id: str`; ownership is enforced in SQL (`WHERE id = %s AND
+  user_id = %s`) and a miss is 404 (no 403 existence oracle). No-auth test mode runs
+  as `"legacy"`. `tests/integration/test_route_scoping.py` calls every route as
+  another user and fails on any route it does not know — register new routes there.
+- **Validate at the service boundary** with `pktx.validation` (`normalize_tags`,
+  `validate_http_url` — http(s) only, bare hosts get `https://`, `check_len`).
+  Frontend renders user URLs only through `components/ExternalLink`.
+- Multi-step writes use `conn.transaction()`, never manual `SAVEPOINT`.
 
 <!-- MANUAL ADDITIONS END -->
 
@@ -158,7 +177,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - FastMCP >=3.4.7 for MCP server (streamable-http + stdio)
 - FastAPI >=0.100.0 for REST API + static file serving
 - uvicorn >=0.20.0 for ASGI HTTP server
-- PostgreSQL 16+ via `psycopg` + `psycopg-pool`, `DBConnection` protocol, migrations in `migrations.py` (schema v13)
+- PostgreSQL 16+ via `psycopg` + `psycopg-pool`, `DBConnection` protocol, migrations in `migrations.py` (schema v14)
 - `uv` for dependency management + packaging
 - pytest for testing (unit, contract, integration)
 - ruff for linting + formatting
@@ -179,6 +198,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - AWS Lambda (container image + Function URL) via Terraform in `infra/`; EventBridge keep-warm rule pings `GET /health` every 5 min (toggle: `keep_warm_enabled` module var)
 
 ## Recent Changes
+- 027-security-fixes: fail-closed user scoping (required `user_id`, owner checks in SQL, 404 not 403), legacy `/api/resume*` routes removed, per-request pooled connection + transaction, http(s)-only URLs (server + `ExternalLink`), tag/length validation, REST JWT `azp` check (new optional env `CLERK_AUTHORIZED_PARTIES`), `PKTX_USER_ID` stdio-only, JWKS refetch throttle, 1 MB body cap; schema v13 → v14 (data repair)
 - 025-mcp-auth-spec-gaps: FastMCP 2.14.5 → 3.4.7; MCP 2025-11-25 gaps closed — CIMD client ids (`enable_cimd`), proxy tokens audience-bound to `<public>/mcp`, root `/.well-known/oauth-protected-resource` alias; new optional env `PKTX_EXTRA_CLIENT_REDIRECT_URIS`
 - 017-oauth-dcr-proxy: MCP auth moved to FastMCP `OAuthProxy` (local DCR, loopback-tolerant), proxy state persisted in PostgreSQL (`oauth_kv`, schema v13); new env `CLERK_OAUTH_CLIENT_ID` / `CLERK_OAUTH_CLIENT_SECRET`
 - feat-015-tags-handling: Added Python 3.11+ (backend); TypeScript 5.x / React 18 (frontend) + FastAPI ≥0.100.0, FastMCP ≥2.3.0, React 18, Vite 6, Vitest 2 — all existing, no new deps

@@ -6,6 +6,7 @@ import { EditableSection } from '../../components/EditableSection';
 import { updateResumeContact, updateVersionContact } from '../../services/api';
 import { FieldError } from '../../components/FieldError';
 import { contactInfoSchema, type ContactInfoInput } from '../../schemas/resumeEntry';
+import { ExternalLink } from '../../components/ExternalLink';
 import styles from './ContactSection.module.css';
 
 interface ContactSectionProps {
@@ -34,15 +35,13 @@ function ContactReadView({ contact }: { contact: ContactInfo }) {
             <span key={i} className={styles.contactItem}>{d}</span>
           ))}
           {links.map((l, i) => (
-            <a
+            <ExternalLink
               key={i}
               href={l.href}
-              target="_blank"
-              rel="noopener noreferrer"
               className={`${styles.contactItem} ${styles.contactLink}`}
             >
               {l.label}
-            </a>
+            </ExternalLink>
           ))}
         </div>
       )}

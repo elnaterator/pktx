@@ -39,6 +39,14 @@ module "lambda" {
     # patterns the app always allows. Not a secret, so it lives in tfvars
     # rather than SSM.
     PKTX_EXTRA_CLIENT_REDIRECT_URIS = join(",", var.extra_client_redirect_uris)
+
+    # Allowed `azp` origins for REST session JWTs. Empty → the app defaults to
+    # the PKTX_PUBLIC_URL origin; otherwise that origin is kept and the extra
+    # origins are appended.
+    CLERK_AUTHORIZED_PARTIES = length(var.authorized_parties) == 0 ? "" : join(",", concat(
+      [regex("^[^:/]+://[^/]+", data.aws_ssm_parameter.pktx_public_url.value)],
+      var.authorized_parties,
+    ))
   }
 
   tags = {

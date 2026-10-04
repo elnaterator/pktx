@@ -18,23 +18,11 @@ from pktx.models import (
     COMMUNICATION_STATUSES,
     COMMUNICATION_TYPES,
 )
+from pktx.validation import MAX_LONG, MAX_SHORT, check_lengths, normalize_tags
 
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
-
-def _normalize_tags(tags: list[str]) -> list[str]:
-    seen: set[str] = set()
-    result: list[str] = []
-    for tag in tags:
-        normalized = tag.strip().lower()
-        if not normalized:
-            continue
-        if len(normalized) > 50:
-            raise ValueError(f"Tag must not exceed 50 characters: '{normalized}'")
-        if normalized not in seen:
-            seen.add(normalized)
-            result.append(normalized)
-    return result
+_LIMITS = {"subject": MAX_SHORT, "body": MAX_LONG}
 
 
 def _validate_comm_fields(data: dict[str, Any]) -> None:
@@ -61,6 +49,34 @@ def _validate_comm_fields(data: dict[str, Any]) -> None:
     if status not in COMMUNICATION_STATUSES:
         valid_s = ", ".join(COMMUNICATION_STATUSES)
         raise ValueError(f"Invalid status: '{status}'. Must be one of: {valid_s}")
+    check_lengths(data, _LIMITS)
+
+
+def _validate_patch(data: dict[str, Any]) -> dict[str, Any]:
+    if "type" in data and data["type"] not in COMMUNICATION_TYPES:
+        raise ValueError(
+            f"Invalid type: '{data['type']}'. "
+            f"Must be one of: {', '.join(COMMUNICATION_TYPES)}"
+        )
+    if "direction" in data and data["direction"] not in COMMUNICATION_DIRECTIONS:
+        raise ValueError(
+            f"Invalid direction: '{data['direction']}'. "
+            f"Must be one of: {', '.join(COMMUNICATION_DIRECTIONS)}"
+        )
+    if "status" in data and data["status"] not in COMMUNICATION_STATUSES:
+        raise ValueError(
+            f"Invalid status: '{data['status']}'. "
+            f"Must be one of: {', '.join(COMMUNICATION_STATUSES)}"
+        )
+    if "date" in data and data["date"]:
+        if not _ISO_DATE_RE.match(str(data["date"])):
+            raise ValueError(
+                f"date must be in YYYY-MM-DD format, got: '{data['date']}'"
+            )
+    check_lengths(data, _LIMITS)
+    if "tags" in data:
+        data = {**data, "tags": normalize_tags(data["tags"])}
+    return data
 
 
 class ContactCommunicationService:
@@ -70,13 +86,13 @@ class ContactCommunicationService:
         self._conn = conn
 
     def list_for_contact(
-        self, contact_id: int, user_id: str | None = None
+        self, contact_id: int, *, user_id: str
     ) -> list[dict[str, Any]]:
         load_contact(self._conn, contact_id, user_id=user_id)
-        return load_contact_communications(self._conn, contact_id)
+        return load_contact_communications(self._conn, contact_id, user_id=user_id)
 
     def add_for_contact(
-        self, contact_id: int, data: dict[str, Any], user_id: str | None = None
+        self, contact_id: int, data: dict[str, Any], *, user_id: str
     ) -> dict[str, Any]:
         load_contact(self._conn, contact_id, user_id=user_id)
         _validate_comm_fields(data)
@@ -87,63 +103,46 @@ class ContactCommunicationService:
             "body": data["body"],
             "date": data["date"],
             "status": data.get("status", "sent"),
-            "tags": _normalize_tags(data.get("tags") or []),
+            "tags": normalize_tags(data.get("tags")),
         }
         return create_contact_communication(
             self._conn, contact_id, cleaned, user_id=user_id
         )
 
     def update(
-        self, comm_id: int, data: dict[str, Any], user_id: str | None = None
+        self,
+        comm_id: int,
+        data: dict[str, Any],
+        *,
+        user_id: str,
+        contact_id: int | None = None,
     ) -> dict[str, Any]:
-        if "type" in data and data["type"] not in COMMUNICATION_TYPES:
-            raise ValueError(
-                f"Invalid type: '{data['type']}'. "
-                f"Must be one of: {', '.join(COMMUNICATION_TYPES)}"
-            )
-        if "direction" in data and data["direction"] not in COMMUNICATION_DIRECTIONS:
-            raise ValueError(
-                f"Invalid direction: '{data['direction']}'. "
-                f"Must be one of: {', '.join(COMMUNICATION_DIRECTIONS)}"
-            )
-        if "status" in data and data["status"] not in COMMUNICATION_STATUSES:
-            raise ValueError(
-                f"Invalid status: '{data['status']}'. "
-                f"Must be one of: {', '.join(COMMUNICATION_STATUSES)}"
-            )
-        if "date" in data and data["date"]:
-            if not _ISO_DATE_RE.match(str(data["date"])):
-                raise ValueError(
-                    f"date must be in YYYY-MM-DD format, got: '{data['date']}'"
-                )
-        if "tags" in data and data["tags"] is not None:
-            data = {**data, "tags": _normalize_tags(data["tags"])}
-        comm_row = self._conn.execute(
-            "SELECT c.contact_ref_id, ct.user_id AS contact_user_id "
-            "FROM communication c "
-            "LEFT JOIN contact ct ON c.contact_ref_id = ct.id "
-            "WHERE c.id = %s",
-            (comm_id,),
-        ).fetchone()
-        if comm_row is None:
-            raise ValueError(f"Communication {comm_id} not found")
-        if user_id is not None and comm_row["contact_user_id"] != user_id:
-            raise PermissionError(
-                f"Communication {comm_id} belongs to a different user"
-            )
-        return update_communication(self._conn, comm_id, data)
+        """Patch a communication owned (via its contact) by ``user_id``.
 
-    def remove(self, comm_id: int, user_id: str | None = None) -> str:
-        return delete_communication_owned(self._conn, comm_id, user_id=user_id)
+        When ``contact_id`` is given (REST path) the communication must also
+        belong to that contact; any mismatch is "not found".
+        """
+        data = _validate_patch(data)
+        return update_communication(
+            self._conn, comm_id, data, user_id=user_id, contact_id=contact_id
+        )
 
-    def list_tags(self, user_id: str | None = None) -> list[str]:
+    def remove(
+        self, comm_id: int, *, user_id: str, contact_id: int | None = None
+    ) -> str:
+        return delete_communication_owned(
+            self._conn, comm_id, user_id=user_id, contact_id=contact_id
+        )
+
+    def list_tags(self, user_id: str) -> list[str]:
         return load_communication_tags(self._conn, user_id=user_id)
 
     def search(
         self,
         q: str | None = None,
         tags: list[str] | None = None,
-        user_id: str | None = None,
+        *,
+        user_id: str,
     ) -> list[dict[str, Any]]:
         normalized_tags = [t.strip().lower() for t in (tags or []) if t.strip()]
         return search_communications(

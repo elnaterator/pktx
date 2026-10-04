@@ -4,7 +4,7 @@ from collections.abc import Callable
 
 from fastmcp import FastMCP
 
-from pktx.auth import current_user_id_var
+from pktx.auth import require_user_id
 from pktx.link_service import RESOURCE_TYPES, LinkService
 
 _VALID_TYPES = ", ".join(RESOURCE_TYPES)
@@ -39,7 +39,7 @@ def register_link_tools(
         if b_type not in RESOURCE_TYPES:
             return f"Error: invalid type '{b_type}'. Must be one of: {_VALID_TYPES}"
 
-        uid = current_user_id_var.get(None) or "legacy"
+        uid = require_user_id()
         svc = get_link_service()
         try:
             svc.link(a_type, a_id, b_type, b_id, uid)
@@ -70,7 +70,7 @@ def register_link_tools(
         if b_type not in RESOURCE_TYPES:
             return f"Error: invalid type '{b_type}'. Must be one of: {_VALID_TYPES}"
 
-        uid = current_user_id_var.get(None) or "legacy"
+        uid = require_user_id()
         svc = get_link_service()
         try:
             svc.unlink(a_type, a_id, b_type, b_id, uid)

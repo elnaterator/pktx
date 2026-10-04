@@ -48,6 +48,14 @@ describe('ContactSection (view mode)', () => {
     expect(githubLink).toHaveAttribute('href', 'https://github.com/janesmith');
   });
 
+  it('renders a stored javascript: URL as plain text, not a link', () => {
+    render(<ContactSection contact={{ ...fullContact, website: 'javascript:alert(1)' }} />);
+
+    expect(screen.queryByRole('link', { name: /website/i })).not.toBeInTheDocument();
+    expect(screen.getByText('Website').tagName).toBe('SPAN');
+    expect(screen.getByRole('link', { name: /linkedin/i })).toBeInTheDocument();
+  });
+
   it('handles null fields gracefully', () => {
     render(<ContactSection contact={partialContact} />);
 

@@ -1,7 +1,7 @@
 """Integration tests for two-user data isolation.
 
 Verifies that Alice and Bob each see only their own data and that
-cross-user detail access raises 403. Also tests account deletion cascade.
+cross-user detail access returns 404. Also tests account deletion cascade.
 """
 
 import time
@@ -61,7 +61,14 @@ def _make_token(
         encryption_algorithm=serialization.NoEncryption(),
     )
     return jwt.encode(
-        {"sub": sub, "iss": issuer, "iat": now, "exp": now + 3600, "email": email},
+        {
+            "sub": sub,
+            "iss": issuer,
+            "iat": now,
+            "exp": now + 3600,
+            "email": email,
+            "azp": "http://testserver",
+        },
         pem,
         algorithm="RS256",
         headers={"kid": kid},
@@ -71,6 +78,12 @@ def _make_token(
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def _authorized_parties(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Tokens above carry azp=http://testserver (027 / M12)."""
+    monkeypatch.setenv("CLERK_AUTHORIZED_PARTIES", "http://testserver")
 
 
 @pytest.fixture
@@ -224,7 +237,7 @@ class TestMultiUserDataIsolation:
 
 
 class TestCrossUserDetailAccess:
-    """Bob attempting detail access to Alice's resources receives 403."""
+    """Bob attempting detail access to Alice's resources receives 404."""
 
     @pytest.fixture(autouse=True)
     def _create_alice_data(self, two_user_setup: dict[str, Any]) -> None:
@@ -264,15 +277,15 @@ class TestCrossUserDetailAccess:
 
     def test_bob_cannot_get_alice_resume(self) -> None:
         resp = self._get(f"/api/resumes/{self.alice_resume_id}", self.bob_token)
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_bob_cannot_get_alice_application(self) -> None:
         resp = self._get(f"/api/applications/{self.alice_app_id}", self.bob_token)
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_bob_cannot_get_alice_accomplishment(self) -> None:
         resp = self._get(f"/api/accomplishments/{self.alice_acc_id}", self.bob_token)
-        assert resp.status_code == 403
+        assert resp.status_code == 404
 
     def test_alice_can_get_her_own_resume(self) -> None:
         resp = self._get(f"/api/resumes/{self.alice_resume_id}", self.alice_token)

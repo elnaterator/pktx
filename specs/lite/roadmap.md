@@ -100,6 +100,12 @@ I want to rename this app from persona to pktx which is short for personal conte
 Add a user-facing "export my data" feature: full dump of the user's accomplishments, applications, resumes, notes, contacts, and communications as JSON (optionally Markdown). Export is the data-portability trust story. Blocker for first beta invite. Backups are deliberately out of scope — Neon's own PITR is the backup story, configured in the Neon console, with no Terraform-managed backup infrastructure of our own.
 
 
+## 027 Security and data-integrity fixes from code review - SHIPPED
+
+Fix all findings from the 2026-10-02 review. Critical: legacy `/api/resume*` routes are unscoped (any user reads/writes another user's resume), `user_id=None` fails open across `database.py`, accomplishment tags leak across users, `javascript:` URLs give stored XSS (reachable via prompt-injected MCP writes). High: resume delete broken in prod (SAVEPOINT under autocommit), single shared DB connection for all requests, `tags` null/string poisoning, unvalidated `update_entry`. Medium: JWKS refetch amplification + blocking fetch in async middleware, `PKTX_USER_ID` fallback in HTTP mode, no `azp` check, blocking upsert in MCP middleware, minor hardening. Close test gaps: autocommit fixture, route-wide user-scoping test, bad-input tests. Must land before beta (021+).
+Notes: research/security-review.md
+
+
 ## 021 Error tracking and feedback loop
 Add error tracking (Sentry free tier or similar) for backend and frontend, wired to alert the developer on new errors. Add one low-friction in-app feedback channel (footer link to a form or shared chat). Goal: see errors before beta users report them, and make giving feedback effortless.
 

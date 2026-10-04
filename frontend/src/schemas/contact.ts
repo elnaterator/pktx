@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { httpUrl } from './httpUrl'
 
 const trimmed = (max?: number) => {
   const s = z.string().trim()
@@ -25,8 +26,7 @@ export const contactCreateSchema = z.object({
   company: optionalTrimmed(200),
   title: optionalTrimmed(200),
   relationship: optionalTrimmed(200),
-  linkedin_url: optionalTrimmed()
-    .pipe(z.string().url('Invalid URL').optional()),
+  linkedin_url: httpUrl(),
   location: optionalTrimmed(200),
   last_contacted_date: optionalDate,
   followup_date: optionalDate,

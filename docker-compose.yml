@@ -35,6 +35,8 @@ services:
       - CLERK_OAUTH_CLIENT_ID=${CLERK_OAUTH_CLIENT_ID}
       - CLERK_OAUTH_CLIENT_SECRET=${CLERK_OAUTH_CLIENT_SECRET}
       - CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET}
+      # Origins whose Clerk session JWTs (azp claim) the REST API accepts.
+      - CLERK_AUTHORIZED_PARTIES=${CLERK_AUTHORIZED_PARTIES:-http://localhost:8000,http://localhost:5173}
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
       interval: 30s

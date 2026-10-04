@@ -14,6 +14,7 @@ from pktx.database import (
 )
 from pktx.db import DBConnection
 from pktx.link_service import LinkService
+from pktx.validation import MAX_LONG, MAX_NAME, check_lengths, normalize_tags
 
 _DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
@@ -26,20 +27,13 @@ def _validate_date(value: str) -> None:
         )
 
 
-def _normalize_tags(tags: list[str]) -> list[str]:
-    """Trim, lowercase, enforce 50-char max, deduplicate while preserving order."""
-    seen: set[str] = set()
-    result: list[str] = []
-    for tag in tags:
-        normalized = tag.strip().lower()
-        if not normalized:
-            continue
-        if len(normalized) > 50:
-            raise ValueError(f"Tag must not exceed 50 characters: '{normalized}'")
-        if normalized not in seen:
-            seen.add(normalized)
-            result.append(normalized)
-    return result
+_LIMITS = {
+    "title": MAX_NAME,
+    "situation": MAX_LONG,
+    "task": MAX_LONG,
+    "action": MAX_LONG,
+    "result": MAX_LONG,
+}
 
 
 class AccomplishmentService:
@@ -53,34 +47,30 @@ class AccomplishmentService:
         self,
         tags: list[str] | None = None,
         q: str | None = None,
-        user_id: str | None = None,
+        *,
+        user_id: str,
     ) -> list[dict[str, Any]]:
         """Return AccomplishmentSummary dicts, ordered reverse-chronologically."""
         accs = load_accomplishments(self._conn, tags=tags or [], q=q, user_id=user_id)
         if accs:
-            uid = user_id or "legacy"
             ids = [a["id"] for a in accs]
-            counts = self._links.count_links("accomplishment", ids, uid)
+            counts = self._links.count_links("accomplishment", ids, user_id)
             for a in accs:
                 a["link_count"] = counts.get(a["id"], 0)
         return accs
 
-    def list_tags(self, user_id: str | None = None) -> list[str]:
+    def list_tags(self, user_id: str) -> list[str]:
         """Return sorted unique tag list for autocomplete."""
         return load_accomplishment_tags(self._conn, user_id=user_id)
 
-    def get_accomplishment(
-        self, acc_id: int, user_id: str | None = None
-    ) -> dict[str, Any]:
+    def get_accomplishment(self, acc_id: int, *, user_id: str) -> dict[str, Any]:
         """Return full Accomplishment dict. Raises ValueError if not found."""
         acc = load_accomplishment(self._conn, acc_id, user_id=user_id)
-        acc["links"] = self._links.list_links(
-            "accomplishment", acc_id, user_id or "legacy"
-        )
+        acc["links"] = self._links.list_links("accomplishment", acc_id, user_id)
         return acc
 
     def create_accomplishment(
-        self, data: dict[str, Any], user_id: str | None = None
+        self, data: dict[str, Any], *, user_id: str
     ) -> dict[str, Any]:
         """Validate and persist a new accomplishment.
 
@@ -95,7 +85,8 @@ class AccomplishmentService:
         if acc_date is not None:
             _validate_date(str(acc_date))
 
-        tags = _normalize_tags(data.get("tags", []))
+        check_lengths({**data, "title": str(title).strip()}, _LIMITS)
+        tags = normalize_tags(data.get("tags"))
 
         cleaned: dict[str, Any] = {
             "title": str(title).strip(),
@@ -109,7 +100,7 @@ class AccomplishmentService:
         return create_accomplishment(self._conn, cleaned, user_id=user_id)
 
     def update_accomplishment(
-        self, acc_id: int, data: dict[str, Any], user_id: str | None = None
+        self, acc_id: int, data: dict[str, Any], *, user_id: str
     ) -> dict[str, Any]:
         """Patch fields. Raises ValueError if not found or title would become empty.
 
@@ -124,14 +115,15 @@ class AccomplishmentService:
         if "accomplishment_date" in data and data["accomplishment_date"] is not None:
             _validate_date(str(data["accomplishment_date"]))
 
-        if "tags" in data and data["tags"] is not None:
-            data = {**data, "tags": _normalize_tags(data["tags"])}
+        check_lengths(data, _LIMITS)
+        if "tags" in data:
+            data = {**data, "tags": normalize_tags(data["tags"])}
 
         return update_accomplishment(self._conn, acc_id, data, user_id=user_id)
 
-    def delete_accomplishment(
-        self, acc_id: int, user_id: str | None = None
-    ) -> dict[str, Any]:
-        """Delete. Raises ValueError if not found."""
-        unlink_all_for(self._conn, "accomplishment", acc_id, user_id or "legacy")
-        return delete_accomplishment(self._conn, acc_id, user_id=user_id)
+    def delete_accomplishment(self, acc_id: int, *, user_id: str) -> dict[str, Any]:
+        """Delete with links, atomically. Raises ValueError if not found."""
+        load_accomplishment(self._conn, acc_id, user_id=user_id)
+        with self._conn.transaction():
+            unlink_all_for(self._conn, "accomplishment", acc_id, user_id)
+            return delete_accomplishment(self._conn, acc_id, user_id=user_id)
