@@ -29,7 +29,7 @@ test: ## Test both frontend and backend
 	$(MAKE) -C frontend test
 	$(MAKE) -C backend test
 
-check: ## Run lint + test for both + terraform fmt check + checkov scan
+check: ## Run lint + audit + test for both + terraform fmt check + Trivy IaC scan
 	$(MAKE) -C frontend check
 	$(MAKE) -C backend check
 	$(MAKE) tf-check
@@ -41,9 +41,10 @@ format: ## Format both frontend and backend
 tf-lint: ## Check Terraform formatting (infra/)
 	terraform fmt -check -recursive infra/
 
-tf-check: ## Run tf-lint + Checkov security scan (infra/)
+tf-check: ## Run tf-lint + Trivy IaC scan (infra/)
 	$(MAKE) tf-lint
-	uvx checkov -d infra/ --quiet --compact
+	@command -v trivy >/dev/null || { echo "trivy not found: brew install trivy (https://trivy.dev)"; exit 1; }
+	trivy config --quiet --exit-code 1 --severity HIGH,CRITICAL infra/
 
 deploy: ## Build image, push to ECR, and apply Terraform (requires ENV=dev|prod)
 ifndef ENV
@@ -62,6 +63,9 @@ endif
 	  -target=aws_ssm_parameter.clerk_issuer \
 	  -target=aws_ssm_parameter.clerk_webhook_secret \
 	  -target=aws_ssm_parameter.clerk_secret_key \
+	  -target=aws_ssm_parameter.pktx_public_url \
+	  -target=aws_ssm_parameter.clerk_oauth_client_id \
+	  -target=aws_ssm_parameter.clerk_oauth_client_secret \
 	  -auto-approve
 	@echo "==> [3/5] build and push Docker image to ECR"
 	@set -e; \

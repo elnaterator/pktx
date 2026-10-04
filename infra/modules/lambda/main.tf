@@ -4,7 +4,8 @@ data "aws_caller_identity" "current" {}
 resource "aws_ecr_repository" "app" {
   #checkov:skip=CKV_AWS_136:Default AWS-managed encryption is sufficient for a personal app; KMS CMK adds cost/complexity without meaningful benefit
   #checkov:skip=CKV_AWS_51:Mutable image tags are required for the dev/prod deployment workflow (same :latest or :sha tag is re-pushed per environment)
-  name                 = "pktx-${var.environment}"
+  name = "pktx-${var.environment}"
+  #trivy:ignore:AWS-0031 Mutable tags required: deploy re-pushes the same tag per environment
   image_tag_mutability = "MUTABLE"
 
   image_scanning_configuration {

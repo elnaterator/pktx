@@ -16,7 +16,6 @@ dependencies = [
     "svix>=1.0.0",
     "psycopg[binary]>=3.1",
     "psycopg-pool>=3.1",
-    "clerk-backend-api>=1.0.0",
 ]
 
 [project.scripts]
@@ -44,7 +43,11 @@ target-version = "py311"
 src = ["src"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W"]
+select = ["E", "F", "I", "W", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests: asserts are the point; fixtures use fake secrets and literal table names.
+"tests/**" = ["S101", "S105", "S106", "S608"]
 
 [tool.pyright]
 pythonVersion = "3.11"

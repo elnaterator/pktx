@@ -5,8 +5,8 @@ project conventions, and what to expect when opening a pull request.
 
 ## Development setup
 
-Install the required tools (see the [README](README.md#required-tools)): `uv`, Node.js 20+,
-Docker, and `make`. Terraform and the AWS CLI are only needed for infra work.
+Install the required tools (see the [README](README.md#required-tools)): `uv`, Node.js 22+,
+Docker, Trivy, and `make`. Terraform and the AWS CLI are only needed for infra work.
 
 ```bash
 make setup   # uv sync + npm ci
@@ -30,7 +30,7 @@ Copy `.env.example` to `.env` and fill in the Clerk values (a free Clerk account
 All of these must pass before a PR is merged (CI runs them too):
 
 ```bash
-make check      # everything: lint + typecheck + test, frontend + backend
+make check      # everything: lint + typecheck + audit + test + IaC scan
 make format     # auto-format (ruff + prettier-style ESLint fixes)
 ```
 
@@ -43,6 +43,31 @@ PostgreSQL, so Docker must be running. Test layout:
 - `frontend/src/__tests__/` — Vitest + React Testing Library component tests
 
 New behavior needs tests at the appropriate layer; bug fixes need a regression test.
+
+## Security checks
+
+`make check` fails on any of these:
+
+- **ruff `S` (bandit) rules**: Python security lint. Suppress a false positive with
+  `# noqa: S<code> — <why it is safe>`. A bare `noqa` is not accepted in review.
+- **`pip-audit`** (`make -C backend audit`): known CVEs in the locked runtime deps.
+- **`npm audit --audit-level=high --omit=dev`** (`make -C frontend audit`).
+- **Trivy IaC** (`make tf-check`): HIGH/CRITICAL Terraform misconfigurations.
+
+CI's `Security` workflow also scans the built image and the repo for secrets with Trivy,
+on every PR and weekly. CodeQL runs through GitHub's default setup.
+
+**Waivers** (only when no fix exists, or the finding doesn't apply):
+
+| Scanner | Where | Format |
+|---|---|---|
+| pip-audit | `PIP_AUDIT_IGNORE` in `backend/Makefile` | ID + reason + expiry comment |
+| Trivy image / secret | `.trivyignore` | ID + `exp:YYYY-MM-DD` + reason comment |
+| Trivy IaC | inline `#trivy:ignore:<ID> <reason>` above the attribute | |
+
+Dependency updates come from Renovate (`renovate.json`): weekly grouped PRs, and
+security fixes immediately. Patch and dev-dependency updates auto-merge once CI passes;
+minor and major updates wait for a human.
 
 ## Project conventions
 

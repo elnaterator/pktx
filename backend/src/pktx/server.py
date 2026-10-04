@@ -6,7 +6,7 @@ import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable, MutableMapping
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Any, TypeVar
 
 import anyio
 import anyio.to_thread
@@ -101,39 +101,42 @@ _comm_service: ContactCommunicationService | None = None
 _link_service: LinkService | None = None
 
 
+T = TypeVar("T")
+
+
+def _require(value: T | None, name: str) -> T:
+    """Return an initialized module global; raises (not asserts) so ``-O`` keeps it."""
+    if value is None:
+        raise RuntimeError(f"{name} is not initialized")
+    return value
+
+
 def _get_resume_service() -> ResumeService:
-    assert _service is not None
-    return _service
+    return _require(_service, "_service")
 
 
 def _get_app_service() -> ApplicationService:
-    assert _app_service is not None
-    return _app_service
+    return _require(_app_service, "_app_service")
 
 
 def _get_acc_service() -> AccomplishmentService:
-    assert _acc_service is not None
-    return _acc_service
+    return _require(_acc_service, "_acc_service")
 
 
 def _get_note_service() -> NoteService:
-    assert _note_service is not None
-    return _note_service
+    return _require(_note_service, "_note_service")
 
 
 def _get_contact_service() -> ContactService:
-    assert _contact_service is not None
-    return _contact_service
+    return _require(_contact_service, "_contact_service")
 
 
 def _get_comm_service() -> ContactCommunicationService:
-    assert _comm_service is not None
-    return _comm_service
+    return _require(_comm_service, "_comm_service")
 
 
 def _get_link_service() -> LinkService:
-    assert _link_service is not None
-    return _link_service
+    return _require(_link_service, "_link_service")
 
 
 def _init_services(service: ResumeService, conn: DBConnection | None) -> None:
@@ -356,7 +359,8 @@ def _build_mcp(
 ) -> FastMCP:
     """Create FastMCP instance, register all tools, and wire auth/middleware."""
     if production:
-        assert _pool is not None, "DB pool required for production MCP auth"
+        if _pool is None:
+            raise RuntimeError("DB pool required for production MCP auth")
         mcp_auth = build_mcp_auth(_pool)
     else:
         mcp_auth = None
@@ -444,7 +448,8 @@ def create_app(
         conn = RequestConnection(pool)
         if service is None:
             service = ResumeService(conn)
-    assert service is not None, "create_app needs a service, conn or pool"
+    if service is None:
+        raise RuntimeError("create_app needs a service, conn or pool")
 
     _init_services(service, conn)
 
@@ -579,7 +584,7 @@ def main() -> None:
     else:
         port = resolve_port()
         app = create_app()
-        uvicorn.run(app, host="0.0.0.0", port=port)
+        uvicorn.run(app, host="0.0.0.0", port=port)  # noqa: S104 — container/Lambda adapter must reach it
 
 
 if __name__ == "__main__":

@@ -126,7 +126,7 @@ def _load_owned(
     indistinguishable from a missing one (no existence oracle).
     """
     row = conn.execute(
-        f"SELECT * FROM {table} WHERE id = %s AND user_id = %s",
+        f"SELECT * FROM {table} WHERE id = %s AND user_id = %s",  # noqa: S608 — table is a literal from callers
         (row_id, user_id),
     ).fetchone()
     if row is None:
@@ -443,7 +443,7 @@ def update_application(
     params.extend([app_id, user_id])
 
     conn.execute(
-        f"UPDATE application SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
+        f"UPDATE application SET {', '.join(sets)} WHERE id = %s AND user_id = %s",  # noqa: S608 — columns from fixed `updatable` tuple
         params,
     )
     return load_application(conn, app_id, user_id)
@@ -573,7 +573,7 @@ def update_communication(
 
     params.append(comm_id)
     conn.execute(
-        f"UPDATE communication SET {', '.join(sets)} WHERE id = %s",
+        f"UPDATE communication SET {', '.join(sets)} WHERE id = %s",  # noqa: S608 — columns from fixed `updatable` tuple
         params,
     )
     return load_communication(conn, comm_id, user_id)
@@ -766,7 +766,7 @@ def update_accomplishment(
     params.extend([acc_id, user_id])
 
     conn.execute(
-        f"UPDATE accomplishment SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
+        f"UPDATE accomplishment SET {', '.join(sets)} WHERE id = %s AND user_id = %s",  # noqa: S608 — columns from fixed `updatable` tuple
         params,
     )
     return load_accomplishment(conn, acc_id, user_id)
@@ -859,7 +859,7 @@ def load_notes(
     """List a user's notes as summaries ordered by updated_at DESC."""
     conditions, params = build_filters(user_id, tags, q, ["title", "content"])
     query = (
-        "SELECT id, title, tags, created_at, updated_at FROM note WHERE "
+        "SELECT id, title, tags, created_at, updated_at FROM note WHERE "  # noqa: S608 — conditions from build_filters, values parameterized
         + " AND ".join(conditions)
         + " ORDER BY updated_at DESC"
     )
@@ -896,7 +896,7 @@ def update_note(
     params.extend([note_id, user_id])
 
     conn.execute(
-        f"UPDATE note SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
+        f"UPDATE note SET {', '.join(sets)} WHERE id = %s AND user_id = %s",  # noqa: S608 — columns from fixed `updatable` tuple
         params,
     )
     return load_note(conn, note_id, user_id)
@@ -1023,7 +1023,7 @@ def load_contacts(
         user_id, tags, q, ["name", "company", "title", "notes"]
     )
     query = (
-        "SELECT id, name, company, title, relationship, "
+        "SELECT id, name, company, title, relationship, "  # noqa: S608 — conditions from build_filters, values parameterized
         "followup_date, tags, updated_at FROM contact WHERE "
         + " AND ".join(conditions)
         + " ORDER BY updated_at DESC"
@@ -1061,7 +1061,7 @@ def update_contact(
     params.extend([contact_id, user_id])
 
     conn.execute(
-        f"UPDATE contact SET {', '.join(sets)} WHERE id = %s AND user_id = %s",
+        f"UPDATE contact SET {', '.join(sets)} WHERE id = %s AND user_id = %s",  # noqa: S608 — columns from fixed `updatable` tuple
         params,
     )
     return load_contact(conn, contact_id, user_id)

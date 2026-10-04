@@ -59,7 +59,7 @@ module "lambda" {
 
 # SSM SecureString parameters for runtime secrets.
 # Terraform creates each parameter with a placeholder value. Real values must be
-# set manually before the first full terraform apply (see quickstart.md Step 4):
+# set manually before the first full terraform apply (see docs/deployment.md, Phase 2):
 #   aws ssm put-parameter --name /pktx/dev/database_url --value "..." \
 #     --type SecureString --overwrite
 #

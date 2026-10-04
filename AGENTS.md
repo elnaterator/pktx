@@ -10,7 +10,7 @@ All project principles, technology constraints, packaging rules, dev workflow, g
 
 ```bash
 # Root commands (orchestrates both frontend and backend)
-make check      # lint + typecheck + test (both frontend and backend)
+make check      # lint + typecheck + audit + test + Trivy IaC (frontend, backend, infra)
 make build      # build frontend then backend
 make run        # docker compose up --build
 make run-local  # build frontend, then run backend locally
@@ -20,7 +20,7 @@ make format     # auto-format both frontend and backend
 
 # Backend-specific (from backend/ directory)
 cd backend
-make check      # lint + typecheck + test
+make check      # lint + typecheck + pip-audit + test
 make test       # uv run pytest
 make lint       # ruff check + format check
 make run        # uv run pktx (HTTP server)
@@ -28,7 +28,7 @@ make format     # auto-format with ruff
 
 # Frontend-specific (from frontend/ directory)
 cd frontend
-make check      # lint + test
+make check      # lint + npm audit + test
 make build      # npm run build (Vite production build)
 make run        # npm run dev (Vite dev server with HMR)
 make lint       # npm run lint (ESLint)
@@ -195,9 +195,11 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 ### Infrastructure
 - Docker + Docker Compose for containerized deployment (multi-stage build)
 - GNU Make for build orchestration (root + per-directory Makefiles)
+- Security: ruff `S` (bandit), `pip-audit`, `npm audit`, Trivy (IaC in `make check`; image + secrets in `security.yml`), CodeQL default setup, Renovate (`renovate.json`). Waivers: `PIP_AUDIT_IGNORE` (backend/Makefile), `.trivyignore`, inline `#trivy:ignore:<ID>`
 - AWS Lambda (container image + Function URL) via Terraform in `infra/`; EventBridge keep-warm rule pings `GET /health` every 5 min (toggle: `keep_warm_enabled` module var)
 
 ## Recent Changes
+- 028-security-scanning: Renovate + Trivy (replaces Checkov) + pip-audit + npm audit + ruff `S`; new `security.yml` (PR + weekly); Dockerfile on node 22, all images digest-pinned, runtime drops system pip/setuptools and applies Debian security updates; Actions SHA-pinned with read-only `permissions`; vulnerable deps bumped; unused `clerk-backend-api` dropped
 - 027-security-fixes: fail-closed user scoping (required `user_id`, owner checks in SQL, 404 not 403), legacy `/api/resume*` routes removed, per-request pooled connection + transaction, http(s)-only URLs (server + `ExternalLink`), tag/length validation, REST JWT `azp` check (new optional env `CLERK_AUTHORIZED_PARTIES`), `PKTX_USER_ID` stdio-only, JWKS refetch throttle, 1 MB body cap; schema v13 → v14 (data repair)
 - 025-mcp-auth-spec-gaps: FastMCP 2.14.5 → 3.4.7; MCP 2025-11-25 gaps closed — CIMD client ids (`enable_cimd`), proxy tokens audience-bound to `<public>/mcp`, root `/.well-known/oauth-protected-resource` alias; new optional env `PKTX_EXTRA_CLIENT_REDIRECT_URIS`
 - 017-oauth-dcr-proxy: MCP auth moved to FastMCP `OAuthProxy` (local DCR, loopback-tolerant), proxy state persisted in PostgreSQL (`oauth_kv`, schema v13); new env `CLERK_OAUTH_CLIENT_ID` / `CLERK_OAUTH_CLIENT_SECRET`

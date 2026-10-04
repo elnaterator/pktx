@@ -63,7 +63,7 @@ _JWKS_MIN_REFETCH_INTERVAL: float = 60.0
 _JWKS_LAST_ATTEMPT: float = float("-inf")  # last fetch attempt (success or not)
 _JWKS_LOCK = threading.Lock()
 
-_INVALID_TOKEN = "Invalid token"
+_INVALID_TOKEN = "Invalid token"  # noqa: S105 — error message, not a credential
 
 
 def _unauthorized(detail: str = _INVALID_TOKEN) -> HTTPException:

@@ -1,0 +1,4 @@
+# Trivy waivers (image + secret scans). IaC waivers go inline as `#trivy:ignore:<ID>`.
+# One finding per line, with an expiry and a reason. Trivy stops ignoring at the expiry:
+#   CVE-2026-12345 exp:2027-01-01
+#   # <package>: <why it does not apply / why no fix>

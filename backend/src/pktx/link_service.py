@@ -27,7 +27,7 @@ _NAME_QUERIES: dict[str, tuple[str, str]] = {
 
 # ownership check queries — SELECT 1 FROM <table> WHERE id = %s AND user_id = %s
 _OWNERSHIP_SQL: dict[str, str] = {
-    t: f"SELECT 1 FROM {tbl} WHERE id = %s AND user_id = %s"
+    t: f"SELECT 1 FROM {tbl} WHERE id = %s AND user_id = %s"  # noqa: S608 — table from fixed _NAME_QUERIES
     for t, (tbl, _) in _NAME_QUERIES.items()
 }
 
@@ -103,7 +103,7 @@ class LinkService:
         for rtype, ids in by_type.items():
             tbl, name_col = _NAME_QUERIES[rtype]
             rows = self._conn.execute(
-                f"SELECT id, {name_col} AS name, updated_at FROM {tbl} "
+                f"SELECT id, {name_col} AS name, updated_at FROM {tbl} "  # noqa: S608 — table/column from fixed _NAME_QUERIES
                 f"WHERE id = ANY(%s)",
                 (ids,),
             ).fetchall()
