@@ -131,9 +131,10 @@ Install once before any `make` targets:
 | Tool | Version | Install |
 |------|---------|---------|
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
-| [Node.js](https://nodejs.org/en/download) | 20+ | Official installer or preferred version manager |
+| [Node.js](https://nodejs.org/en/download) | 22+ | Official installer or preferred version manager |
 | [Docker](https://docs.docker.com/get-docker/) | Any | Official installer |
 | [Terraform](https://developer.hashicorp.com/terraform/install) | 1.7+ | Official installer (infra work only) |
+| [Trivy](https://trivy.dev/latest/getting-started/installation/) | 0.75+ | `brew install trivy` (IaC scan in `make check`) |
 | [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) | 2.x | Official installer (infra work only) |
 
 ### Install managed dependencies
@@ -142,12 +143,12 @@ Install once before any `make` targets:
 make setup
 ```
 
-Installs Python packages (`uv sync`) + Node packages (`npm ci`). `checkov` fetched automatically on first use via `uvx`.
+Installs Python packages (`uv sync`) + Node packages (`npm ci`). `pip-audit` fetched automatically on first use via `uvx`.
 
 ## Make Targets
 
 ```bash
-make check   # lint + typecheck + test (frontend + backend)
+make check   # lint + typecheck + audit + test + IaC scan (frontend + backend + infra)
 make run     # start app via Docker Compose
 make help    # list all targets
 ```

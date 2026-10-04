@@ -719,21 +719,21 @@ def migrate_v13_to_v14(conn) -> None:
     """
     for table in _TAGGED_TABLES:
         conn.execute(
-            f"UPDATE {table} SET tags = '[]' WHERE tags IS NULL OR tags = 'null'"
+            f"UPDATE {table} SET tags = '[]' WHERE tags IS NULL OR tags = 'null'"  # noqa: S608 — table from fixed _TAGGED_TABLES
         )
 
     # Explicit dict rows: the migration connection may use the default factory.
     cur = conn.cursor(row_factory=dict_row)
     for table, column in (("application", "url"), ("contact", "linkedin_url")):
         rows = cur.execute(
-            f"SELECT id, {column} AS url FROM {table} "
+            f"SELECT id, {column} AS url FROM {table} "  # noqa: S608 — table/column from literal tuple
             f"WHERE {column} IS NOT NULL AND {column} <> ''"
         ).fetchall()
         for row in rows:
             fixed = _normalize_http_url(row["url"])
             if fixed != row["url"]:
                 conn.execute(
-                    f"UPDATE {table} SET {column} = %s WHERE id = %s",
+                    f"UPDATE {table} SET {column} = %s WHERE id = %s",  # noqa: S608 — table/column from literal tuple
                     (fixed, row["id"]),
                 )
 

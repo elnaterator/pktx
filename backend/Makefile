@@ -1,4 +1,4 @@
-.PHONY: build run lint test typecheck check format help
+.PHONY: build run lint test typecheck audit check format help
 unexport VIRTUAL_ENV
 
 help:
@@ -8,7 +8,8 @@ help:
 	@echo "  lint      - Run ruff check + format check + pyright"
 	@echo "  test      - Run pytest"
 	@echo "  typecheck - Run pyright"
-	@echo "  check     - Run lint + typecheck + test"
+	@echo "  audit     - Scan locked runtime deps for known CVEs (pip-audit)"
+	@echo "  check     - Run lint + typecheck + audit + test"
 	@echo "  format    - Auto-format with ruff"
 
 build:
@@ -28,7 +29,18 @@ test:
 typecheck:
 	uv run pyright
 
-check: lint test
+# Waivers: one ID per line with why + expiry. Remove once a fix ships.
+# PYSEC-2026-1325: ecdsa timing side channel, no fix upstream. Pulled in only by
+#   python-jose, which signs/verifies with the cryptography backend. Expires 2027-01-01.
+PIP_AUDIT_IGNORE := PYSEC-2026-1325
+
+audit:
+	@uv export --frozen --no-dev --no-emit-project --format requirements-txt > .audit-reqs.txt
+	uvx pip-audit --strict --disable-pip --no-deps --progress-spinner off \
+	  $(addprefix --ignore-vuln ,$(PIP_AUDIT_IGNORE)) -r .audit-reqs.txt; \
+	  status=$$?; rm -f .audit-reqs.txt; exit $$status
+
+check: lint audit test
 
 format:
 	uv run ruff format .

@@ -63,3 +63,6 @@ yarn-error.log*
 .terraform/
 .terraform.lock.hcl
 *.tfstate
+
+# pip-audit scratch export (backend/Makefile audit)
+.audit-reqs.txt

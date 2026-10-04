@@ -106,7 +106,7 @@ Fix all findings from the 2026-10-02 review. Critical: legacy `/api/resume*` rou
 Notes: research/security-review.md
 
 
-## 028 Security scanning and automated patching
+## 028 Security scanning and automated patching - SHIPPED
 
 No dependency, image, IaC or secret scanning today, nothing opens update PRs, and the Dockerfile ships an EOL `node:18-slim` plus an unpinned `uv:latest`. Add free, low-tool-count coverage: Renovate for patching (Dependabot alerts as backstop), pip-audit + npm audit + ruff bandit rules in `make check`, Trivy for image/IaC/secrets (replaces Checkov), CodeQL default setup, GitHub push protection, a weekly scheduled scan, and pinned base images and Action SHAs. AWS Inspector deferred. Must land before beta (021+).
 Notes: research/security-scanning.md

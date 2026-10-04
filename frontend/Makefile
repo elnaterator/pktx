@@ -1,4 +1,4 @@
-.PHONY: build run lint test check format install help
+.PHONY: build run lint test audit check format install help
 
 help:
 	@echo "Frontend Makefile targets:"
@@ -7,7 +7,8 @@ help:
 	@echo "  run     - Start dev server"
 	@echo "  lint    - Run ESLint"
 	@echo "  test    - Run tests with Vitest"
-	@echo "  check   - Run lint + test"
+	@echo "  audit   - Scan runtime deps for HIGH+ advisories (npm audit)"
+	@echo "  check   - Run lint + audit + test"
 	@echo "  format  - Auto-format code (no formatter configured yet)"
 
 node_modules: package.json package-lock.json
@@ -28,7 +29,11 @@ lint: node_modules
 test: node_modules
 	npm run test
 
-check: lint test
+# Dev deps excluded: they never ship. Renovate surfaces their fixes as PRs.
+audit: node_modules
+	npm audit --audit-level=high --omit=dev
+
+check: lint audit test
 
 format: node_modules
 	@echo "No formatter configured yet (consider adding prettier)"

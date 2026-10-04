@@ -286,6 +286,32 @@ Create a role named `github-actions-terraform-dev` (and `...-prod`) with:
 
 Once set, `terraform plan` runs automatically on any PR that touches `infra/**`.
 
+## Security Scanning and Updates (one-time GitHub settings)
+
+`.github/workflows/security.yml` scans the built image and the repo (Trivy) on every PR
+and every Monday. `renovate.json` drives dependency updates. Neither one works until
+these repo settings are on (all free on a public repo):
+
+1. **Install Renovate.** Add https://github.com/apps/renovate to this repo only. It
+   opens an onboarding PR that picks up `renovate.json`, then a "Dependency Dashboard"
+   issue.
+2. **Settings → General → Allow auto-merge**: on, so Renovate can merge patch updates.
+3. **Rules for `main`**: require status checks `check`, `image` and `iac-secrets`.
+   Without them, auto-merge would merge untested updates.
+4. **Settings → Code security**:
+   - Dependabot **alerts**: on. Dependabot **security updates**: off, because Renovate
+     opens the PRs.
+   - Secret scanning + **push protection**: on.
+   - CodeQL → **Default setup** (Python, JavaScript/TypeScript, Actions).
+
+Findings land in **Security → Code scanning**. The weekly run only rebuilds and scans;
+ship a patched image with `make deploy` as usual.
+
+**Deferred: ECR enhanced scanning (Amazon Inspector).** This rescans the image already
+deployed in ECR as new CVEs are published, which CI can't do. It costs a little per
+image. Add it when prod is live with `aws_ecr_registry_scanning_configuration`
+(`scan_type = "ENHANCED"`, `CONTINUOUS_SCAN` on `pktx-*`).
+
 ---
 
 ## Backups
