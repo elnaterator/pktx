@@ -12,10 +12,10 @@ dependencies = [
     "fastmcp>=3.4.7",
     "fastapi>=0.100.0",
     "uvicorn>=0.20.0",
-    "python-jose[cryptography]>=3.3.0",
     "svix>=1.0.0",
     "psycopg[binary]>=3.1",
     "psycopg-pool>=3.1",
+    "pyjwt[crypto]>=2.10",
 ]
 
 [project.scripts]

@@ -182,7 +182,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - pytest for testing (unit, contract, integration)
 - ruff for linting + formatting
 - pyright for type checking
-- python-jose, svix (auth logic)
+- PyJWT[crypto], svix (auth logic)
 
 ### Frontend
 - React 18 + TypeScript 5.x
@@ -199,6 +199,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - AWS Lambda (container image + Function URL) via Terraform in `infra/`; EventBridge keep-warm rule pings `GET /health` every 5 min (toggle: `keep_warm_enabled` module var)
 
 ## Recent Changes
+- 029-pyjwt: python-jose → PyJWT for REST Clerk JWT verification (drops `ecdsa`/`rsa`/`pyasn1` and the PYSEC-2026-1325 pip-audit waiver); RS256 pinned, unusable JWKS entries → 401
 - 028-security-scanning: Renovate + Trivy (replaces Checkov) + pip-audit + npm audit + ruff `S`; new `security.yml` (PR + weekly); Dockerfile on node 22, all images digest-pinned, runtime drops system pip/setuptools and applies Debian security updates; Actions SHA-pinned with read-only `permissions`; vulnerable deps bumped; unused `clerk-backend-api` dropped
 - 027-security-fixes: fail-closed user scoping (required `user_id`, owner checks in SQL, 404 not 403), legacy `/api/resume*` routes removed, per-request pooled connection + transaction, http(s)-only URLs (server + `ExternalLink`), tag/length validation, REST JWT `azp` check (new optional env `CLERK_AUTHORIZED_PARTIES`), `PKTX_USER_ID` stdio-only, JWKS refetch throttle, 1 MB body cap; schema v13 → v14 (data repair)
 - 025-mcp-auth-spec-gaps: FastMCP 2.14.5 → 3.4.7; MCP 2025-11-25 gaps closed — CIMD client ids (`enable_cimd`), proxy tokens audience-bound to `<public>/mcp`, root `/.well-known/oauth-protected-resource` alias; new optional env `PKTX_EXTRA_CLIENT_REDIRECT_URIS`

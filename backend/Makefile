@@ -30,9 +30,7 @@ typecheck:
 	uv run pyright
 
 # Waivers: one ID per line with why + expiry. Remove once a fix ships.
-# PYSEC-2026-1325: ecdsa timing side channel, no fix upstream. Pulled in only by
-#   python-jose, which signs/verifies with the cryptography backend. Expires 2027-01-01.
-PIP_AUDIT_IGNORE := PYSEC-2026-1325
+PIP_AUDIT_IGNORE :=
 
 audit:
 	@uv export --frozen --no-dev --no-emit-project --format requirements-txt > .audit-reqs.txt

@@ -8,11 +8,12 @@ import time
 from typing import Any
 from unittest.mock import patch
 
+import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import FastAPI
-from jose import jwt
+from jwt.algorithms import RSAAlgorithm
 from psycopg import Connection
 from starlette.testclient import TestClient
 
@@ -33,14 +34,7 @@ def _gen_rsa_key_pair() -> tuple[Any, Any]:
 
 
 def _public_key_to_jwk(public_key: Any, kid: str = "ck1") -> dict[str, Any]:
-    from jose.backends import RSAKey
-
-    pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    rsa_key = RSAKey(pem, "RS256")  # pyright: ignore [reportOptionalCall]
-    jwk_dict = rsa_key.public_key().to_dict()  # type: ignore[union-attr]
+    jwk_dict = RSAAlgorithm.to_jwk(public_key, as_dict=True)
     jwk_dict["kid"] = kid
     jwk_dict["kty"] = "RSA"
     jwk_dict["alg"] = "RS256"

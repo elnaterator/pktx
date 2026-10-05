@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import httpx
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastmcp.server.auth import AccessToken
@@ -19,8 +20,6 @@ from fastmcp.server.auth.providers.jwt import JWTVerifier
 from fastmcp.server.auth.redirect_validation import DEFAULT_LOCALHOST_PATTERNS
 from fastmcp.server.dependencies import get_access_token
 from fastmcp.server.middleware import Middleware
-from jose import JWTError, jwt
-from jose.exceptions import ExpiredSignatureError
 
 from pktx.database import upsert_user
 from pktx.db import DBConnection
@@ -157,7 +156,7 @@ def verify_clerk_jwt(
 
     try:
         unverified_header = jwt.get_unverified_header(token)
-    except JWTError as exc:
+    except jwt.PyJWTError as exc:
         logger.debug("JWT rejected: bad header (%s)", exc)
         raise _unauthorized() from exc
 
@@ -170,16 +169,24 @@ def verify_clerk_jwt(
         raise _unauthorized()
 
     try:
+        signing_key = jwt.PyJWK(key, algorithm="RS256").key
+    except jwt.PyJWTError as exc:
+        logger.warning("JWT rejected: unusable JWKS key kid=%s (%s)", kid, exc)
+        raise _unauthorized() from exc
+
+    try:
         claims = jwt.decode(
             token,
-            key,
+            signing_key,
             algorithms=["RS256"],
             issuer=issuer,
-            options={"verify_aud": False},
+            # No future-iat check (PyJWT-only): a Clerk token minted moments ago
+            # would 401 on any clock skew. exp/nbf still gate validity.
+            options={"verify_aud": False, "verify_iat": False},
         )
-    except ExpiredSignatureError as exc:
+    except jwt.ExpiredSignatureError as exc:
         raise _unauthorized("Token has expired") from exc
-    except JWTError as exc:
+    except jwt.PyJWTError as exc:
         logger.debug("JWT rejected: %s", exc)
         raise _unauthorized() from exc
 
@@ -278,12 +285,12 @@ class _DiagnosticJWTVerifier(JWTVerifier):
     def _log_rejection(self, token: str) -> None:
         try:
             header = jwt.get_unverified_header(token)
-        except JWTError as exc:
+        except jwt.PyJWTError as exc:
             logger.debug("MCP token rejected: not a parseable JWT (%s)", exc)
             return
         try:
-            claims = jwt.get_unverified_claims(token)
-        except JWTError:
+            claims = jwt.decode(token, options={"verify_signature": False})
+        except jwt.PyJWTError:
             claims = {}
         logger.debug(
             "MCP token rejected: alg=%s kid=%s token_iss=%s token_aud=%s exp=%s "
