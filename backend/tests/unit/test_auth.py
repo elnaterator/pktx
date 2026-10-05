@@ -4,11 +4,12 @@ import time
 from typing import Any
 from unittest.mock import patch
 
+import jwt
 import pytest
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 from fastapi import HTTPException
-from jose import jwt
+from jwt.algorithms import RSAAlgorithm
 
 
 @pytest.fixture(autouse=True)
@@ -32,15 +33,8 @@ def _gen_rsa_key_pair() -> tuple[Any, Any]:
 
 
 def _public_key_to_jwk(public_key: Any, kid: str = "test-kid") -> dict[str, Any]:
-    """Convert an RSA public key to a minimal JWK dict usable by python-jose."""
-    from jose.backends import RSAKey
-
-    pem = public_key.public_bytes(
-        encoding=serialization.Encoding.PEM,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    rsa_key = RSAKey(pem, "RS256")  # pyright: ignore [reportOptionalCall]
-    jwk_dict = rsa_key.public_key().to_dict()
+    """Convert an RSA public key to a minimal JWK dict usable by PyJWT."""
+    jwk_dict = RSAAlgorithm.to_jwk(public_key, as_dict=True)
     jwk_dict["kid"] = kid
     jwk_dict["kty"] = "RSA"
     jwk_dict["alg"] = "RS256"
@@ -264,6 +258,77 @@ class TestVerifyClerkJwt:
                 __import__("pktx.auth", fromlist=["verify_clerk_jwt"]).verify_clerk_jwt(
                     "not.a.jwt"
                 )
+
+        assert exc_info.value.status_code == 401
+
+    def test_iat_slightly_in_future_accepted(self) -> None:
+        """Clock skew: a just-minted token whose iat is ahead of us still verifies."""
+        private_key, issuer = self._setup_valid_key()
+        now = int(time.time())
+        claims = {
+            "sub": "user_test_123",
+            "iss": issuer,
+            "iat": now + 5,
+            "exp": now + 3600,
+            "azp": "http://testserver",
+        }
+        token = jwt.encode(
+            claims, private_key, algorithm="RS256", headers={"kid": "test-kid"}
+        )
+
+        with patch.dict("os.environ", {"CLERK_ISSUER": issuer}):
+            claims_out = __import__(
+                "pktx.auth", fromlist=["verify_clerk_jwt"]
+            ).verify_clerk_jwt(token)
+
+        assert claims_out["sub"] == "user_test_123"
+
+    @pytest.mark.parametrize(
+        ("algorithm", "key"), [("none", None), ("HS256", "s" * 32)]
+    )
+    def test_non_rs256_token_rejected(self, algorithm: str, key: Any) -> None:
+        """Only RS256 is accepted: alg=none and HMAC tokens get 401."""
+        _, issuer = self._setup_valid_key()
+        now = int(time.time())
+        claims = {
+            "sub": "user_test_123",
+            "iss": issuer,
+            "iat": now,
+            "exp": now + 3600,
+            "azp": "http://testserver",
+        }
+        token = jwt.encode(
+            claims, key, algorithm=algorithm, headers={"kid": "test-kid"}
+        )
+
+        with patch.dict("os.environ", {"CLERK_ISSUER": issuer}):
+            with pytest.raises(HTTPException) as exc_info:
+                __import__("pktx.auth", fromlist=["verify_clerk_jwt"]).verify_clerk_jwt(
+                    token
+                )
+
+        assert exc_info.value.status_code == 401
+        assert exc_info.value.detail == "Invalid token"
+
+    @pytest.mark.parametrize(
+        "bad_jwk",
+        [
+            {"kid": "test-kid", "kty": "RSA"},
+            {"kid": "test-kid", "kty": "oct", "k": "c2VjcmV0"},
+            {"kid": "test-kid"},
+        ],
+    )
+    def test_unusable_jwk_is_401_not_500(self, bad_jwk: dict[str, Any]) -> None:
+        """A malformed or non-RSA JWKS entry rejects the token instead of crashing."""
+        import pktx.auth as auth_module
+
+        private_key, issuer = self._setup_valid_key()
+        auth_module._JWKS_CACHE = {"test-kid": bad_jwk}
+        token = _make_token(private_key, issuer=issuer)
+
+        with patch.dict("os.environ", {"CLERK_ISSUER": issuer}):
+            with pytest.raises(HTTPException) as exc_info:
+                auth_module.verify_clerk_jwt(token)
 
         assert exc_info.value.status_code == 401
 

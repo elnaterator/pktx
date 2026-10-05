@@ -114,7 +114,7 @@ No dependency, image, IaC or secret scanning today, nothing opens update PRs, an
 Notes: research/security-scanning.md
 
 
-## 029 Replace python-jose with PyJWT
+## 029 Replace python-jose with PyJWT - SHIPPED
 
 python-jose is barely maintained and drags in `ecdsa` (unfixed timing side channel, waived in 028 until 2027-01-01), `rsa` and `pyasn1`. PyJWT is already installed through `mcp[crypto]`. Port `auth.py` (header/claims/decode, JWKS key lookup via `PyJWK`, error mapping) and the test token helpers; drop python-jose and the `PIP_AUDIT_IGNORE` waiver. Auth-sensitive, so keep it a standalone PR.
 Notes: research/security-scanning.md
