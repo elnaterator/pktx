@@ -62,12 +62,6 @@ Replace per-view `StatusMessage` state + auto-dismiss timers with single `<Toast
 Replace hand-rolled field state + validation in `EntryForm`, `ContactDetailView`, `ApplicationDetailView` with `react-hook-form` (uncontrolled, fast) + `zod` schemas (single source of truth, infer TS types). Kills validation drift between client + server.
 
 
-## 012 Storybook and playwright for shared components and e2e UI tests - DEFERRED
-Set up Storybook targeting `frontend/src/components/`. Stories per primitive (`Breadcrumb`, `ConfirmDialog`, `EditableSection`, `LinkPickerModal`, `TagInput`, `LinksPanel`, etc.) with props matrix + a11y addon. Enables isolated visual review and future visual-regression testing (Chromatic). Defer until shared component set stabilizes. I want to set up a playwright test suite to validate the behavior of the running UI as well as validation of look and feel. It should not be part of the CI pipeline yet.
-
-**Deferred (2026-05-23):** Too early. The shared component set is still churning — 014 (compact lists) and 015 (reusable search component) will reshape the exact primitives Storybook would document, so stories + visual baselines would rot immediately. Playwright e2e has standalone value, but keeping it out of CI on a solo project means it won't run and will rot. Revisit after 013/014/015 settle the UI; then add a thin CI-gated Playwright smoke suite first, and Storybook only if a real shared-primitive library or collaborators emerge. Plan drafted at `specs/lite/012-storybook-playwright-plan.md` (on hold).
-
-
 ## 013 Remove application to resume duplicate linking mechanism, use generic links - SHIPPED
 `application.resume_version_id` FK duplicates the generic `link` table edge `application↔resume`. Drop the column and the matching `Application.resume_version_id` / `ApplicationSummary.resume_version_id` model fields, the `resume_version_id` param on `application_tools.py` create/update, and the resume-picker UI in `ApplicationDetailView` (replace with the standard `LinksPanel` resume entries). Replace `ResumeVersion.app_count` (currently a JOIN aggregate over the FK) with the existing generic `link_count` filtered to `type=application`, and update the resume list-card "X applications" badge accordingly. Migration must backfill existing `resume_version_id` values into `link` rows before dropping the column. No "primary resume per application" semantics preserved — generic links allow many resumes per app with no primary; revisit with a `primary_resume_link_id` flag only if the UX requires it.
 
@@ -100,6 +94,14 @@ I want to rename this app from persona to pktx which is short for personal conte
 Add a user-facing "export my data" feature: full dump of the user's accomplishments, applications, resumes, notes, contacts, and communications as JSON (optionally Markdown). Export is the data-portability trust story. Blocker for first beta invite. Backups are deliberately out of scope — Neon's own PITR is the backup story, configured in the Neon console, with no Terraform-managed backup infrastructure of our own.
 
 
+## 025 Close MCP 2025-11-25 authorization spec gaps - SHIPPED
+The Nov 2025 MCP authorization spec makes Client ID Metadata Documents (CIMD) the preferred client-identification mechanism (`client_id` is an HTTPS URL serving the client's own metadata) and demotes Dynamic Client Registration to backwards compatibility. Our proxy on FastMCP 2.14.5 had no CIMD support, advertised no `client_id_metadata_document_supported`, never validated token audience (spec MUST), and 404'd the root `/.well-known/oauth-protected-resource` fallback. Upgrade to FastMCP 3.4.7 (CIMD + audience-bound proxy tokens built in), add the root protected-resource alias, and add `PKTX_EXTRA_CLIENT_REDIRECT_URIS` so hosted CIMD clients can be allowlisted without loosening loopback handling. Scopes deliberately out of scope: the server has no scope model, and empty `scopes_supported` correctly means "no scopes required". Refs: https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization
+
+
+## 026 ChatGPT connector support - SHIPPED
+Connecting from ChatGPT failed at `/authorize` with "Redirect URI 'https://chatgpt.com/connector/oauth/<id>' does not match allowed patterns" — 025 added `PKTX_EXTRA_CLIENT_REDIRECT_URIS` but nothing set it, and the default is loopback-only. Wire the value through Terraform (`extra_client_redirect_uris` in `infra/<env>/terraform.tfvars`, not SSM — configuration, not a secret), allowlist both ChatGPT callback shapes (per-connector `https://chatgpt.com/connector/oauth/*` and the fixed `https://chatgpt.com/connector_platform_oauth_redirect`), and refresh the ChatGPT setup steps for the post-July-2026 UI rename (Settings → Apps → Advanced settings → Developer mode, then Plugins → Create) in the connect panel and README.
+
+
 ## 027 Security and data-integrity fixes from code review - SHIPPED
 
 Fix all findings from the 2026-10-02 review. Critical: legacy `/api/resume*` routes are unscoped (any user reads/writes another user's resume), `user_id=None` fails open across `database.py`, accomplishment tags leak across users, `javascript:` URLs give stored XSS (reachable via prompt-injected MCP writes). High: resume delete broken in prod (SAVEPOINT under autocommit), single shared DB connection for all requests, `tags` null/string poisoning, unvalidated `update_entry`. Medium: JWKS refetch amplification + blocking fetch in async middleware, `PKTX_USER_ID` fallback in HTTP mode, no `azp` check, blocking upsert in MCP middleware, minor hardening. Close test gaps: autocommit fixture, route-wide user-scoping test, bad-input tests. Must land before beta (021+).
@@ -118,6 +120,18 @@ python-jose is barely maintained and drags in `ecdsa` (unfixed timing side chann
 Notes: research/security-scanning.md
 
 
+## 030 MCP connect experience that pops
+
+Connect panel is the front door to the product's core value and it undersells it. Put the plain MCP URL first with one-click copy, add a few catchy lines on what the connector does (example prompts), and make it pop visually. Assistant picker with icons, collapsible, remembers choice. Per assistant: say what it calls it (connector vs app vs MCP server), give current, verified steps with a last-verified date, and one-click install links where supported. Steps live in one data file so updates are trivial.
+Notes: research/mcp-connect-ux.md
+
+
+## 031 Continuous deployment: auto dev, gated prod
+
+Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, builds the image once, auto-deploys to dev, and smoke tests it. Prod deploys the same verified image digest, triggered by a GitHub Release and gated by a `production` Environment with required reviewer. AWS access via GitHub OIDC with per-env roles, Terraform plan on PRs, one-click rollback to a previous release, forward-compatible migrations. Lays the pipeline 022 uses to stand up prod.
+Notes: research/continuous-deployment.md
+
+
 ## 021 Error tracking and feedback loop
 Add error tracking (Sentry free tier or similar) for backend and frontend, wired to alert the developer on new errors. Add one low-friction in-app feedback channel (footer link to a form or shared chat). Goal: see errors before beta users report them, and make giving feedback effortless.
 
@@ -134,9 +148,7 @@ Add privacy policy and terms of service pages. Implement full account deletion (
 Add a GitHub Sponsors or Buy Me a Coffee link in the app footer. Explicitly no billing system, subscriptions, or tiers — a payment link only. Revisit with real billing (Stripe) only if donations become meaningful revenue.
 
 
-## 025 Close MCP 2025-11-25 authorization spec gaps - SHIPPED
-The Nov 2025 MCP authorization spec makes Client ID Metadata Documents (CIMD) the preferred client-identification mechanism (`client_id` is an HTTPS URL serving the client's own metadata) and demotes Dynamic Client Registration to backwards compatibility. Our proxy on FastMCP 2.14.5 had no CIMD support, advertised no `client_id_metadata_document_supported`, never validated token audience (spec MUST), and 404'd the root `/.well-known/oauth-protected-resource` fallback. Upgrade to FastMCP 3.4.7 (CIMD + audience-bound proxy tokens built in), add the root protected-resource alias, and add `PKTX_EXTRA_CLIENT_REDIRECT_URIS` so hosted CIMD clients can be allowlisted without loosening loopback handling. Scopes deliberately out of scope: the server has no scope model, and empty `scopes_supported` correctly means "no scopes required". Refs: https://modelcontextprotocol.io/specification/2025-11-25/basic/authorization
+## 012 Storybook and playwright for shared components and e2e UI tests - DEFERRED
+Set up Storybook targeting `frontend/src/components/`. Stories per primitive (`Breadcrumb`, `ConfirmDialog`, `EditableSection`, `LinkPickerModal`, `TagInput`, `LinksPanel`, etc.) with props matrix + a11y addon. Enables isolated visual review and future visual-regression testing (Chromatic). Defer until shared component set stabilizes. I want to set up a playwright test suite to validate the behavior of the running UI as well as validation of look and feel. It should not be part of the CI pipeline yet.
 
-
-## 026 ChatGPT connector support - SHIPPED
-Connecting from ChatGPT failed at `/authorize` with "Redirect URI 'https://chatgpt.com/connector/oauth/<id>' does not match allowed patterns" — 025 added `PKTX_EXTRA_CLIENT_REDIRECT_URIS` but nothing set it, and the default is loopback-only. Wire the value through Terraform (`extra_client_redirect_uris` in `infra/<env>/terraform.tfvars`, not SSM — configuration, not a secret), allowlist both ChatGPT callback shapes (per-connector `https://chatgpt.com/connector/oauth/*` and the fixed `https://chatgpt.com/connector_platform_oauth_redirect`), and refresh the ChatGPT setup steps for the post-July-2026 UI rename (Settings → Apps → Advanced settings → Developer mode, then Plugins → Create) in the connect panel and README.
+**Deferred (2026-05-23):** Too early. The shared component set is still churning — 014 (compact lists) and 015 (reusable search component) will reshape the exact primitives Storybook would document, so stories + visual baselines would rot immediately. Playwright e2e has standalone value, but keeping it out of CI on a solo project means it won't run and will rot. Revisit after 013/014/015 settle the UI; then add a thin CI-gated Playwright smoke suite first, and Storybook only if a real shared-primitive library or collaborators emerge. Plan drafted at `specs/lite/012-storybook-playwright-plan.md` (on hold).
