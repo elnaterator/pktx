@@ -16,6 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from fastmcp import FastMCP
 from fastmcp.server.middleware import Middleware
+from mcp.types import Icon
 from psycopg_pool import ConnectionPool
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.routing import Route as StarletteRoute
@@ -40,6 +41,7 @@ from pktx.config import (
     resolve_pool_max,
     resolve_pool_min,
     resolve_port,
+    resolve_public_url_optional,
 )
 from pktx.contact_service import ContactService
 from pktx.database import init_pool
@@ -53,6 +55,7 @@ from pktx.db import (
 )
 from pktx.link_service import LinkService
 from pktx.note_service import NoteService
+from pktx.oauth_theme import ICON_DATA_URI, ThemedAuthPagesMiddleware
 from pktx.resume_service import ResumeService
 from pktx.tools.accomplishment_tools import register_accomplishment_tools
 from pktx.tools.application_tools import register_application_tools
@@ -364,7 +367,13 @@ def _build_mcp(
         mcp_auth = build_mcp_auth(_pool)
     else:
         mcp_auth = None
-    m = FastMCP("pktx", auth=mcp_auth)
+    m = FastMCP(
+        "pktx",
+        auth=mcp_auth,
+        # Shown on the OAuth consent screen and to clients that render server icons.
+        icons=[Icon(src=ICON_DATA_URI, mimeType="image/svg+xml")],
+        website_url=resolve_public_url_optional(),
+    )
 
     register_resume_tools(m, _get_resume_service)
     register_application_tools(m, _get_app_service)
@@ -472,8 +481,10 @@ def create_app(
     app = FastAPI(title="pktx", lifespan=lifespan)
 
     # Middleware: last added is outermost. Resulting order, outer → inner:
-    # CORS → body-size cap → MCP auth (if any) → DB session → routes.
+    # CORS → body-size cap → MCP auth (if any) → auth-page theme → DB session → routes.
     app.add_middleware(DBSessionMiddleware)
+    # FastMCP's consent/error pages get the SPA's look (HTML responses only).
+    app.add_middleware(ThemedAuthPagesMiddleware)
 
     # Re-apply the MCP auth middleware that mcp.http_app() installs at the app
     # level. Below we graft only `mcp_app.routes` into this FastAPI app (to keep
@@ -525,6 +536,9 @@ def create_app(
     # the /mcp route is matched before the StaticFiles catch-all.
     for route in mcp_app.routes:
         app.router.routes.append(route)
+    # Grafting routes drops mcp_app.state; FastMCP's consent and authorize
+    # handlers read the server from it for its name, icon and website.
+    app.state.fastmcp_server = mcp
 
     _add_root_resource_metadata_alias(app, mcp_app)
 

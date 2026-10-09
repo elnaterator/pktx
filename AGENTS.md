@@ -126,6 +126,11 @@ URIs are restricted to loopback plus whatever `PKTX_EXTRA_CLIENT_REDIRECT_URIS` 
 `CLERK_AUTHORIZED_PARTIES` (default: origin of `PKTX_PUBLIC_URL`). stdio mode uses
 `PKTX_USER_ID` (required there, ignored over HTTP), no token.
 
+FastMCP renders the consent (`/consent`) and OAuth error pages itself; `oauth_theme.ThemedAuthPagesMiddleware`
+injects the SPA theme into those HTML responses (presentation only), and `create_app` sets
+`app.state.fastmcp_server` (dropped when grafting `mcp_app.routes`) so they show the pktx name, icon
+(`ICON_DATA_URI`, also the MCP server icon) and `PKTX_PUBLIC_URL` link.
+
 Proxy state (DCR registrations, encrypted upstream tokens, JTI mappings, transient
 authorize state) is stored in PostgreSQL via `oauth_store.PostgresKVStore` (table
 `oauth_kv`) — **not** a local DiskStore — so it is shared across serverless

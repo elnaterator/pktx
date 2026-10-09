@@ -125,6 +125,7 @@ Kiro, Windsurf, Zed, Cline.
 - First-visit auto-open only at ≥1024px (panel overlays small screens); `pktx.connect.seen` flag.
 - Clipboard failure now toasts instead of failing silently.
 - Test setup: in-memory `localStorage` fallback in `__tests__/setup.ts` — Node 25's global `localStorage` shadows jsdom's and lacks `clear()`.
+- Follow-up (user feedback 2026-10-09): OAuth consent screen said "FastMCP" with FastMCP's light theme. Root cause: `create_app` grafts `mcp_app.routes` and dropped `app.state.fastmcp_server`, which FastMCP's consent/authorize handlers read for name/icon/website — now set. FastMCP has no theming hook, so `backend/src/pktx/oauth_theme.py` adds `ThemedAuthPagesMiddleware` (appends a `<style>` to HTML responses on `/consent`, `/authorize`, `/auth/callback`; CSP already allows inline styles) plus a pktx SVG icon advertised as the MCP server icon.
 
 ## Testing
 
