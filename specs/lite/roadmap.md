@@ -120,7 +120,7 @@ python-jose is barely maintained and drags in `ecdsa` (unfixed timing side chann
 Notes: research/security-scanning.md
 
 
-## 030 MCP connect experience that pops
+## 030 MCP connect experience that pops - BUILT
 
 Connect panel is the front door to the product's core value and it undersells it. Put the plain MCP URL first with one-click copy, add a few catchy lines on what the connector does (example prompts), and make it pop visually. Assistant picker with icons, collapsible, remembers choice. Per assistant: say what it calls it (connector vs app vs MCP server), give current, verified steps with a last-verified date, and one-click install links where supported. Steps live in one data file so updates are trivial.
 Notes: research/mcp-connect-ux.md

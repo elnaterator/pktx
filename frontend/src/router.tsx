@@ -10,6 +10,7 @@ import NoteListView from './pages/notes/NoteListView'
 import NoteDetailView from './pages/notes/NoteDetailView'
 import ContactListView from './pages/contacts/ContactListView'
 import ContactDetailView from './pages/contacts/ContactDetailView'
+import ConnectView from './pages/connect/ConnectView'
 
 export default function AppRoutes() {
   return (
@@ -25,6 +26,7 @@ export default function AppRoutes() {
       <Route path="/notes/:id" element={<NoteDetailView />} />
       <Route path="/contacts" element={<ContactListView />} />
       <Route path="/contacts/:id" element={<ContactDetailView />} />
+      <Route path="/connect" element={<ConnectView />} />
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   )
