@@ -94,16 +94,20 @@ in the browser. The app signs in over a loopback callback (`http://127.0.0.1:<po
 which the default allowlist already accepts — no extra config. It shares
 `~/.codex/config.toml` with Codex CLI / IDE.
 
-#### ChatGPT web
+#### Hosted clients (ChatGPT web, Claude web, VS Code web, Cursor)
 
-ChatGPT web connects from its own servers rather than a loopback port, so its callback
-must be allowlisted — otherwise `/authorize` answers *"Redirect URI ... does not match
+Hosted clients connect from their own servers (or a custom URL scheme) rather than a
+loopback port, so their callbacks must be allowlisted — otherwise `/authorize` answers *"Redirect URI ... does not match
 allowed patterns"*. Terraform sets this via `extra_client_redirect_uris` in
 `infra/<env>/terraform.tfvars`; outside AWS, set the env var directly:
 
 ```bash
-PKTX_EXTRA_CLIENT_REDIRECT_URIS=https://chatgpt.com/connector/oauth/*,https://chatgpt.com/connector_platform_oauth_redirect
+PKTX_EXTRA_CLIENT_REDIRECT_URIS=https://chatgpt.com/connector/oauth/*,https://chatgpt.com/connector_platform_oauth_redirect,https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback,https://vscode.dev/redirect,cursor://anysphere.cursor-mcp/oauth/callback
 ```
+
+A client not listed here fails with the same error, which prints the exact URI to add.
+
+ChatGPT web setup:
 
 Then, on chatgpt.com (web only; writing data needs a Business, Enterprise, or Edu plan —
 Pro connects read-only; on Business only admins/owners can use developer mode, on
