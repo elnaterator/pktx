@@ -98,6 +98,8 @@ specs/                    # Feature specifications
 .github/                  # GitHub Actions CI
 ```
 
+**Connect UX (030):** per-assistant connect steps, snippets, install links, and `lastVerified` dates live only in `frontend/src/components/connect/connectAssistants.ts` — edit data there, not JSX. Shared by the side panel (`ConnectAssistantPanel`) and `/connect` (`pages/connect`).
+
 **Frontend Organization:** A component used in exactly one page lives in `pages/<name>/`. A component reused across ≥2 pages, or a UI primitive (dialog, form input, badge), lives in `components/`. Types live in `types/` with a barrel `index.ts`. Services are split per resource in `services/api/` with a barrel `index.ts`. Hooks in `hooks/` extract shared state patterns (list loading, detail loading, status messages).
 
 <!-- MANUAL ADDITIONS START -->
@@ -123,6 +125,11 @@ URIs are restricted to loopback plus whatever `PKTX_EXTRA_CLIENT_REDIRECT_URIS` 
 `build_get_current_user`: signature + issuer + `azp` must be in
 `CLERK_AUTHORIZED_PARTIES` (default: origin of `PKTX_PUBLIC_URL`). stdio mode uses
 `PKTX_USER_ID` (required there, ignored over HTTP), no token.
+
+FastMCP renders the consent (`/consent`) and OAuth error pages itself; `oauth_theme.ThemedAuthPagesMiddleware`
+injects the SPA theme into those HTML responses (presentation only), and `create_app` sets
+`app.state.fastmcp_server` (dropped when grafting `mcp_app.routes`) so they show the pktx name, icon
+(`ICON_DATA_URI`, also the MCP server icon) and `PKTX_PUBLIC_URL` link.
 
 Proxy state (DCR registrations, encrypted upstream tokens, JTI mappings, transient
 authorize state) is stored in PostgreSQL via `oauth_store.PostgresKVStore` (table

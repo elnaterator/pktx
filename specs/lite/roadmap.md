@@ -120,10 +120,16 @@ python-jose is barely maintained and drags in `ecdsa` (unfixed timing side chann
 Notes: research/security-scanning.md
 
 
-## 030 MCP connect experience that pops
+## 030 MCP connect experience that pops - SHIPPED
 
 Connect panel is the front door to the product's core value and it undersells it. Put the plain MCP URL first with one-click copy, add a few catchy lines on what the connector does (example prompts), and make it pop visually. Assistant picker with icons, collapsible, remembers choice. Per assistant: say what it calls it (connector vs app vs MCP server), give current, verified steps with a last-verified date, and one-click install links where supported. Steps live in one data file so updates are trivial.
 Notes: research/mcp-connect-ux.md
+
+
+## 032 Spike: replace OAuth proxy with Clerk native CIMD
+
+Clerk shipped CIMD GA (2026-09-17). Spike whether we can delete the FastMCP `OAuthProxy` (`auth.build_mcp_auth`, `oauth_store.py`, `oauth_kv`, client secret env) and point RFC 9728 protected-resource metadata at Clerk as the authorization server, with a plain JWT verifier on `/mcp`. Throwaway spike branch; test Claude Desktop, Cursor, VS Code (and ChatGPT). Pass only if all hold: (1) `localhost` vs `127.0.0.1` redirect mismatch does not 400, (2) token `aud` bound to `<PKTX_PUBLIC_URL>/mcp` (RFC 8707), (3) revocation-aware validation, (4) consent page and hosted-client redirect allowlist acceptable, (5) Clerk AS metadata advertises `client_id_metadata_document_supported`. Output: written findings plus go/no-go in the research note. If go, add a follow-up item to remove the proxy; if no-go, record why and a re-check trigger.
+Notes: research/clerk-native-cimd.md
 
 
 ## 031 Continuous deployment: auto dev, gated prod
@@ -146,6 +152,12 @@ Add privacy policy and terms of service pages. Implement full account deletion (
 
 ## 024 Donations via simple payment link
 Add a GitHub Sponsors or Buy Me a Coffee link in the app footer. Explicitly no billing system, subscriptions, or tiers — a payment link only. Revisit with real billing (Stripe) only if donations become meaningful revenue.
+
+
+## 033 Complete the resume: projects, certifications, more sections, and a section registry
+
+The resume only has contact, summary, experience, education, and skills. Add the commonly expected parts: projects, certifications and licenses, awards, publications/talks, volunteer work, languages, a generic profiles list for contact links, and a custom section. Evaluate and refactor the structure first: section definitions are repeated across the service, MCP tools, and one hand-written frontend component each, entries are addressed by index, and there is no per-version section order or visibility. Introduce a section registry (one definition drives service, tools, UI, export), stable entry ids, and a per-version layout (order, hide/show, title), then add the new sections on top. Existing resumes must keep working unchanged. Split into refactor + sections at plan time if it grows.
+Notes: research/resume-sections.md
 
 
 ## 012 Storybook and playwright for shared components and e2e UI tests - DEFERRED

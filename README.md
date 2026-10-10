@@ -16,7 +16,7 @@ or drafting a cover letter.
 - **Notes, contacts & communications** — keep context and link it to any other resource.
 - **Web UI** — clean interface with deep links, bookmarks, and cross-resource search.
 - **MCP + REST APIs** — `/mcp` is a standard OAuth2 resource server (RFC 9728); assistants sign in via PKCE + browser, no API keys. REST at `/api`.
-- **Connect tab** — copy-ready MCP config for Claude Code, Cursor, GitHub Copilot, Amazon Kiro.
+- **Connect page** — `/connect` (also a side panel on every page): MCP URL with one-click copy, example prompts, and verified per-assistant steps, configs, and install links for Claude, ChatGPT / Codex, ChatGPT web, Claude Code, Cursor, VS Code, Grok Build, Kiro, Devin Desktop, Zed, and Cline.
 - **Docker support** — run the entire app with a single command.
 
 ## Quick Start
@@ -74,7 +74,8 @@ supported: **Client ID Metadata Documents** (the spec's preferred option — the
 3. Client identifies itself with a CIMD URL or registers dynamically (RFC 7591), then does a PKCE browser sign-in; the consent screen redirects to Clerk to authenticate.
 4. The proxy exchanges the Clerk code server-side, stores the Clerk token encrypted **in PostgreSQL** (shared across instances — see the `oauth_kv` table), and issues the client a reference JWT bound to `aud=<PKTX_PUBLIC_URL>/mcp`. Each `/mcp` call checks that audience and re-validates the stored Clerk token, so a token minted for another resource is rejected and revocation at Clerk takes effect.
 
-No API key to generate or paste. Add the bare URL in your assistant's MCP config:
+No API key to generate or paste. Add the bare URL in your assistant's MCP config —
+`<your-server>/connect` has copy-ready steps for each assistant:
 
 ```bash
 # Claude Code
@@ -84,25 +85,43 @@ claude mcp add --transport http pktx https://your-pktx-server.com/mcp
 { "mcpServers": { "pktx": { "url": "https://your-pktx-server.com/mcp" } } }
 ```
 
-#### ChatGPT
+#### ChatGPT / Codex (desktop app)
 
-ChatGPT connects from its own servers rather than a loopback port, so its callback
-must be allowlisted — otherwise `/authorize` answers *"Redirect URI ... does not match
+Settings → **Plugins → MCPs → Add** (older builds: Settings → MCP servers → Add server).
+Name it `pktx`, choose **Streamable HTTP**, paste `https://your-pktx-server.com/mcp`, leave
+token/header fields empty, save (restart if asked), then click **Authenticate** and sign in
+in the browser. The app signs in over a loopback callback (`http://127.0.0.1:<port>/callback/<id>`),
+which the default allowlist already accepts — no extra config. It shares
+`~/.codex/config.toml` with Codex CLI / IDE.
+
+#### Hosted clients (ChatGPT web, Claude web, VS Code web, Cursor)
+
+Hosted clients connect from their own servers (or a custom URL scheme) rather than a
+loopback port, so their callbacks must be allowlisted — otherwise `/authorize` answers *"Redirect URI ... does not match
 allowed patterns"*. Terraform sets this via `extra_client_redirect_uris` in
 `infra/<env>/terraform.tfvars`; outside AWS, set the env var directly:
 
 ```bash
-PKTX_EXTRA_CLIENT_REDIRECT_URIS=https://chatgpt.com/connector/oauth/*,https://chatgpt.com/connector_platform_oauth_redirect
+PKTX_EXTRA_CLIENT_REDIRECT_URIS=https://chatgpt.com/connector/oauth/*,https://chatgpt.com/connector_platform_oauth_redirect,https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback,https://vscode.dev/redirect,cursor://anysphere.cursor-mcp/oauth/callback,https://www.cursor.com/agents/mcp/oauth/callback
 ```
 
-Then, on the web (Plus, Pro, Business, Enterprise, or Education plan; Business and
-Enterprise workspaces need an admin to allow custom MCP connectors first):
+A client not listed here fails with the same error, which prints the exact URI to add.
+
+ChatGPT web setup:
+
+Then, on chatgpt.com (web only; writing data needs a Business, Enterprise, or Edu plan —
+Pro connects read-only; on Business only admins/owners can use developer mode, on
+Enterprise/Edu an admin grants it first under Workspace Settings → Permissions & Roles →
+Connected Data):
 
 1. **Settings → Apps → Advanced settings** → turn on **Developer mode**.
-2. **Plugins → Create** (older builds call this section Connectors).
-3. Paste `https://your-pktx-server.com/mcp`, give it a name and description — the
-   model reads the description when deciding whether to use pktx — and pick **OAuth**.
-4. Complete the browser sign-in when prompted, then enable the tools you want.
+2. Go to **chatgpt.com/plugins**, click **+** → **Add custom MCP server**.
+3. Name it, add a description — the model reads it when deciding whether to use pktx —
+   and paste `https://your-pktx-server.com/mcp` under **Connection**.
+4. Pick **OAuth**, accept the risk warning, click **Create as a plugin**, and complete the
+   browser sign-in. In a new chat, type **@** and pick it.
+
+Older builds put this under **Settings → Apps → Create** (with a **Scan Tools** step).
 
 ### Clerk manual setup (required before MCP auth works end-to-end)
 

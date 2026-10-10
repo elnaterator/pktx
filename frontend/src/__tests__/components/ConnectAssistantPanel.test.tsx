@@ -1,46 +1,84 @@
 /**
- * Tests the connect panel's per-assistant setup instructions.
+ * Tests the connect panel shell: collapse/expand, rail copy, first-visit auto-open,
+ * and hiding on the full-page /connect route.
  */
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import ConnectAssistantPanel from '../../components/ConnectAssistantPanel'
+import { MemoryRouter } from 'react-router'
+import ConnectAssistantPanel, { SEEN_STORAGE_KEY } from '../../components/ConnectAssistantPanel'
 
-async function openPanel() {
-  render(<ConnectAssistantPanel />)
-  await userEvent.click(screen.getByRole('button', { name: /connect your ai assistant/i }))
+function renderPanel(path = '/') {
+  return render(
+    <MemoryRouter initialEntries={[path]}>
+      <ConnectAssistantPanel />
+    </MemoryRouter>,
+  )
+}
+
+function mockWideScreen(matches: boolean) {
+  vi.stubGlobal('matchMedia', (query: string) => ({ matches, media: query }))
 }
 
 describe('ConnectAssistantPanel', () => {
   beforeEach(() => {
+    localStorage.clear()
     Object.defineProperty(window, 'location', {
       value: new URL('https://pktx.test/'),
       writable: true,
     })
   })
 
-  it('shows the MCP server URL for the default assistant', async () => {
-    await openPanel()
-    expect(screen.getByText(/\/mcp$/)).toBeInTheDocument()
+  afterEach(() => {
+    vi.unstubAllGlobals()
   })
 
-  it('shows ChatGPT developer mode steps when ChatGPT is selected', async () => {
-    await openPanel()
-    await userEvent.selectOptions(screen.getByLabelText('Assistant'), 'chatgpt')
-    expect(screen.getByText(/turn on Developer mode/)).toBeInTheDocument()
-    expect(screen.getByText(/Plugins → Create/)).toBeInTheDocument()
+  it('starts collapsed when there is no room to auto-open', () => {
+    mockWideScreen(false)
+    renderPanel()
+    expect(screen.getByRole('button', { name: /connect your ai assistant/i })).toHaveAttribute(
+      'aria-expanded',
+      'false',
+    )
   })
 
-  it('lists ChatGPT plan and naming caveats as notes', async () => {
-    await openPanel()
-    await userEvent.selectOptions(screen.getByLabelText('Assistant'), 'chatgpt')
-    expect(screen.getByText(/Plus, Pro, Business, Enterprise, or Education plan/)).toBeInTheDocument()
-    expect(screen.getByText(/label the section Connectors/)).toBeInTheDocument()
+  it('auto-opens once for first-time users on wide screens', () => {
+    mockWideScreen(true)
+    const { unmount } = renderPanel()
+    expect(screen.getByText('https://pktx.test/mcp')).toBeInTheDocument()
+    expect(localStorage.getItem(SEEN_STORAGE_KEY)).toBe('true')
+    unmount()
+
+    renderPanel()
+    expect(screen.queryByText('https://pktx.test/mcp')).not.toBeInTheDocument()
   })
 
-  it('shows no notes for assistants that need none', async () => {
-    await openPanel()
-    await userEvent.selectOptions(screen.getByLabelText('Assistant'), 'claude-code')
-    expect(screen.queryByText(/Developer mode/)).not.toBeInTheDocument()
+  it('shows the MCP URL first when opened', async () => {
+    renderPanel()
+    await userEvent.click(screen.getByRole('button', { name: /connect your ai assistant/i }))
+    expect(screen.getByText('https://pktx.test/mcp')).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: /collapse ai assistant panel/i }))
+    expect(screen.queryByText('https://pktx.test/mcp')).not.toBeInTheDocument()
+  })
+
+  it('copies the MCP URL from the collapsed rail', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(screen.getByRole('button', { name: 'Copy MCP URL' }))
+    expect(await navigator.clipboard.readText()).toBe('https://pktx.test/mcp')
+  })
+
+  it('links to the full connect page', async () => {
+    renderPanel()
+    await userEvent.click(screen.getByRole('button', { name: /connect your ai assistant/i }))
+    expect(screen.getByRole('link', { name: /open connect page/i })).toHaveAttribute(
+      'href',
+      '/connect',
+    )
+  })
+
+  it('renders nothing on /connect', () => {
+    renderPanel('/connect')
+    expect(screen.queryByRole('complementary')).not.toBeInTheDocument()
   })
 })

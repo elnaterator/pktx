@@ -75,6 +75,12 @@ def resolve_public_url() -> str:
     return value.strip().rstrip("/")
 
 
+def resolve_public_url_optional() -> str | None:
+    """PKTX_PUBLIC_URL if set (no trailing slash), else None — for cosmetic uses."""
+    value = os.environ.get("PKTX_PUBLIC_URL", "").strip().rstrip("/")
+    return value or None
+
+
 def resolve_extra_client_redirect_uris() -> list[str]:
     """Resolve extra client redirect-URI patterns from PKTX_EXTRA_CLIENT_REDIRECT_URIS.
 
