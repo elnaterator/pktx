@@ -102,7 +102,7 @@ allowed patterns"*. Terraform sets this via `extra_client_redirect_uris` in
 `infra/<env>/terraform.tfvars`; outside AWS, set the env var directly:
 
 ```bash
-PKTX_EXTRA_CLIENT_REDIRECT_URIS=https://chatgpt.com/connector/oauth/*,https://chatgpt.com/connector_platform_oauth_redirect,https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback,https://vscode.dev/redirect,cursor://anysphere.cursor-mcp/oauth/callback
+PKTX_EXTRA_CLIENT_REDIRECT_URIS=https://chatgpt.com/connector/oauth/*,https://chatgpt.com/connector_platform_oauth_redirect,https://claude.ai/api/mcp/auth_callback,https://claude.com/api/mcp/auth_callback,https://vscode.dev/redirect,cursor://anysphere.cursor-mcp/oauth/callback,https://www.cursor.com/agents/mcp/oauth/callback
 ```
 
 A client not listed here fails with the same error, which prints the exact URI to add.

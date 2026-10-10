@@ -13,7 +13,7 @@ extra_client_redirect_uris = [
   "https://claude.ai/api/mcp/auth_callback",
   "https://claude.com/api/mcp/auth_callback",
   "https://vscode.dev/redirect",
-  "cursor://anysphere.cursor-mcp/oauth/callback",
+  "https://www.cursor.com/agents/mcp/oauth/callback",
 ]
 
 # REST JWT `azp` origins on top of the public URL origin. Empty = public only.
