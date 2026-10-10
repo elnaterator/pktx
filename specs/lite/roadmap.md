@@ -154,6 +154,12 @@ Add privacy policy and terms of service pages. Implement full account deletion (
 Add a GitHub Sponsors or Buy Me a Coffee link in the app footer. Explicitly no billing system, subscriptions, or tiers — a payment link only. Revisit with real billing (Stripe) only if donations become meaningful revenue.
 
 
+## 033 Complete the resume: projects, certifications, more sections, and a section registry
+
+The resume only has contact, summary, experience, education, and skills. Add the commonly expected parts: projects, certifications and licenses, awards, publications/talks, volunteer work, languages, a generic profiles list for contact links, and a custom section. Evaluate and refactor the structure first: section definitions are repeated across the service, MCP tools, and one hand-written frontend component each, entries are addressed by index, and there is no per-version section order or visibility. Introduce a section registry (one definition drives service, tools, UI, export), stable entry ids, and a per-version layout (order, hide/show, title), then add the new sections on top. Existing resumes must keep working unchanged. Split into refactor + sections at plan time if it grows.
+Notes: research/resume-sections.md
+
+
 ## 012 Storybook and playwright for shared components and e2e UI tests - DEFERRED
 Set up Storybook targeting `frontend/src/components/`. Stories per primitive (`Breadcrumb`, `ConfirmDialog`, `EditableSection`, `LinkPickerModal`, `TagInput`, `LinksPanel`, etc.) with props matrix + a11y addon. Enables isolated visual review and future visual-regression testing (Chromatic). Defer until shared component set stabilizes. I want to set up a playwright test suite to validate the behavior of the running UI as well as validation of look and feel. It should not be part of the CI pipeline yet.
 
