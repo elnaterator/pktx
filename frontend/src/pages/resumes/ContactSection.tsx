@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import type { ContactInfo } from '../../types';
 import { EditableSection } from '../../components/EditableSection';
@@ -25,6 +25,7 @@ function ContactReadView({ contact }: { contact: ContactInfo }) {
   if (contact.linkedin) links.push({ label: 'LinkedIn', href: contact.linkedin });
   if (contact.website) links.push({ label: 'Website', href: contact.website });
   if (contact.github) links.push({ label: 'GitHub', href: contact.github });
+  for (const p of contact.profiles ?? []) links.push({ label: p.label, href: p.url });
 
   return (
     <div className={styles.readView}>
@@ -57,14 +58,17 @@ const toDefaults = (c: ContactInfo): ContactInfoInput => ({
   linkedin: c.linkedin ?? '',
   website: c.website ?? '',
   github: c.github ?? '',
+  profiles: c.profiles ?? [],
 })
 
 export default function ContactSection({ contact, onUpdate, versionId }: ContactSectionProps) {
-  const { register, trigger, getValues, reset, formState: { errors } } = useForm<ContactInfoInput>({
+  const { register, control, trigger, getValues, reset, formState: { errors } } = useForm<ContactInfoInput>({
     resolver: zodResolver(contactInfoSchema),
     mode: 'onChange',
     defaultValues: toDefaults(contact),
   });
+
+  const profiles = useFieldArray({ control, name: 'profiles' });
 
   useEffect(() => {
     reset(toDefaults(contact));
@@ -82,6 +86,7 @@ export default function ContactSection({ contact, onUpdate, versionId }: Contact
       linkedin: parsed.linkedin ?? null,
       website: parsed.website ?? null,
       github: parsed.github ?? null,
+      profiles: parsed.profiles,
     };
     if (versionId !== undefined) {
       await updateVersionContact(versionId, contactData);
@@ -180,6 +185,47 @@ export default function ContactSection({ contact, onUpdate, versionId }: Contact
                   />
                   <FieldError error={errors.github} />
                 </div>
+              </div>
+
+              <div className={styles.formField}>
+                <span className={styles.formLabel}>Other profiles</span>
+                {profiles.fields.map((field, index) => (
+                  <div key={field.id} className={styles.formRow}>
+                    <div className={styles.formField}>
+                      <input
+                        type="text"
+                        className={styles.input}
+                        placeholder="Label (e.g. GitLab)"
+                        aria-label={`Profile ${index + 1} label`}
+                        {...register(`profiles.${index}.label` as const)}
+                      />
+                      <FieldError error={errors.profiles?.[index]?.label} />
+                    </div>
+                    <div className={styles.formField}>
+                      <input
+                        type="url"
+                        className={styles.input}
+                        placeholder="https://..."
+                        aria-label={`Profile ${index + 1} URL`}
+                        {...register(`profiles.${index}.url` as const)}
+                      />
+                      <FieldError error={errors.profiles?.[index]?.url} />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => profiles.remove(index)}
+                      aria-label={`Remove profile ${index + 1}`}
+                    >
+                      Remove
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => profiles.append({ label: '', url: '' })}
+                >
+                  Add profile
+                </button>
               </div>
             </form>
           ) : (

@@ -16,7 +16,13 @@ from pktx.export_service import ExportService
 from pktx.link_service import RESOURCE_TYPES, LinkService
 from pktx.models import Resume
 from pktx.note_service import NoteService
-from pktx.resume_service import ALL_SECTIONS, SECTION_LIST, ResumeService
+from pktx.resume_sections import (
+    ALL_SECTIONS,
+    LIST_SECTIONS,
+    describe_sections,
+    is_custom,
+)
+from pktx.resume_service import ResumeService
 from pktx.search_service import SearchService
 
 _NO_AUTH_USER = UserContext(id="legacy", email=None, display_name=None)
@@ -41,9 +47,28 @@ def _make_user_dep(get_current_user: Callable | None) -> Callable:
 def _client_error(e: Exception) -> HTTPException:
     """Map a service ValueError/TypeError to 404 (missing) or 422 (bad input)."""
     detail = str(e)
-    if "not found" in detail or "out of range" in detail:
+    if any(m in detail for m in _NOT_FOUND_MARKERS):
         return HTTPException(status_code=404, detail=detail)
     return HTTPException(status_code=422, detail=detail)
+
+
+_NOT_FOUND_MARKERS = (
+    "not found",
+    "out of range",
+    "Unknown custom section",
+    " entry with id ",
+)
+
+
+def _check_list_section(section: str) -> None:
+    if section not in LIST_SECTIONS and not is_custom(section):
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"Invalid section for entries: '{section}'. "
+                f"Must be one of: {', '.join(LIST_SECTIONS)} or custom:<id>"
+            ),
+        )
 
 
 def create_router(
@@ -199,7 +224,7 @@ def create_router(
         section: str,
         current_user: UserContext = Depends(_user_dep),
     ) -> Any:
-        if section not in ALL_SECTIONS:
+        if section not in ALL_SECTIONS and not is_custom(section):
             raise HTTPException(
                 status_code=404,
                 detail=(
@@ -212,6 +237,11 @@ def create_router(
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
         resume = Resume(**version["resume_data"])
+        if is_custom(section):
+            try:
+                return service.get_section(section, version_id, user_id=current_user.id)
+            except ValueError as e:
+                raise HTTPException(status_code=404, detail=str(e))
         return resume.model_dump()[section]
 
     @api.put("/api/resumes/{version_id}/contact")
@@ -254,66 +284,93 @@ def create_router(
         data: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, str]:
-        if section not in SECTION_LIST:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Invalid section for entries: '{section}'. "
-                    f"Must be one of: {', '.join(SECTION_LIST)}"
-                ),
-            )
+        _check_list_section(section)
         try:
             msg = service.add_entry(section, data, version_id, user_id=current_user.id)
         except (ValueError, TypeError) as e:
             raise _client_error(e)
         return {"message": msg}
 
-    @api.put("/api/resumes/{version_id}/{section}/entries/{index}")
+    @api.put("/api/resumes/{version_id}/{section}/entries/{entry_ref}")
     def update_resume_entry(
         version_id: int,
         section: str,
-        index: int,
+        entry_ref: str,
         data: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, str]:
-        if section not in SECTION_LIST:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Invalid section for entries: '{section}'. "
-                    f"Must be one of: {', '.join(SECTION_LIST)}"
-                ),
-            )
+        _check_list_section(section)
         try:
             msg = service.update_entry(
-                section, index, data, version_id, user_id=current_user.id
+                section, entry_ref, data, version_id, user_id=current_user.id
             )
         except (ValueError, TypeError) as e:
             raise _client_error(e)
         return {"message": msg}
 
-    @api.delete("/api/resumes/{version_id}/{section}/entries/{index}")
+    @api.delete("/api/resumes/{version_id}/{section}/entries/{entry_ref}")
     def remove_resume_entry(
         version_id: int,
         section: str,
-        index: int,
+        entry_ref: str,
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, str]:
-        if section not in SECTION_LIST:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Invalid section for entries: '{section}'. "
-                    f"Must be one of: {', '.join(SECTION_LIST)}"
-                ),
-            )
+        _check_list_section(section)
         try:
             msg = service.remove_entry(
-                section, index, version_id, user_id=current_user.id
+                section, entry_ref, version_id, user_id=current_user.id
             )
         except ValueError as e:
             raise _client_error(e)
         return {"message": msg}
+
+    @api.put("/api/resumes/{version_id}/layout")
+    def update_resume_layout(
+        version_id: int,
+        data: dict[str, Any],
+        current_user: UserContext = Depends(_user_dep),
+    ) -> dict[str, Any]:
+        try:
+            layout = service.update_layout(
+                data.get("layout", []), version_id, user_id=current_user.id
+            )
+        except ValueError as e:
+            raise _client_error(e)
+        return {"layout": layout}
+
+    @api.post("/api/resumes/{version_id}/custom-sections", status_code=201)
+    def add_resume_custom_section(
+        version_id: int,
+        data: dict[str, Any],
+        current_user: UserContext = Depends(_user_dep),
+    ) -> dict[str, str]:
+        try:
+            key = service.add_custom_section(
+                data.get("title", ""), version_id, user_id=current_user.id
+            )
+        except ValueError as e:
+            raise _client_error(e)
+        return {"section": key}
+
+    @api.delete("/api/resumes/{version_id}/custom-sections/{custom_id}")
+    def remove_resume_custom_section(
+        version_id: int,
+        custom_id: str,
+        current_user: UserContext = Depends(_user_dep),
+    ) -> dict[str, str]:
+        try:
+            msg = service.remove_custom_section(
+                f"custom:{custom_id}", version_id, user_id=current_user.id
+            )
+        except ValueError as e:
+            raise _client_error(e)
+        return {"message": msg}
+
+    @api.get("/api/resume-sections")
+    def list_resume_sections(
+        current_user: UserContext = Depends(_user_dep),
+    ) -> list[dict[str, Any]]:
+        return describe_sections()
 
     # ==========================================================
     # Application Routes

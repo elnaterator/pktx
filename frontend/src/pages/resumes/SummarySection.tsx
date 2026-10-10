@@ -9,12 +9,14 @@ import { summarySchema, type SummaryInput } from '../../schemas/resumeEntry';
 import styles from './SummarySection.module.css';
 
 interface SummarySectionProps {
+  /** Heading override from the resume layout. */
+  title?: string;
   summary: string;
   onUpdate?: () => void;
   versionId?: number;
 }
 
-export default function SummarySection({ summary, onUpdate, versionId }: SummarySectionProps) {
+export default function SummarySection({ summary, onUpdate, versionId, title = 'Summary' }: SummarySectionProps) {
   const { control, trigger, getValues, formState: { errors } } = useForm<SummaryInput>({
     resolver: zodResolver(summarySchema),
     mode: 'onChange',
@@ -36,7 +38,7 @@ export default function SummarySection({ summary, onUpdate, versionId }: Summary
   if (!onUpdate) {
     return (
       <section className={styles.container} data-testid="summary-section">
-        <h2 className={styles.sectionLabel}>Summary</h2>
+        <h2 className={styles.sectionLabel}>{title}</h2>
         {summary ? (
           <MarkdownContent>{summary}</MarkdownContent>
         ) : (
@@ -51,10 +53,10 @@ export default function SummarySection({ summary, onUpdate, versionId }: Summary
   ) : undefined;
 
   return (
-    <EditableSection title="Summary" onSave={handleSave} placeholderContent={placeholder}>
+    <EditableSection title={title} onSave={handleSave} placeholderContent={placeholder}>
       {({ isEditing }) => (
         <div data-testid="summary-section">
-          <h2 className={styles.sectionLabel}>Summary</h2>
+          <h2 className={styles.sectionLabel}>{title}</h2>
           {isEditing ? (
             <div className={styles.formField}>
               <Controller

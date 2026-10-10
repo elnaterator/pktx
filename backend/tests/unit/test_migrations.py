@@ -387,3 +387,63 @@ class TestMigrateV13ToV14:
         # Bare hosts are kept, not dropped: https:// is prepended.
         assert stored["contact"]["linkedin"] == "https://linkedin.com/in/jo"
         assert _get_version(pg_conn) == 14
+
+
+class TestMigrateV14ToV15:
+    """v14→v15 backfills stable entry ids and seeds the section layout."""
+
+    def test_backfills_ids_and_layout_idempotently(self, pg_conn) -> None:
+        import json
+
+        from pktx.migrations import MIGRATIONS, apply_migrations, migrate_v14_to_v15
+
+        original = MIGRATIONS.copy()
+        MIGRATIONS[:] = original[:14]
+        try:
+            apply_migrations(pg_conn)
+        finally:
+            MIGRATIONS[:] = original
+
+        resume = {
+            "summary": "s",
+            "experience": [{"title": "Dev", "company": "Co"}],
+            "skills": [{"name": "Go", "id": "keepme"}, {"name": "Rust"}],
+        }
+        pg_conn.execute("INSERT INTO users (id) VALUES ('u1')")
+        pg_conn.execute(
+            "INSERT INTO resume_version (user_id, label, resume_data, tags) "
+            "VALUES ('u1', 'R', %s, '[]')",
+            (json.dumps(resume),),
+        )
+        pg_conn.execute(
+            "INSERT INTO resume_version (user_id, label, resume_data, tags) "
+            "VALUES ('u1', 'Empty', '{}', '[]')"
+        )
+        pg_conn.commit()
+
+        def stored() -> dict:
+            row = pg_conn.execute(
+                "SELECT resume_data FROM resume_version WHERE label = 'R'"
+            ).fetchone()
+            return json.loads(row["resume_data"])
+
+        migrate_v14_to_v15(pg_conn)
+        first = stored()
+        ids = [e["id"] for e in first["experience"] + first["skills"]]
+        assert all(ids) and len(set(ids)) == 3
+        assert first["skills"][0]["id"] == "keepme"
+        visible = {i["section"]: i["visible"] for i in first["layout"]}
+        assert visible["experience"] is True and visible["summary"] is True
+        assert visible["projects"] is False
+        assert [i["section"] for i in first["layout"]][:4] == [
+            "summary",
+            "experience",
+            "education",
+            "skills",
+        ]
+        assert _get_version(pg_conn) == 15
+        # Content other than ids/layout is untouched.
+        assert first["experience"][0]["title"] == "Dev" and first["summary"] == "s"
+
+        migrate_v14_to_v15(pg_conn)
+        assert stored() == first

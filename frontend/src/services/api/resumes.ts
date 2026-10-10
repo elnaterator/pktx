@@ -10,6 +10,8 @@ import type {
   Skill,
   ResumeVersion,
   ResumeVersionSummary,
+  LayoutItem,
+  SectionMeta,
   ApiSuccessResponse,
 } from '../../types'
 import { API_BASE, fetchWithErrorHandling, handleResponse } from './client'
@@ -261,12 +263,13 @@ export async function addVersionEntry(
 export async function updateVersionEntry(
   versionId: number,
   section: string,
-  index: number,
+  /** Stable entry id (a legacy 0-based index is also accepted by the API). */
+  entryRef: string | number,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
 ): Promise<ApiSuccessResponse> {
   const response = await fetchWithErrorHandling(
-    `${API_BASE}/resumes/${versionId}/${section}/entries/${index}`,
+    `${API_BASE}/resumes/${versionId}/${section}/entries/${encodeURIComponent(entryRef)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -282,10 +285,68 @@ export async function updateVersionEntry(
 export async function removeVersionEntry(
   versionId: number,
   section: string,
-  index: number
+  entryRef: string | number
 ): Promise<ApiSuccessResponse> {
   const response = await fetchWithErrorHandling(
-    `${API_BASE}/resumes/${versionId}/${section}/entries/${index}`,
+    `${API_BASE}/resumes/${versionId}/${section}/entries/${encodeURIComponent(entryRef)}`,
+    { method: 'DELETE' }
+  )
+  return handleResponse<ApiSuccessResponse>(response)
+}
+
+/**
+ * Section registry (field definitions for every list section)
+ */
+export async function listResumeSections(): Promise<SectionMeta[]> {
+  const response = await fetchWithErrorHandling(`${API_BASE}/resume-sections`)
+  return handleResponse<SectionMeta[]>(response)
+}
+
+/**
+ * Replace the section order / visibility / titles of a version
+ */
+export async function updateVersionLayout(
+  versionId: number,
+  layout: LayoutItem[]
+): Promise<{ layout: LayoutItem[] }> {
+  const response = await fetchWithErrorHandling(
+    `${API_BASE}/resumes/${versionId}/layout`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ layout }),
+    }
+  )
+  return handleResponse<{ layout: LayoutItem[] }>(response)
+}
+
+/**
+ * Add a user-defined section; resolves to its `custom:<id>` key
+ */
+export async function addCustomSection(
+  versionId: number,
+  title: string
+): Promise<{ section: string }> {
+  const response = await fetchWithErrorHandling(
+    `${API_BASE}/resumes/${versionId}/custom-sections`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    }
+  )
+  return handleResponse<{ section: string }>(response)
+}
+
+/**
+ * Delete a user-defined section (`customId` is the part after `custom:`)
+ */
+export async function removeCustomSection(
+  versionId: number,
+  customId: string
+): Promise<ApiSuccessResponse> {
+  const response = await fetchWithErrorHandling(
+    `${API_BASE}/resumes/${versionId}/custom-sections/${encodeURIComponent(customId)}`,
     { method: 'DELETE' }
   )
   return handleResponse<ApiSuccessResponse>(response)

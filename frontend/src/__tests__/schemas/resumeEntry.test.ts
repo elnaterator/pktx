@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest'
-import { workExperienceSchema, educationSchema, skillSchema, contactInfoSchema } from '../../schemas/resumeEntry'
+import {
+  workExperienceSchema,
+  educationSchema,
+  skillSchema,
+  contactInfoSchema,
+  buildEntrySchema,
+  profileSchema,
+} from '../../schemas/resumeEntry'
+import type { SectionField } from '../../types'
 
 describe('workExperienceSchema', () => {
   it('accepts valid input', () => {
@@ -89,5 +97,50 @@ describe('contactInfoSchema', () => {
     const result = contactInfoSchema.safeParse({ [field]: 'https://example.com' })
     expect(result.success).toBe(true)
     if (result.success) expect(result.data[field]).toBe('https://example.com')
+  })
+})
+
+describe('buildEntrySchema', () => {
+  const fields = [
+    { name: 'name', label: 'Name', widget: 'text', required: true },
+    { name: 'url', label: 'Url', widget: 'url', required: false },
+    { name: 'homepage', label: 'Homepage', widget: 'url', required: true },
+    { name: 'description', label: 'Description', widget: 'textarea', required: false },
+    { name: 'highlights', label: 'Highlights', widget: 'bullets', required: false },
+  ] as SectionField[]
+  const schema = buildEntrySchema(fields)
+
+  it('accepts a minimal valid entry and defaults bullets', () => {
+    const r = schema.safeParse({ name: ' X ', homepage: 'https://a.com' })
+    expect(r.success).toBe(true)
+    if (r.success) {
+      expect(r.data.name).toBe('X')
+      expect(r.data.highlights).toEqual([])
+    }
+  })
+
+  it('rejects missing required fields', () => {
+    const r = schema.safeParse({ name: '', homepage: '' })
+    expect(r.success).toBe(false)
+  })
+
+  it('rejects non-http(s) urls in optional and required url fields', () => {
+    expect(schema.safeParse({ name: 'x', homepage: 'javascript:alert(1)' }).success).toBe(false)
+    expect(
+      schema.safeParse({ name: 'x', homepage: 'https://a.com', url: 'ftp://a.com' }).success,
+    ).toBe(false)
+  })
+
+  it('treats an empty optional url as absent', () => {
+    const r = schema.safeParse({ name: 'x', homepage: 'https://a.com', url: '' })
+    expect(r.success).toBe(true)
+  })
+})
+
+describe('profileSchema', () => {
+  it('requires label and an http(s) url', () => {
+    expect(profileSchema.safeParse({ label: 'GitLab', url: 'https://gitlab.com/me' }).success).toBe(true)
+    expect(profileSchema.safeParse({ label: '', url: 'https://gitlab.com/me' }).success).toBe(false)
+    expect(profileSchema.safeParse({ label: 'x', url: 'javascript:1' }).success).toBe(false)
   })
 })

@@ -761,6 +761,50 @@ def migrate_v13_to_v14(conn) -> None:
     conn.commit()
 
 
+def migrate_v14_to_v15(conn) -> None:
+    """Give every resume list entry a stable id and seed the section layout.
+
+    Data-only and idempotent: entries that already have an id are untouched and
+    an existing layout is kept. Sections that predate the layout stay visible;
+    the new ones start hidden until they have content. Values are hardcoded so
+    later registry changes cannot alter what this migration did.
+    """
+    import uuid
+
+    legacy = ("experience", "education", "skills")
+    later = (
+        "projects",
+        "certifications",
+        "awards",
+        "publications",
+        "volunteer",
+        "languages",
+    )
+    # Explicit dict rows: the migration connection may use the default factory.
+    cur = conn.cursor(row_factory=dict_row)
+    rows = cur.execute("SELECT id, resume_data FROM resume_version").fetchall()
+    for row in rows:
+        data = json.loads(row["resume_data"] or "{}")
+        if not isinstance(data, dict):
+            continue
+        for key in (*legacy, *later):
+            for entry in data.get(key) or []:
+                if isinstance(entry, dict) and not entry.get("id"):
+                    entry["id"] = uuid.uuid4().hex
+        if not data.get("layout"):
+            data["layout"] = [
+                {"section": k, "visible": True, "title": None}
+                for k in ("summary", *legacy)
+            ] + [{"section": k, "visible": False, "title": None} for k in later]
+        conn.execute(
+            "UPDATE resume_version SET resume_data = %s WHERE id = %s",
+            (json.dumps(data), row["id"]),
+        )
+
+    conn.execute("UPDATE schema_version SET version = %s", (15,))
+    conn.commit()
+
+
 MIGRATIONS: list = [
     migrate_v0_to_v1,
     migrate_v1_to_v2,
@@ -776,6 +820,7 @@ MIGRATIONS: list = [
     migrate_v11_to_v12,
     migrate_v12_to_v13,
     migrate_v13_to_v14,
+    migrate_v14_to_v15,
 ]
 
 SCHEMA_VERSION: int = len(MIGRATIONS)

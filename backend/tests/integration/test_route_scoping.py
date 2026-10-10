@@ -29,6 +29,8 @@ _EXEMPT: set[tuple[str, str]] = {
     ("POST", "/api/accomplishments"),
     ("POST", "/api/notes"),
     ("POST", "/api/contacts"),
+    # Static registry metadata, no user data.
+    ("GET", "/api/resume-sections"),
     # Catch-all: unknown /api paths always 404, never touch data.
     ("GET", "/api/{path:path}"),
     ("POST", "/api/{path:path}"),
@@ -91,12 +93,24 @@ def _cases(ids: dict[str, Any]) -> dict[tuple[str, str], tuple[str, Any]]:
             f"/api/resumes/{r}/experience/entries",
             exp,
         ),
-        ("PUT", "/api/resumes/{version_id}/{section}/entries/{index}"): (
+        ("PUT", "/api/resumes/{version_id}/{section}/entries/{entry_ref}"): (
             f"/api/resumes/{r}/experience/entries/0",
             {"title": "x"},
         ),
-        ("DELETE", "/api/resumes/{version_id}/{section}/entries/{index}"): (
+        ("DELETE", "/api/resumes/{version_id}/{section}/entries/{entry_ref}"): (
             f"/api/resumes/{r}/experience/entries/0",
+            None,
+        ),
+        ("PUT", "/api/resumes/{version_id}/layout"): (
+            f"/api/resumes/{r}/layout",
+            {"layout": []},
+        ),
+        ("POST", "/api/resumes/{version_id}/custom-sections"): (
+            f"/api/resumes/{r}/custom-sections",
+            {"title": "x"},
+        ),
+        ("DELETE", "/api/resumes/{version_id}/custom-sections/{custom_id}"): (
+            f"/api/resumes/{r}/custom-sections/abc",
             None,
         ),
         ("GET", "/api/applications/{app_id}"): (f"/api/applications/{a}", None),

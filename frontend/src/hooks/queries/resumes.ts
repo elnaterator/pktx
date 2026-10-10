@@ -1,21 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type {
-  ContactInfo,
-  Education,
-  Skill,
-  WorkExperience,
-} from '../../types'
+import type { ContactInfo, LayoutItem } from '../../types'
 import {
+  addCustomSection,
   addVersionEntry,
   createResume,
   deleteResume,
   getResumeVersion,
+  listResumeSections,
   listResumes,
+  removeCustomSection,
   removeVersionEntry,
   setDefaultResume,
   updateResumeLabel,
   updateVersionContact,
   updateVersionEntry,
+  updateVersionLayout,
   updateVersionSummary,
 } from '../../services/api'
 
@@ -48,6 +47,15 @@ export function useResumeDetail(id: number | undefined) {
     queryKey: id ? resumeKeys.detail(id) : resumeKeys.details(),
     queryFn: () => getResumeVersion(id!),
     enabled: !!id,
+  })
+}
+
+/** Section registry: static per deploy, so cache for the session. */
+export function useResumeSections() {
+  return useQuery({
+    queryKey: [...resumeKeys.all, 'sections'] as const,
+    queryFn: listResumeSections,
+    staleTime: Infinity,
   })
 }
 
@@ -98,8 +106,8 @@ export function useResumeMutations() {
       data,
     }: {
       id: number
-      section: 'experience' | 'education' | 'skills'
-      data: WorkExperience | Education | Skill
+      section: string
+      data: Record<string, unknown>
     }) => addVersionEntry(id, section, data),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
@@ -107,26 +115,41 @@ export function useResumeMutations() {
     mutationFn: ({
       id,
       section,
-      index,
+      entryRef,
       data,
     }: {
       id: number
-      section: 'experience' | 'education' | 'skills'
-      index: number
-      data: Partial<WorkExperience | Education | Skill>
-    }) => updateVersionEntry(id, section, index, data),
+      section: string
+      entryRef: string | number
+      data: Record<string, unknown>
+    }) => updateVersionEntry(id, section, entryRef, data),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
   const removeEntry = useMutation({
     mutationFn: ({
       id,
       section,
-      index,
+      entryRef,
     }: {
       id: number
-      section: 'experience' | 'education' | 'skills'
-      index: number
-    }) => removeVersionEntry(id, section, index),
+      section: string
+      entryRef: string | number
+    }) => removeVersionEntry(id, section, entryRef),
+    onSuccess: (_d, { id }) => invalidateResume(id),
+  })
+  const updateLayout = useMutation({
+    mutationFn: ({ id, layout }: { id: number; layout: LayoutItem[] }) =>
+      updateVersionLayout(id, layout),
+    onSuccess: (_d, { id }) => invalidateResume(id),
+  })
+  const addCustom = useMutation({
+    mutationFn: ({ id, title }: { id: number; title: string }) =>
+      addCustomSection(id, title),
+    onSuccess: (_d, { id }) => invalidateResume(id),
+  })
+  const removeCustom = useMutation({
+    mutationFn: ({ id, customId }: { id: number; customId: string }) =>
+      removeCustomSection(id, customId),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
 
@@ -140,5 +163,8 @@ export function useResumeMutations() {
     addEntry,
     updateEntry,
     removeEntry,
+    updateLayout,
+    addCustom,
+    removeCustom,
   }
 }
