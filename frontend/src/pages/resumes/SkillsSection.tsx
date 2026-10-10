@@ -8,6 +8,9 @@ import { SkillAdder } from './SkillAdder'
 import styles from './SkillsSection.module.css'
 
 interface SkillsSectionProps {
+  /** Heading override from the resume layout. */
+  title?: string
+
   skills: Skill[]
   onUpdate?: () => void
   versionId?: number
@@ -16,7 +19,7 @@ interface SkillsSectionProps {
 /** Display label for skills stored with a null category. */
 const UNCATEGORIZED = 'Other'
 
-export default function SkillsSection({ skills, onUpdate, versionId }: SkillsSectionProps) {
+export default function SkillsSection({ skills, onUpdate, versionId, title = 'Skills' }: SkillsSectionProps) {
   /** Category label being edited (chips removable + adder open), or null. */
   const [editingCategory, setEditingCategory] = useState<string | null>(null)
   /** Client-only category: exists until its first skill is persisted. */
@@ -143,12 +146,12 @@ export default function SkillsSection({ skills, onUpdate, versionId }: SkillsSec
 
   // No confirm dialog for a single skill — delete immediately, offer Undo.
   // Undo re-adds the skill, which appends it to the end of its category.
-  const handleDelete = async (index: number, skill: Skill) => {
+  const handleDelete = async (ref: string | number, skill: Skill) => {
     try {
       if (versionId !== undefined) {
-        await removeVersionEntry(versionId, 'skills', index)
+        await removeVersionEntry(versionId, 'skills', ref)
       } else {
-        await removeEntry('skills', index)
+        await removeEntry('skills', Number(ref))
       }
     } catch (err) {
       error(err instanceof Error ? err.message : 'Failed to delete skill')
@@ -175,7 +178,7 @@ export default function SkillsSection({ skills, onUpdate, versionId }: SkillsSec
 
   return (
     <section className={styles.container} data-testid="skills-section">
-      <h2 className={styles.sectionLabel}>Skills</h2>
+      <h2 className={styles.sectionLabel}>{title}</h2>
 
       {categories.length > 0 || draftCategory !== null ? (
         <div className={styles.list}>
@@ -213,7 +216,7 @@ export default function SkillsSection({ skills, onUpdate, versionId }: SkillsSec
                       {editing && (
                         <button
                           className={styles.chipRemove}
-                          onClick={() => handleDelete(skill.originalIndex, skill)}
+                          onClick={() => handleDelete(skill.id ?? skill.originalIndex, skill)}
                           aria-label={`Remove ${skill.name}`}
                         >
                           <X size={10} />

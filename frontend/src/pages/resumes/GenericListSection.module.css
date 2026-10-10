@@ -45,7 +45,7 @@
   min-width: 0;
 }
 
-.entryDegree {
+.entryTitle {
   font-weight: 700;
   color: var(--text-primary);
   font-size: 1rem;
@@ -61,8 +61,8 @@
   font-style: italic;
 }
 
-.entryHonors {
-  color: var(--accent-green);
+.entryLocation {
+  color: var(--text-muted);
 }
 
 .highlights {
@@ -135,4 +135,22 @@
 
 .addButton:hover {
   color: var(--accent-green-dim);
+}
+
+.entryLink {
+  color: var(--accent-green);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.entryLink:hover {
+  text-decoration: underline;
+}
+
+.entryText {
+  margin: var(--space-2) 0 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }

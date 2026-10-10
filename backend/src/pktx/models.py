@@ -3,7 +3,7 @@
 import re
 from typing import Literal
 
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, field_validator, model_validator
 
 from pktx.validation import validate_http_url
 
@@ -24,6 +24,21 @@ class ResourceRef(BaseModel):
 GroupedLinks = dict[str, list[ResourceRef]]
 
 
+class Profile(BaseModel):
+    """A labelled link to an online profile (e.g. GitLab, Dribbble)."""
+
+    label: str
+    url: str
+
+    @field_validator("url", mode="before")
+    @classmethod
+    def http_url_only(cls, v: object) -> str:
+        url = validate_http_url(v)
+        if url is None:
+            raise ValueError("Profile URL must not be empty")
+        return url
+
+
 class ContactInfo(BaseModel):
     """Personal contact details stored in YAML front-matter."""
 
@@ -34,6 +49,7 @@ class ContactInfo(BaseModel):
     linkedin: str | None = None
     website: str | None = None
     github: str | None = None
+    profiles: list[Profile] = []
 
     @field_validator("linkedin", "website", "github", mode="before")
     @classmethod
@@ -41,7 +57,22 @@ class ContactInfo(BaseModel):
         return validate_http_url(v)
 
 
-class WorkExperience(BaseModel):
+class Entry(BaseModel):
+    """Base for list-section entries; ``id`` is assigned by the service."""
+
+    id: str | None = None
+
+
+class _UrlEntry(Entry):
+    """Entry with an optional ``url`` restricted to http(s)."""
+
+    @field_validator("url", mode="before", check_fields=False)
+    @classmethod
+    def http_url_only(cls, v: object) -> str | None:
+        return validate_http_url(v)
+
+
+class WorkExperience(Entry):
     """A single work experience entry."""
 
     title: str
@@ -52,7 +83,7 @@ class WorkExperience(BaseModel):
     highlights: list[str] = []
 
 
-class Education(BaseModel):
+class Education(Entry):
     """A single education entry."""
 
     institution: str
@@ -64,7 +95,7 @@ class Education(BaseModel):
     highlights: list[str] = []
 
 
-class Skill(BaseModel):
+class Skill(Entry):
     """A single skill with a name and optional category."""
 
     name: str
@@ -78,6 +109,89 @@ class Skill(BaseModel):
         return v
 
 
+class Project(_UrlEntry):
+    """A personal, open-source or side project."""
+
+    name: str
+    description: str | None = None
+    url: str | None = None
+    tech: list[str] = []
+    start_date: str | None = None
+    end_date: str | None = None
+    highlights: list[str] = []
+
+
+class Certification(_UrlEntry):
+    """A certification or license."""
+
+    name: str
+    issuer: str | None = None
+    issued: str | None = None
+    expires: str | None = None
+    credential_id: str | None = None
+    url: str | None = None
+
+
+class Award(Entry):
+    """An award or honor."""
+
+    title: str
+    issuer: str | None = None
+    date: str | None = None
+    description: str | None = None
+
+
+class Publication(_UrlEntry):
+    """A publication, talk or patent."""
+
+    title: str
+    venue: str | None = None
+    date: str | None = None
+    url: str | None = None
+    description: str | None = None
+
+
+class Volunteer(Entry):
+    """A volunteer or community role."""
+
+    role: str
+    organization: str
+    start_date: str | None = None
+    end_date: str | None = None
+    location: str | None = None
+    highlights: list[str] = []
+
+
+class Language(Entry):
+    """A spoken language with optional proficiency."""
+
+    language: str
+    proficiency: str | None = None
+
+
+class CustomEntry(Entry):
+    """Free-form entry in a user-defined section."""
+
+    heading: str | None = None
+    body: str | None = None
+    highlights: list[str] = []
+
+
+class CustomSection(BaseModel):
+    """A user-defined section: a title (also in layout) plus free-form entries."""
+
+    title: str
+    entries: list[CustomEntry] = []
+
+
+class LayoutItem(BaseModel):
+    """Position, visibility and optional title override for one section."""
+
+    section: str
+    visible: bool = True
+    title: str | None = None
+
+
 class Resume(BaseModel):
     """Aggregate resume model combining all sections."""
 
@@ -86,6 +200,27 @@ class Resume(BaseModel):
     experience: list[WorkExperience] = []
     education: list[Education] = []
     skills: list[Skill] = []
+    projects: list[Project] = []
+    certifications: list[Certification] = []
+    awards: list[Award] = []
+    publications: list[Publication] = []
+    volunteer: list[Volunteer] = []
+    languages: list[Language] = []
+    custom_sections: dict[str, CustomSection] = {}
+    layout: list[LayoutItem] = []
+
+    @model_validator(mode="after")
+    def _normalize_layout(self) -> "Resume":
+        from pktx.resume_layout import normalize_layout
+
+        self.layout = [
+            LayoutItem.model_validate(i)
+            for i in normalize_layout(
+                [i.model_dump() for i in self.layout],
+                self.model_dump(exclude={"layout"}),
+            )
+        ]
+        return self
 
 
 class ResumeVersion(BaseModel):

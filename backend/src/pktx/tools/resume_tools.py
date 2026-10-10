@@ -6,6 +6,7 @@ from fastmcp import FastMCP
 
 from pktx.auth import require_user_id
 from pktx.models import Resume
+from pktx.resume_sections import ALL_SECTIONS, is_custom
 from pktx.resume_service import ResumeService
 
 
@@ -30,8 +31,9 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             id: Resume version ID. If omitted, returns the default version.
 
-        Returns the full resume version including contact, summary,
-        experience, education, and skills.
+        Returns the full resume version: contact, summary, every list section
+        (each entry has a stable `id`), custom sections, and `layout` (section
+        order, visibility and title overrides).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
@@ -53,7 +55,9 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         """Get a specific section from a resume version.
 
         Args:
-            section: One of: contact, summary, experience, education, skills.
+            section: One of: contact, summary, experience, education, skills,
+                projects, certifications, awards, publications, volunteer,
+                languages, or `custom:<id>` for a custom section.
             id: Resume version ID. If omitted, uses default.
         """
         user_id = require_user_id()
@@ -61,9 +65,9 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         version = service.get_resume(id, user_id=user_id)
         resume = Resume(**version["resume_data"])
         data = resume.model_dump()
-        if section not in data:
-            from pktx.resume_service import ALL_SECTIONS
-
+        if is_custom(section):
+            return service.get_section(section, id, user_id=user_id)
+        if section not in ALL_SECTIONS:
             raise ValueError(
                 f"Invalid section: '{section}'. "
                 f"Must be one of: {', '.join(ALL_SECTIONS)}"
@@ -90,8 +94,11 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
 
         Args:
             id: Resume version ID.
-            section: One of: experience, education, skills.
-            data: Entry fields. Required fields vary by section.
+            section: One of: experience, education, skills, projects,
+                certifications, awards, publications, volunteer, languages,
+                or `custom:<id>`.
+            data: Entry fields. Required fields vary by section
+                  (see the `fields` of `GET /api/resume-sections`).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
@@ -99,32 +106,81 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
 
     @mcp.tool()
     def update_resume_entry(
-        id: int, section: str, index: int, data: dict[str, Any]
+        id: int, section: str, entry_id: str, data: dict[str, Any]
     ) -> str:
         """Update an entry in a list section of a resume version.
 
         Args:
             id: Resume version ID.
-            section: One of: experience, education, skills.
-            index: 0-based index of the entry to update.
+            section: One of: experience, education, skills, projects,
+                certifications, awards, publications, volunteer, languages,
+                or `custom:<id>`.
+            entry_id: Stable `id` of the entry (a 0-based index is also accepted).
             data: Fields to update (partial update).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
-        return service.update_entry(section, index, data, id, user_id=user_id)
+        return service.update_entry(section, entry_id, data, id, user_id=user_id)
 
     @mcp.tool()
-    def remove_resume_entry(id: int, section: str, index: int) -> str:
+    def remove_resume_entry(id: int, section: str, entry_id: str) -> str:
         """Remove an entry from a list section of a resume version.
 
         Args:
             id: Resume version ID.
-            section: One of: experience, education, skills.
-            index: 0-based index of the entry to remove.
+            section: One of: experience, education, skills, projects,
+                certifications, awards, publications, volunteer, languages,
+                or `custom:<id>`.
+            entry_id: Stable `id` of the entry (a 0-based index is also accepted).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
-        return service.remove_entry(section, index, id, user_id=user_id)
+        return service.remove_entry(section, entry_id, id, user_id=user_id)
+
+    @mcp.tool()
+    def update_resume_layout(id: int, layout: list[dict[str, Any]]) -> str:
+        """Set section order, visibility and titles for a resume version.
+
+        Args:
+            id: Resume version ID.
+            layout: Ordered list of {"section": key, "visible": bool,
+                "title": optional override}. Keys: summary, experience, education,
+                skills, projects, certifications, awards, publications,
+                volunteer, languages, and `custom:<id>`.
+        """
+        user_id = require_user_id()
+        service: ResumeService = get_service()
+        result = service.update_layout(layout, id, user_id=user_id)
+        return "Updated layout: " + ", ".join(
+            i["section"] + ("" if i["visible"] else " (hidden)") for i in result
+        )
+
+    @mcp.tool()
+    def add_resume_custom_section(id: int, title: str) -> str:
+        """Add a custom section (title plus free-form entries) to a resume version.
+
+        Args:
+            id: Resume version ID.
+            title: Section title, e.g. "Open Source".
+
+        Returns the new section key (`custom:<id>`) for use with add_resume_entry.
+        """
+        user_id = require_user_id()
+        service: ResumeService = get_service()
+        key = service.add_custom_section(title, id, user_id=user_id)
+        return f"Added custom section '{title}' ({key})"
+
+    @mcp.tool()
+    def remove_resume_custom_section(id: int, section: str) -> str:
+        """Delete a custom section and all of its entries.
+
+        Args:
+            id: Resume version ID.
+            section: The `custom:<id>` key.
+        """
+        user_id = require_user_id()
+        service: ResumeService = get_service()
+        return service.remove_custom_section(section, id, user_id=user_id)
 
     @mcp.tool()
     def create_resume(label: str, tags: list[str] | None = None) -> str:

@@ -13,6 +13,7 @@ const fullContact: ContactInfo = {
   linkedin: 'https://linkedin.com/in/janesmith',
   website: 'https://janesmith.com',
   github: 'https://github.com/janesmith',
+  profiles: [],
 };
 
 const partialContact: ContactInfo = {
@@ -23,6 +24,7 @@ const partialContact: ContactInfo = {
   linkedin: null,
   website: null,
   github: null,
+  profiles: [],
 };
 
 describe('ContactSection (view mode)', () => {
@@ -142,6 +144,7 @@ describe('ContactSection (edit mode)', () => {
         linkedin: 'https://linkedin.com/in/janesmith',
         website: 'https://janesmith.com',
         github: 'https://github.com/janesmith',
+        profiles: [],
       });
     });
 
@@ -206,6 +209,51 @@ describe('ContactSection (edit mode)', () => {
       expect(screen.getByText(/server error/i)).toBeInTheDocument();
     });
 
+    updateSpy.mockRestore();
+  });
+
+  it('shows extra profiles as links and saves added profiles', async () => {
+    const user = userEvent.setup();
+    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'Success' });
+    const withProfile: ContactInfo = {
+      ...fullContact,
+      profiles: [{ label: 'GitLab', url: 'https://gitlab.com/jane' }],
+    };
+
+    render(<ContactSection contact={withProfile} onUpdate={() => {}} />);
+    expect(screen.getByRole('link', { name: 'GitLab' })).toHaveAttribute('href', 'https://gitlab.com/jane');
+
+    await user.click(screen.getByRole('button', { name: /edit/i }));
+    await user.click(screen.getByRole('button', { name: /add profile/i }));
+    await user.type(screen.getByLabelText('Profile 2 label'), 'Dribbble');
+    await user.type(screen.getByLabelText('Profile 2 URL'), 'https://dribbble.com/jane');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          profiles: [
+            { label: 'GitLab', url: 'https://gitlab.com/jane' },
+            { label: 'Dribbble', url: 'https://dribbble.com/jane' },
+          ],
+        }),
+      );
+    });
+    updateSpy.mockRestore();
+  });
+
+  it('rejects a profile with a non-http url', async () => {
+    const user = userEvent.setup();
+    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'Success' });
+    render(<ContactSection contact={fullContact} onUpdate={() => {}} />);
+
+    await user.click(screen.getByRole('button', { name: /edit/i }));
+    await user.click(screen.getByRole('button', { name: /add profile/i }));
+    await user.type(screen.getByLabelText('Profile 1 label'), 'Bad');
+    await user.type(screen.getByLabelText('Profile 1 URL'), 'javascript:alert(1)');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    expect(updateSpy).not.toHaveBeenCalled();
     updateSpy.mockRestore();
   });
 });
