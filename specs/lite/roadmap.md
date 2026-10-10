@@ -126,6 +126,12 @@ Connect panel is the front door to the product's core value and it undersells it
 Notes: research/mcp-connect-ux.md
 
 
+## 032 Spike: replace OAuth proxy with Clerk native CIMD
+
+Clerk shipped CIMD GA (2026-09-17). Spike whether we can delete the FastMCP `OAuthProxy` (`auth.build_mcp_auth`, `oauth_store.py`, `oauth_kv`, client secret env) and point RFC 9728 protected-resource metadata at Clerk as the authorization server, with a plain JWT verifier on `/mcp`. Throwaway spike branch; test Claude Desktop, Cursor, VS Code (and ChatGPT). Pass only if all hold: (1) `localhost` vs `127.0.0.1` redirect mismatch does not 400, (2) token `aud` bound to `<PKTX_PUBLIC_URL>/mcp` (RFC 8707), (3) revocation-aware validation, (4) consent page and hosted-client redirect allowlist acceptable, (5) Clerk AS metadata advertises `client_id_metadata_document_supported`. Output: written findings plus go/no-go in the research note. If go, add a follow-up item to remove the proxy; if no-go, record why and a re-check trigger.
+Notes: research/clerk-native-cimd.md
+
+
 ## 031 Continuous deployment: auto dev, gated prod
 
 Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, builds the image once, auto-deploys to dev, and smoke tests it. Prod deploys the same verified image digest, triggered by a GitHub Release and gated by a `production` Environment with required reviewer. AWS access via GitHub OIDC with per-env roles, Terraform plan on PRs, one-click rollback to a previous release, forward-compatible migrations. Lays the pipeline 022 uses to stand up prod.
