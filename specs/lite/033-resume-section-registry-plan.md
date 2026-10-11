@@ -9,76 +9,75 @@ Branch: `feat/033-resume-section-registry`. Research: `research/resume-sections.
 
 ## Overview
 
-Resume has contact, summary, experience, education, skills. Section names are repeated in `resume_service.py` tuples, `resume_tools.py`, `api/routes.py`, and one hand-written frontend component each. Entries are index-addressed; no per-version order/visibility.
+Resume had contact, summary, experience, education, skills. Section names were repeated in the service, MCP tools, routes and one hand-written frontend component each, and entries were index-addressed.
 
-Two phases in one branch (refactor justified by real sections; split only if phase 1 alone exceeds review size):
+Two phases in one branch (refactor justified by real sections):
 
-1. **Registry + stable ids + layout** (behavior-preserving for existing data).
-2. **New sections** as registry entries: projects, certifications, awards, publications/talks, volunteer, languages, profiles, custom.
+1. **Registry + stable ids** (behavior-preserving for existing data).
+2. **New sections** as registry entries: projects, certifications, awards, publications/talks, volunteer, languages, plus contact `profiles`.
+
+**Scope decision:** the UI stays simple. Fixed, opinionated section order; no reordering, hiding, renaming or free-form custom sections. Experience, education and skills are always shown; the six new sections are optional and added from a fixed list. (An earlier draft had a per-version layout and custom sections; dropped after review as too complex.)
 
 ## Acceptance criteria
 
-- [x] Backend `resume_sections.py` registry: one definition per section (key, label, kind singleton|list, pydantic model, summary formatter, sort/insert rule, uniqueness rule). Service, MCP tools, REST routes, export, and `Resume` model derive from it; no other section tuples remain.
-- [x] Every list entry has a stable `id` (uuid4 hex). Existing blobs get ids lazily on read and are persisted via a schema migration (v14 → v15); no entry loses data.
-- [x] Entries addressable by `entry_id` in service, REST (`/entries/{entry_id}`) and MCP tools. Index addressing still accepted (compat shim: numeric string/int resolves to index).
-- [x] Per-version `layout`: ordered list of `{section, visible, title?}`. Default = current order, all visible, for existing resumes. Endpoint + MCP tool to update layout; new versions copy layout from default.
-- [x] New sections work end to end (service, REST, MCP, UI, export): projects, certifications, awards, publications, volunteer, languages, custom (title + entries with free-form text/bullets); contact gains generic `profiles` list (label + http(s) URL); existing linkedin/website/github fields untouched.
-- [x] URLs in new entries pass `validate_http_url`; length limits enforced; tags unaffected.
-- [x] Frontend: generic registry-driven list section renders/edits any list section; experience/education migrated to it; skills keep bespoke grouped UI; resume detail renders sections in layout order with hide/show, reorder (up/down buttons, keyboard accessible), and title override; hidden sections still editable via a "Manage sections" panel.
-- [x] Section metadata served by `GET /api/resume-sections` so frontend does not duplicate field definitions.
+- [x] Backend `resume_sections.py` registry: one definition per list section (key, label, model, summary formatter, insert rule, uniqueness rule, primary field). Service, MCP tools, REST routes, export and the `Resume` model derive from it; import-time checks fail if registry, `Resume` fields and `resume_order.LIST_ORDER` drift.
+- [x] Every list entry has a stable `id` (uuid4 hex). Schema migration v14 → v15 backfills ids idempotently; no entry loses data. Entries without an id (unmigrated) still work by index.
+- [x] Entries addressable by `entry_id` in service, REST (`/entries/{entry_ref}`) and MCP tools; legacy 0-based index still accepted; clients cannot overwrite an id.
+- [x] Fixed section order (`resume_order.LIST_ORDER`). `CORE` sections (experience, education, skills) always shown; `OPTIONAL` sections shown when added or when they have entries (`Resume.enabled_sections`, normalized to fixed order).
+- [x] `set_section_enabled`: add an optional section; remove only while empty; core and unknown sections rejected. Exposed as `PUT /api/resumes/{id}/sections/{section}` and MCP `set_resume_section_enabled`. New versions copy enabled sections from the default.
+- [x] New sections work end to end (service, REST, MCP, UI, export): projects, certifications, awards, publications, volunteer, languages; contact gains a generic `profiles` list (label + http(s) URL). Existing linkedin/website/github untouched.
+- [x] URLs in new entries pass `validate_http_url`; length limits enforced (long limit for `description`/`body`).
+- [x] Frontend: registry-driven `GenericListSection` renders/edits any list section (experience/education migrated, skills keep bespoke grouped UI); `AddSectionBar` lists optional sections not yet added; empty optional sections have "Remove section".
+- [x] Section metadata served by `GET /api/resume-sections` (includes `optional`) so the frontend duplicates no field definitions.
 - [x] `tests/integration/test_route_scoping.py` covers every new route; `make check` passes.
-- [x] Existing resume tests pass unchanged (index addressing, blobs without ids/layout).
+- [x] Existing resume tests pass unchanged (index addressing, blobs without ids/enabled sections).
 
 ## Open questions
 
-- [x] MCP: generic `add_resume_entry(section=...)` stays, no per-section tools — _proposed: generic, plus new `update_resume_layout`; docstrings generated from the registry_
-- [x] Ids: migrate in schema migration or on read? — _proposed: both; migration backfills, read path tolerates missing ids (defensive)_
-- [x] Dates stay free-form strings — _proposed: yes, out of scope; validation later_
-- [x] Custom section count — _proposed: multiple allowed, keyed `custom:<id>` in layout, each with own title_
-- [x] Reorder UX — _proposed: up/down buttons (no drag-and-drop dependency)_
+Resolved:
+
+- MCP: generic `add_resume_entry(section=...)` stays, no per-section tools; one new `set_resume_section_enabled`.
+- Ids: migrated in schema migration v15; read path tolerates missing ids via index fallback.
+- Dates stay free-form strings.
+- Reorder / hide / rename / custom sections: dropped (see scope decision).
+
+Open:
+
+- [ ] Hide a section that has entries without deleting them? — _proposed: no; delete entries first (keeps "has entries ⇒ shown" simple)_
 
 ## Design
 
-**Registry (backend).** `SectionDef(key, label, kind, model, summary(entry)->str, insert='prepend'|'append', unique_key=None, fields=[FieldDef])`. `FieldDef` (name, label, type text|textarea|url|bullets|select, required) is derived from pydantic model fields plus json_schema_extra for labels/widgets, so the UI descriptor is generated, not hand-maintained. `Resume` model fields for list sections are produced from the registry (`create_model`) or validated against it; unknown sections in stored blobs are preserved.
+**Registry (backend).** `SectionDef(key, label, model, summary, insert, unique_field, primary_field)` per list section. Field descriptors for the UI are derived from the pydantic model (`fields_for`): widget from field name (`highlights` → bullets, `tech` → tags, `url` → url, `description`/`body` → textarea), `required` from the model. `describe_sections()` adds `optional` (not in `CORE`).
 
-**Entry ids.** Base `Entry` model with `id: str = Field(default_factory=uuid4 hex)`. Service ops: `add_entry`, `update_entry(entry_id)`, `remove_entry(entry_id)`, plus `resolve_entry(section, ref)` that accepts id or legacy index.
+**Order and enabled sections.** `resume_order.py` (no model imports, so `Resume` can use it): `LIST_ORDER`, `CORE`, `OPTIONAL`, `normalize_enabled(enabled, data)` = optional keys that are enabled or have entries, in fixed order. `Resume` normalizes `enabled_sections` in a validator.
 
-**Layout.** Stored in blob as `layout: [{section, visible, title}]`. `normalize_layout` appends missing registry sections (so adding sections later is backward compatible) and drops unknown keys. Singletons contact/summary are layout members too (contact pinned first, not hideable — header).
+**Entry ids.** `Entry` base model with `id: str | None`; the service assigns `uuid4().hex` on add. `_resolve(entries, section, ref)` accepts an id or a legacy index.
 
-**Custom section.** Instances stored in `custom_sections: {id: {title, entries:[{id, heading?, body?, highlights[]}]}}`; layout key `custom:<id>`. Add/remove custom section via layout tool.
-
-**Frontend.** `types/resume.ts` extended; `hooks/queries` gain `useResumeSections()`; `pages/resumes/GenericListSection.tsx` (uses `EditableSection`/`EntryForm`), `ManageSections.tsx`. `SkillsSection` unchanged except plumbing. Per-section files for experience/education removed once migrated.
+**Frontend.** `GenericListSection` (view/add/edit/delete from the registry; zod schema built from field descriptors in `buildEntrySchema`), `AddSectionBar`, `ResumeDetailView` renders Summary then registry sections in order (optional ones only when enabled). `ContactSection` gains a profiles editor.
 
 **Touches:**
-- `backend/src/pktx/resume_sections.py` (new)
-- `backend/src/pktx/models.py` (mod: Entry base, new models, Resume, layout)
-- `backend/src/pktx/resume_service.py` (mod)
-- `backend/src/pktx/tools/resume_tools.py` (mod)
-- `backend/src/pktx/api/routes.py` (mod; entry_id routes, layout, sections metadata)
-- `backend/src/pktx/migrations.py` (mod: v15 backfill ids + layout)
-- `backend/src/pktx/export_service.py` (mod only if it filters sections)
+- `backend/src/pktx/resume_sections.py` (new), `resume_order.py` (new)
+- `backend/src/pktx/models.py`, `resume_service.py`, `tools/resume_tools.py`, `api/routes.py`, `migrations.py` (mod)
 - `backend/tests/{unit,contract,integration}/…` (new/mod)
-- `frontend/src/types/resume.ts`, `services/api/resumes.ts`, `hooks/queries/*`, `schemas/resume.ts` (mod)
-- `frontend/src/pages/resumes/*` (new generic + manage; del Experience/Education sections)
-- `frontend/src/__tests__/…` (mod/new)
-- `AGENTS.md` (mod: schema v15, registry note)
+- `frontend/src/types/resume.ts`, `services/api/resumes.ts`, `hooks/queries/resumes.ts`, `schemas/{resumeEntry,httpUrl}.ts` (mod)
+- `frontend/src/pages/resumes/GenericListSection.*`, `AddSectionBar.*` (new); `ResumeDetailView.tsx`, `ContactSection.tsx`, `SkillsSection.tsx` (mod); `ExperienceSection.*`, `EducationSection.*`, `ResumeView.*` (del; `ResumeView` was unused legacy)
+- `frontend/src/__tests__/…` (new/mod)
+- `AGENTS.md` (mod)
 
 ## Steps
 
 Phase 1 — refactor
-- [x] Add `Entry` id base + `resume_sections.py` registry for existing 3 list sections + 2 singletons
-- [x] Rewrite service ops over registry; id + legacy-index resolution; keep error messages compatible
-- [x] Layout model, `normalize_layout`, service `get/update_layout`; copy on create_resume
-- [x] Migration v14 → v15 (ids + layout), idempotent; migration test
-- [x] REST: entry_id routes, layout route, `/api/resume-sections`; register in route-scoping test
-- [x] MCP tools driven by registry (docstrings, section enums, entry_id param, layout tool)
-- [x] Frontend: types, api, `GenericListSection`, migrate experience/education, layout-ordered render, ManageSections
-- [x] Run `make check`; green before phase 2
+- [x] `Entry` id base + `resume_sections.py` registry for the existing list sections
+- [x] Rewrite service ops over the registry; id + legacy-index resolution; keep error messages compatible
+- [x] Fixed order + optional-section handling (`resume_order.py`, `enabled_sections`, `set_section_enabled`)
+- [x] Migration v14 → v15 (ids), idempotent; migration test
+- [x] REST: entry_ref routes, section enable route, `/api/resume-sections`; register in route-scoping test
+- [x] MCP tools driven by the registry (docstrings, entry_id param, `set_resume_section_enabled`)
+- [x] Frontend: types, api, `GenericListSection`, migrate experience/education, ordered render, `AddSectionBar`
 
 Phase 2 — new sections
 - [x] Models + registry entries: projects, certifications, awards, publications, volunteer, languages
-- [x] Contact `profiles` list (service + UI in ContactSection)
-- [x] Custom sections (data shape, layout key, add/remove, UI)
+- [x] Contact `profiles` (service + UI)
 - [x] Tests for each (validation, URLs, limits, scoping, export contains them)
 - [x] Frontend tests; update AGENTS.md; `make check`
 
@@ -90,12 +89,8 @@ cd backend && uv run pytest tests -k resume
 cd frontend && npm run test
 ```
 
-Manual: open an existing resume (no ids/layout) — unchanged; add project/cert; hide + reorder sections; MCP `add_resume_entry` + `update_resume_layout` against local server.
+Manual: open an existing resume (no ids/enabled sections) — unchanged; add a Projects section and an entry; remove an empty optional section; MCP `add_resume_entry` + `set_resume_section_enabled` against the local server.
 
 ## Out of scope
 
-Date validation/parsing, resume print/PDF templates, drag-and-drop reorder, interests/references sections, per-application layout overrides, company URL on experience.
-
-## Revision (after first PR review)
-
-Per-version layout (reorder, hide/show, title override) and free-form custom sections were dropped as too complex for the UI. Final shape: fixed opinionated order; experience/education/skills always shown; projects, certifications, awards, publications, volunteer and languages are optional and added from a fixed list (`enabled_sections`; a section with entries is always shown; an empty one can be removed). Replaces the layout/custom acceptance criteria above. Migration v15 backfills entry ids only.
+Reordering / hiding / renaming sections, free-form custom sections, date validation or parsing, resume print/PDF templates, interests/references sections, company URL on experience.
