@@ -10,7 +10,9 @@ export { ApiClientError } from './api'
 export type { ResourceType, ResourceRef, GroupedLinks } from './link'
 export type {
   ContactInfo,
-  Profile,
+  ContactField,
+  ContactKind,
+  ContactKeyPreset,
   WorkExperience,
   Education,
   Skill,

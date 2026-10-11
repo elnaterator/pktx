@@ -79,7 +79,11 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             id: Resume version ID.
             section: One of: contact, summary.
-            data: Fields to update. For contact: any subset of contact fields.
+            data: Fields to update. For contact: name, phone, location and
+                  `fields`, the full list of {"key", "value"} details. Common
+                  keys: Email, Website, LinkedIn, GitHub, GitLab, Portfolio, X,
+                  Bluesky; any other key is allowed. Shortcut: email, website,
+                  linkedin and github are upserted into `fields`.
                   For summary: {"text": "new summary"}.
         """
         user_id = require_user_id()

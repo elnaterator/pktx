@@ -31,6 +31,7 @@ _EXEMPT: set[tuple[str, str]] = {
     ("POST", "/api/contacts"),
     # Static registry metadata, no user data.
     ("GET", "/api/resume-sections"),
+    ("GET", "/api/resume-contact-keys"),
     # Catch-all: unknown /api paths always 404, never touch data.
     ("GET", "/api/{path:path}"),
     ("POST", "/api/{path:path}"),

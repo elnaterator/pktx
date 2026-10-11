@@ -41,7 +41,7 @@ function version(enabled: string[]): ResumeVersion {
     updated_at: '',
     links: {},
     resume_data: {
-      contact: { name: 'Jane', email: null, phone: null, location: null, linkedin: null, website: null, github: null, profiles: [] },
+      contact: { name: 'Jane', phone: null, location: null, fields: [] },
       summary: 'About me',
       experience: [{ id: 'e1', title: 'Dev', company: 'Acme', start_date: null, end_date: null, location: null, highlights: [] }],
       education: [],
@@ -61,6 +61,7 @@ function renderView(enabled: string[]) {
   vi.mocked(api.getResumeVersion).mockResolvedValue(version(enabled))
   vi.mocked(api.listResumeSections).mockResolvedValue(sections)
   vi.mocked(api.listAllTags).mockResolvedValue([])
+  vi.mocked(api.listResumeContactKeys).mockResolvedValue([])
   return renderWithQuery(
     <MemoryRouter initialEntries={['/resumes/1']}>
       <Routes>

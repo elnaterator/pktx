@@ -90,3 +90,38 @@ def test_export_includes_new_sections(client) -> None:
     data = export["resumes"][0]["resume_data"]
     assert data["awards"][0]["title"] == "Best" and data["awards"][0]["id"]
     assert data["enabled_sections"] == ["awards"]
+
+
+def test_contact_keys_presets(client) -> None:
+    keys = client.get("/api/resume-contact-keys").json()
+    assert [k["key"] for k in keys][:5] == [
+        "Email",
+        "Website",
+        "LinkedIn",
+        "GitHub",
+        "GitLab",
+    ]
+    assert {"key": "Email", "kind": "email"} in keys
+
+
+def test_contact_fields_roundtrip_and_errors(client) -> None:
+    v = client.vid
+    r = client.put(
+        f"/api/resumes/{v}/contact",
+        json={
+            "fields": [
+                {"key": "GitHub", "value": "github.com/me"},
+                {"key": "Pronouns", "value": "they"},
+            ]
+        },
+    )
+    assert r.status_code == 200, r.text
+    contact = client.get(f"/api/resumes/{v}/contact").json()
+    assert contact["fields"][0] == {"key": "GitHub", "value": "https://github.com/me"}
+    for bad in (
+        [{"key": "GitHub", "value": "javascript:1"}],
+        [{"key": "", "value": "x"}],
+        [{"key": "A", "value": "1"}, {"key": "a", "value": "2"}],
+    ):
+        r = client.put(f"/api/resumes/{v}/contact", json={"fields": bad})
+        assert r.status_code == 422, bad

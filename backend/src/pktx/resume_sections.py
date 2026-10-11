@@ -12,6 +12,7 @@ from typing import Any, Literal
 
 from pydantic import BaseModel
 
+from pktx.contact_keys import CONTACT_KEYS
 from pktx.models import (
     Award,
     Certification,
@@ -196,12 +197,18 @@ def describe_sections() -> list[dict[str, Any]]:
     return out
 
 
+def describe_contact_keys() -> list[dict[str, str]]:
+    """Preset contact keys (most common first) with their value kind."""
+    return [{"key": c.key, "kind": c.kind} for c in CONTACT_KEYS]
+
+
 __all__ = [
     "ALL_SECTIONS",
     "LIST_SECTIONS",
     "SECTIONS",
     "SECTION_UPDATE",
     "SectionDef",
+    "describe_contact_keys",
     "describe_sections",
     "section_def",
 ]

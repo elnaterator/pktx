@@ -11,6 +11,7 @@ import type {
   ResumeVersion,
   ResumeVersionSummary,
   SectionMeta,
+  ContactKeyPreset,
   ApiSuccessResponse,
 } from '../../types'
 import { API_BASE, fetchWithErrorHandling, handleResponse } from './client'
@@ -291,6 +292,14 @@ export async function removeVersionEntry(
     { method: 'DELETE' }
   )
   return handleResponse<ApiSuccessResponse>(response)
+}
+
+/**
+ * Preset contact keys (Email, Website, LinkedIn, ...), most common first
+ */
+export async function listResumeContactKeys(): Promise<ContactKeyPreset[]> {
+  const response = await fetchWithErrorHandling(`${API_BASE}/resume-contact-keys`)
+  return handleResponse<ContactKeyPreset[]>(response)
 }
 
 /**

@@ -186,29 +186,64 @@ class TestNewSections:
         assert data["enabled_sections"] == ["projects"]
 
 
-class TestContactProfiles:
-    def test_profiles_saved_and_validated(self, resume_service: ResumeService) -> None:
+class TestContactFields:
+    def test_fields_saved_normalized_and_replaced(
+        self, resume_service: ResumeService
+    ) -> None:
         resume_service.update_section(
             "contact",
-            {"profiles": [{"label": "GitLab", "url": "gitlab.com/me"}]},
+            {
+                "fields": [
+                    {"key": "gitlab", "value": "gitlab.com/me"},
+                    {"key": "Pronouns", "value": "they/them"},
+                ]
+            },
             user_id=U,
         )
         contact = resume_service.get_section("contact", user_id=U)
-        assert contact["profiles"] == [
-            {"label": "GitLab", "url": "https://gitlab.com/me"}
+        assert contact["fields"] == [
+            {"key": "GitLab", "value": "https://gitlab.com/me"},
+            {"key": "Pronouns", "value": "they/them"},
         ]
+        # `fields` is the full list: sending a shorter one removes the rest.
+        resume_service.update_section(
+            "contact", {"fields": [{"key": "Email", "value": "a@b.co"}]}, user_id=U
+        )
+        contact = resume_service.get_section("contact", user_id=U)
+        assert contact["fields"] == [{"key": "Email", "value": "a@b.co"}]
+
+    def test_invalid_field_rejected_and_nothing_saved(
+        self, resume_service: ResumeService
+    ) -> None:
         with pytest.raises(ValueError):
             resume_service.update_section(
                 "contact",
-                {"profiles": [{"label": "x", "url": "javascript:alert(1)"}]},
+                {"fields": [{"key": "GitHub", "value": "javascript:alert(1)"}]},
                 user_id=U,
             )
+        contact = resume_service.get_section("contact", user_id=U)
+        assert not contact or not contact.get("fields")
 
-    def test_existing_contact_without_profiles_loads(self) -> None:
-        r = Resume.model_validate(
-            {"contact": {"name": "Jo", "github": "https://github.com/jo"}}
+    def test_legacy_keys_still_accepted(self, resume_service: ResumeService) -> None:
+        resume_service.update_section(
+            "contact", {"github": "github.com/me", "email": "me@x.io"}, user_id=U
         )
-        assert r.contact.profiles == []
+        contact = resume_service.get_section("contact", user_id=U)
+        assert {f["key"]: f["value"] for f in contact["fields"]} == {
+            "GitHub": "https://github.com/me",
+            "Email": "me@x.io",
+        }
+        resume_service.update_section("contact", {"github": ""}, user_id=U)
+        contact = resume_service.get_section("contact", user_id=U)
+        assert [f["key"] for f in contact["fields"]] == ["Email"]
+
+    def test_name_phone_location_limits(self, resume_service: ResumeService) -> None:
+        with pytest.raises(ValueError, match="must not exceed"):
+            resume_service.update_section("contact", {"phone": "1" * 501}, user_id=U)
+
+    def test_existing_contact_without_fields_loads(self) -> None:
+        r = Resume.model_validate({"contact": {"name": "Jo"}})
+        assert r.contact.fields == []
 
 
 class TestOptionalSections:

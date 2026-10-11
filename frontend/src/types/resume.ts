@@ -7,20 +7,25 @@
 
 import type { GroupedLinks } from './link'
 
-export interface Profile {
-  label: string
-  url: string
+/** One contact detail: a preset key (Email, GitHub, ...) or a custom one. */
+export interface ContactField {
+  key: string
+  value: string
 }
 
 export interface ContactInfo {
   name: string | null
-  email: string | null
   phone: string | null
   location: string | null
-  linkedin: string | null
-  website: string | null
-  github: string | null
-  profiles: Profile[]
+  fields: ContactField[]
+}
+
+export type ContactKind = 'email' | 'url' | 'text'
+
+/** Preset contact key served by `GET /api/resume-contact-keys`, most common first. */
+export interface ContactKeyPreset {
+  key: string
+  kind: ContactKind
 }
 
 /** Stable id assigned by the backend; absent only on entries not yet saved. */

@@ -1,259 +1,275 @@
-import { describe, it, expect, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ContactSection from '../../pages/resumes/ContactSection';
-import type { ContactInfo } from '../../types';
+import type { ContactInfo, ContactKeyPreset } from '../../types';
 import * as api from '../../services/api';
+import { renderWithQuery } from '../test-utils';
+
+const presets: ContactKeyPreset[] = [
+  { key: 'Email', kind: 'email' },
+  { key: 'Website', kind: 'url' },
+  { key: 'LinkedIn', kind: 'url' },
+  { key: 'GitHub', kind: 'url' },
+  { key: 'GitLab', kind: 'url' },
+];
 
 const fullContact: ContactInfo = {
   name: 'Jane Smith',
-  email: 'jane@example.com',
   phone: '555-9876',
   location: 'New York, NY',
-  linkedin: 'https://linkedin.com/in/janesmith',
-  website: 'https://janesmith.com',
-  github: 'https://github.com/janesmith',
-  profiles: [],
+  fields: [
+    { key: 'Email', value: 'jane@example.com' },
+    { key: 'LinkedIn', value: 'https://linkedin.com/in/janesmith' },
+    { key: 'Website', value: 'https://janesmith.com' },
+    { key: 'Pronouns', value: 'she/her' },
+  ],
 };
 
-const partialContact: ContactInfo = {
-  name: 'John Doe',
-  email: 'john@example.com',
-  phone: null,
-  location: null,
-  linkedin: null,
-  website: null,
-  github: null,
-  profiles: [],
+const emptyContact: ContactInfo = { name: null, phone: null, location: null, fields: [] };
+
+beforeEach(() => {
+  vi.spyOn(api, 'listResumeContactKeys').mockResolvedValue(presets);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+const renderEditable = (contact: ContactInfo, onUpdate = vi.fn()) =>
+  renderWithQuery(<ContactSection contact={contact} onUpdate={onUpdate} />);
+
+const startEditing = async (user: ReturnType<typeof userEvent.setup>) => {
+  await user.click(screen.getByRole('button', { name: /edit/i }));
+  // Wait for the preset keys so preset rows render as labels, not custom inputs.
+  await screen.findByRole('option', { name: 'GitHub' });
 };
 
 describe('ContactSection (view mode)', () => {
-  it('renders all contact fields when present', () => {
-    render(<ContactSection contact={fullContact} />);
+  it('renders name, phone, location and details', async () => {
+    renderWithQuery(<ContactSection contact={fullContact} />);
 
     expect(screen.getByText('Jane Smith')).toBeInTheDocument();
-    expect(screen.getByText('jane@example.com')).toBeInTheDocument();
     expect(screen.getByText('555-9876')).toBeInTheDocument();
     expect(screen.getByText('New York, NY')).toBeInTheDocument();
+    expect(screen.getByText('Pronouns: she/her')).toBeInTheDocument();
   });
 
-  it('renders profile links as clickable anchors', () => {
-    render(<ContactSection contact={fullContact} />);
+  it('renders emails as mailto links and URLs as links labelled by key', async () => {
+    renderWithQuery(<ContactSection contact={fullContact} />);
 
-    const linkedinLink = screen.getByRole('link', { name: /linkedin/i });
-    expect(linkedinLink).toHaveAttribute('href', 'https://linkedin.com/in/janesmith');
-
-    const websiteLink = screen.getByRole('link', { name: /website/i });
-    expect(websiteLink).toHaveAttribute('href', 'https://janesmith.com');
-
-    const githubLink = screen.getByRole('link', { name: /github/i });
-    expect(githubLink).toHaveAttribute('href', 'https://github.com/janesmith');
+    expect(await screen.findByRole('link', { name: 'jane@example.com' })).toHaveAttribute(
+      'href',
+      'mailto:jane@example.com',
+    );
+    expect(screen.getByRole('link', { name: 'LinkedIn' })).toHaveAttribute(
+      'href',
+      'https://linkedin.com/in/janesmith',
+    );
+    expect(screen.getByRole('link', { name: 'Website' })).toHaveAttribute(
+      'href',
+      'https://janesmith.com',
+    );
   });
 
-  it('renders a stored javascript: URL as plain text, not a link', () => {
-    render(<ContactSection contact={{ ...fullContact, website: 'javascript:alert(1)' }} />);
+  it('links a custom key when its value is an http(s) URL', () => {
+    renderWithQuery(
+      <ContactSection
+        contact={{ ...emptyContact, fields: [{ key: 'Blog', value: 'https://blog.example.com' }] }}
+      />,
+    );
+    expect(screen.getByRole('link', { name: 'Blog' })).toHaveAttribute('href', 'https://blog.example.com');
+  });
 
+  it('renders a stored javascript: URL as plain text, not a link', async () => {
+    renderWithQuery(
+      <ContactSection
+        contact={{ ...fullContact, fields: [{ key: 'Website', value: 'javascript:alert(1)' }] }}
+      />,
+    );
+
+    await waitFor(() => expect(screen.getByText('Website').tagName).toBe('SPAN'));
     expect(screen.queryByRole('link', { name: /website/i })).not.toBeInTheDocument();
-    expect(screen.getByText('Website').tagName).toBe('SPAN');
-    expect(screen.getByRole('link', { name: /linkedin/i })).toBeInTheDocument();
   });
 
-  it('handles null fields gracefully', () => {
-    render(<ContactSection contact={partialContact} />);
-
-    // Present fields should render
-    expect(screen.getByText('John Doe')).toBeInTheDocument();
-    expect(screen.getByText('john@example.com')).toBeInTheDocument();
-
-    // Null fields should not render or show links
-    expect(screen.queryByText('555-')).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /linkedin/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /website/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('link', { name: /github/i })).not.toBeInTheDocument();
-  });
-
-  it('renders with empty/minimal contact info', () => {
-    const emptyContact: ContactInfo = {
-      name: null,
-      email: null,
-      phone: null,
-      location: null,
-      linkedin: null,
-      website: null,
-      github: null,
-    };
-
-    render(<ContactSection contact={emptyContact} />);
-
-    // Section should still render with empty state or minimal content
+  it('renders with empty contact info', () => {
+    renderWithQuery(<ContactSection contact={emptyContact} />);
     expect(screen.getByTestId('contact-section')).toBeInTheDocument();
   });
 });
 
 describe('ContactSection (edit mode)', () => {
-  it('toggles to edit mode when edit button is clicked', async () => {
+  it('always shows name, phone and location', async () => {
     const user = userEvent.setup();
-    render(<ContactSection contact={fullContact} onUpdate={() => {}} />);
+    renderEditable(emptyContact);
+    await startEditing(user);
 
-    const editButton = screen.getByRole('button', { name: /edit/i });
-    await user.click(editButton);
-
-    // Form should be visible
-    expect(screen.getByLabelText(/name/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/phone/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/location/i)).toBeInTheDocument();
+    expect(screen.getByLabelText('Name')).toHaveValue('');
+    expect(screen.getByLabelText('Phone')).toHaveValue('');
+    expect(screen.getByLabelText('Location')).toHaveValue('');
   });
 
-  it('pre-fills form fields with current values', async () => {
+  it('pre-fills values and shows preset keys as labels, custom keys as inputs', async () => {
     const user = userEvent.setup();
-    render(<ContactSection contact={fullContact} onUpdate={() => {}} />);
+    renderEditable(fullContact);
+    await startEditing(user);
 
-    await user.click(screen.getByRole('button', { name: /edit/i }));
-
-    expect(screen.getByLabelText(/name/i)).toHaveValue('Jane Smith');
-    expect(screen.getByLabelText(/email/i)).toHaveValue('jane@example.com');
-    expect(screen.getByLabelText(/phone/i)).toHaveValue('555-9876');
-    expect(screen.getByLabelText(/location/i)).toHaveValue('New York, NY');
-    expect(screen.getByLabelText(/linkedin/i)).toHaveValue('https://linkedin.com/in/janesmith');
-    expect(screen.getByLabelText(/website/i)).toHaveValue('https://janesmith.com');
-    expect(screen.getByLabelText(/github/i)).toHaveValue('https://github.com/janesmith');
+    expect(screen.getByLabelText('Name')).toHaveValue('Jane Smith');
+    expect(screen.getByLabelText('Phone')).toHaveValue('555-9876');
+    expect(screen.getByLabelText('Email')).toHaveValue('jane@example.com');
+    expect(screen.getByLabelText('LinkedIn')).toHaveValue('https://linkedin.com/in/janesmith');
+    expect(screen.getByLabelText('Detail 4 key')).toHaveValue('Pronouns');
+    expect(screen.getByLabelText('Detail 4 value')).toHaveValue('she/her');
   });
 
-  it('calls updateContact API on save and shows success', async () => {
+  it('lists common keys first, minus the ones already used, then Custom', async () => {
     const user = userEvent.setup();
-    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'Success' });
+    renderEditable(fullContact);
+    await startEditing(user);
+
+    const options = within(screen.getByLabelText('Add detail')).getAllByRole('option');
+    expect(options.map((o) => o.textContent)).toEqual([
+      'Choose a detail…',
+      'GitHub',
+      'GitLab',
+      'Custom…',
+    ]);
+  });
+
+  it('adds a preset detail and saves it', async () => {
+    const user = userEvent.setup();
+    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'ok' });
     const onUpdate = vi.fn();
+    renderEditable(emptyContact, onUpdate);
+    await startEditing(user);
 
-    render(<ContactSection contact={fullContact} onUpdate={onUpdate} />);
-
-    await user.click(screen.getByRole('button', { name: /edit/i }));
-
-    const nameInput = screen.getByLabelText(/name/i);
-    await user.clear(nameInput);
-    await user.type(nameInput, 'Jane Doe');
-
+    await user.type(screen.getByLabelText('Name'), 'Jo');
+    await user.selectOptions(screen.getByLabelText('Add detail'), 'GitHub');
+    await user.type(screen.getByLabelText('GitHub'), 'github.com/jo');
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
       expect(updateSpy).toHaveBeenCalledWith({
-        name: 'Jane Doe',
-        email: 'jane@example.com',
-        phone: '555-9876',
-        location: 'New York, NY',
-        linkedin: 'https://linkedin.com/in/janesmith',
-        website: 'https://janesmith.com',
-        github: 'https://github.com/janesmith',
-        profiles: [],
+        name: 'Jo',
+        phone: null,
+        location: null,
+        fields: [{ key: 'GitHub', value: 'https://github.com/jo' }],
       });
     });
+    await waitFor(() => expect(onUpdate).toHaveBeenCalled());
+    // The chosen preset is no longer offered.
+    expect(
+      within(screen.queryByLabelText('Add detail') ?? document.body).queryByRole('option', {
+        name: 'GitHub',
+      }),
+    ).not.toBeInTheDocument();
+  });
+
+  it('adds a custom key and saves it', async () => {
+    const user = userEvent.setup();
+    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'ok' });
+    renderEditable(emptyContact);
+    await startEditing(user);
+
+    await user.selectOptions(screen.getByLabelText('Add detail'), 'Custom…');
+    await user.type(screen.getByLabelText('Detail 1 key'), 'Pronouns');
+    await user.type(screen.getByLabelText('Detail 1 value'), 'they/them');
+    await user.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
-      expect(onUpdate).toHaveBeenCalled();
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ fields: [{ key: 'Pronouns', value: 'they/them' }] }),
+      );
     });
+  });
 
-    updateSpy.mockRestore();
+  it('removes a detail', async () => {
+    const user = userEvent.setup();
+    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'ok' });
+    renderEditable(fullContact);
+    await startEditing(user);
+
+    await user.click(screen.getByRole('button', { name: 'Remove Email' }));
+    await user.click(screen.getByRole('button', { name: /save/i }));
+
+    await waitFor(() => {
+      const sent = updateSpy.mock.calls[0][0] as ContactInfo;
+      expect(sent.fields.map((f) => f.key)).toEqual(['LinkedIn', 'Website', 'Pronouns']);
+    });
+  });
+
+  it('rejects an invalid email, a non-http URL, a blank value and duplicate keys', async () => {
+    const user = userEvent.setup();
+    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'ok' });
+    renderEditable(fullContact);
+    await startEditing(user);
+
+    // The form remounts after a failed save, so look inputs up again each time.
+    const email = () => screen.getByLabelText('Email');
+    const site = () => screen.getByLabelText('Website');
+    await user.clear(email());
+    await user.type(email(), 'invalid-email');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(await screen.findByText(/invalid email/i)).toBeInTheDocument();
+
+    await user.clear(email());
+    await user.type(email(), 'ok@example.com');
+    await user.clear(site());
+    await user.type(site(), 'javascript:alert(1)');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(await screen.findByText(/valid http\(s\) url/i)).toBeInTheDocument();
+
+    await user.clear(site());
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(await screen.findByText(/value is required/i)).toBeInTheDocument();
+
+    await user.type(site(), 'https://janesmith.com');
+    await user.selectOptions(screen.getByLabelText('Add detail'), 'Custom…');
+    await user.type(screen.getByLabelText('Detail 5 key'), 'pronouns');
+    await user.type(screen.getByLabelText('Detail 5 value'), 'x');
+    await user.click(screen.getByRole('button', { name: /save/i }));
+    expect(await screen.findByText(/duplicate key/i)).toBeInTheDocument();
+
+    expect(updateSpy).not.toHaveBeenCalled();
   });
 
   it('reverts to view mode on cancel without saving', async () => {
     const user = userEvent.setup();
     const updateSpy = vi.spyOn(api, 'updateResumeContact');
+    renderEditable(fullContact);
+    await startEditing(user);
 
-    render(<ContactSection contact={fullContact} onUpdate={() => {}} />);
-
-    await user.click(screen.getByRole('button', { name: /edit/i }));
-
-    const nameInput = screen.getByLabelText(/name/i);
+    const nameInput = screen.getByLabelText('Name');
     await user.clear(nameInput);
     await user.type(nameInput, 'Changed Name');
-
     await user.click(screen.getByRole('button', { name: /cancel/i }));
 
-    // Should be back in view mode
     expect(screen.getByText('Jane Smith')).toBeInTheDocument();
-    expect(screen.queryByLabelText(/name/i)).not.toBeInTheDocument();
+    expect(screen.queryByLabelText('Name')).not.toBeInTheDocument();
     expect(updateSpy).not.toHaveBeenCalled();
-
-    updateSpy.mockRestore();
   });
 
-  it('shows validation error for invalid email', async () => {
+  it('shows an error message when the API call fails', async () => {
     const user = userEvent.setup();
-    render(<ContactSection contact={fullContact} onUpdate={() => {}} />);
-
-    await user.click(screen.getByRole('button', { name: /edit/i }));
-
-    const emailInput = screen.getByLabelText(/email/i);
-    await user.clear(emailInput);
-    await user.type(emailInput, 'invalid-email');
-
-    await user.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/invalid email/i)).toBeInTheDocument();
-    });
-  });
-
-  it('shows error message when API call fails', async () => {
-    const user = userEvent.setup();
-    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockRejectedValue(
-      new api.ApiClientError('Server error', 500, 'Internal server error')
+    vi.spyOn(api, 'updateResumeContact').mockRejectedValue(
+      new api.ApiClientError('Server error', 500, 'Internal server error'),
     );
-
-    render(<ContactSection contact={fullContact} onUpdate={() => {}} />);
-
-    await user.click(screen.getByRole('button', { name: /edit/i }));
+    renderEditable(fullContact);
+    await startEditing(user);
     await user.click(screen.getByRole('button', { name: /save/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/server error/i)).toBeInTheDocument();
     });
-
-    updateSpy.mockRestore();
   });
 
-  it('shows extra profiles as links and saves added profiles', async () => {
+  it('saves through the versioned endpoint when given a version id', async () => {
     const user = userEvent.setup();
-    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'Success' });
-    const withProfile: ContactInfo = {
-      ...fullContact,
-      profiles: [{ label: 'GitLab', url: 'https://gitlab.com/jane' }],
-    };
-
-    render(<ContactSection contact={withProfile} onUpdate={() => {}} />);
-    expect(screen.getByRole('link', { name: 'GitLab' })).toHaveAttribute('href', 'https://gitlab.com/jane');
-
-    await user.click(screen.getByRole('button', { name: /edit/i }));
-    await user.click(screen.getByRole('button', { name: /add profile/i }));
-    await user.type(screen.getByLabelText('Profile 2 label'), 'Dribbble');
-    await user.type(screen.getByLabelText('Profile 2 URL'), 'https://dribbble.com/jane');
+    const versionSpy = vi.spyOn(api, 'updateVersionContact').mockResolvedValue({ message: 'ok' });
+    renderWithQuery(<ContactSection contact={emptyContact} onUpdate={() => {}} versionId={9} />);
+    await startEditing(user);
+    await user.type(screen.getByLabelText('Name'), 'Jo');
     await user.click(screen.getByRole('button', { name: /save/i }));
-
-    await waitFor(() => {
-      expect(updateSpy).toHaveBeenCalledWith(
-        expect.objectContaining({
-          profiles: [
-            { label: 'GitLab', url: 'https://gitlab.com/jane' },
-            { label: 'Dribbble', url: 'https://dribbble.com/jane' },
-          ],
-        }),
-      );
-    });
-    updateSpy.mockRestore();
-  });
-
-  it('rejects a profile with a non-http url', async () => {
-    const user = userEvent.setup();
-    const updateSpy = vi.spyOn(api, 'updateResumeContact').mockResolvedValue({ message: 'Success' });
-    render(<ContactSection contact={fullContact} onUpdate={() => {}} />);
-
-    await user.click(screen.getByRole('button', { name: /edit/i }));
-    await user.click(screen.getByRole('button', { name: /add profile/i }));
-    await user.type(screen.getByLabelText('Profile 1 label'), 'Bad');
-    await user.type(screen.getByLabelText('Profile 1 URL'), 'javascript:alert(1)');
-    await user.click(screen.getByRole('button', { name: /save/i }));
-
-    expect(updateSpy).not.toHaveBeenCalled();
-    updateSpy.mockRestore();
+    await waitFor(() => expect(versionSpy).toHaveBeenCalledWith(9, expect.objectContaining({ name: 'Jo' })));
   });
 });

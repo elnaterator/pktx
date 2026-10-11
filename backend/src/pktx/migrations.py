@@ -804,6 +804,51 @@ def migrate_v14_to_v15(conn) -> None:
     conn.commit()
 
 
+def migrate_v15_to_v16(conn) -> None:
+    """Turn the fixed contact links into key/value `fields`.
+
+    email/website/linkedin/github and the `profiles` list become
+    ``contact.fields`` entries. Data-only and idempotent.
+    """
+    legacy = (
+        ("email", "Email"),
+        ("website", "Website"),
+        ("linkedin", "LinkedIn"),
+        ("github", "GitHub"),
+    )
+    # Explicit dict rows: the migration connection may use the default factory.
+    cur = conn.cursor(row_factory=dict_row)
+    rows = cur.execute("SELECT id, resume_data FROM resume_version").fetchall()
+    for row in rows:
+        data = json.loads(row["resume_data"] or "{}")
+        contact = data.get("contact") if isinstance(data, dict) else None
+        if not isinstance(contact, dict):
+            continue
+        if not any(k in contact for k, _ in legacy) and "profiles" not in contact:
+            continue
+        fields = [f for f in contact.get("fields") or [] if isinstance(f, dict)]
+        have = {str(f.get("key", "")).lower() for f in fields}
+
+        def add(key: str, value: object) -> None:
+            if isinstance(value, str) and value.strip() and key.lower() not in have:
+                have.add(key.lower())
+                fields.append({"key": key, "value": value.strip()})
+
+        for old, label in legacy:
+            add(label, contact.pop(old, None))
+        for profile in contact.pop("profiles", None) or []:
+            if isinstance(profile, dict):
+                add(str(profile.get("label", "")).strip(), profile.get("url"))
+        contact["fields"] = fields
+        conn.execute(
+            "UPDATE resume_version SET resume_data = %s WHERE id = %s",
+            (json.dumps(data), row["id"]),
+        )
+
+    conn.execute("UPDATE schema_version SET version = %s", (16,))
+    conn.commit()
+
+
 MIGRATIONS: list = [
     migrate_v0_to_v1,
     migrate_v1_to_v2,
@@ -820,6 +865,7 @@ MIGRATIONS: list = [
     migrate_v12_to_v13,
     migrate_v13_to_v14,
     migrate_v14_to_v15,
+    migrate_v15_to_v16,
 ]
 
 SCHEMA_VERSION: int = len(MIGRATIONS)

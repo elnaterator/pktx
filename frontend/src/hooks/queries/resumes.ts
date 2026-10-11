@@ -5,6 +5,7 @@ import {
   createResume,
   deleteResume,
   getResumeVersion,
+  listResumeContactKeys,
   listResumeSections,
   listResumes,
   removeVersionEntry,
@@ -53,6 +54,15 @@ export function useResumeSections() {
   return useQuery({
     queryKey: [...resumeKeys.all, 'sections'] as const,
     queryFn: listResumeSections,
+    staleTime: Infinity,
+  })
+}
+
+/** Preset contact keys: static per deploy, so cache for the session. */
+export function useResumeContactKeys() {
+  return useQuery({
+    queryKey: [...resumeKeys.all, 'contact-keys'] as const,
+    queryFn: listResumeContactKeys,
     staleTime: Infinity,
   })
 }

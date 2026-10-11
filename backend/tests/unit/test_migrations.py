@@ -437,3 +437,67 @@ class TestMigrateV14ToV15:
 
         migrate_v14_to_v15(pg_conn)
         assert stored() == first
+
+
+class TestMigrateV15ToV16:
+    """v15→v16 turns fixed contact links into key/value fields."""
+
+    def test_converts_legacy_contact_idempotently(self, pg_conn) -> None:
+        import json
+
+        from pktx.migrations import MIGRATIONS, apply_migrations, migrate_v15_to_v16
+
+        original = MIGRATIONS.copy()
+        MIGRATIONS[:] = original[:15]
+        try:
+            apply_migrations(pg_conn)
+        finally:
+            MIGRATIONS[:] = original
+
+        contact = {
+            "name": "Jo",
+            "phone": "555",
+            "email": "jo@x.io",
+            "website": None,
+            "linkedin": "https://linkedin.com/in/jo",
+            "github": "https://github.com/jo",
+            "profiles": [
+                {"label": "GitLab", "url": "https://gitlab.com/jo"},
+                {"label": "github", "url": "https://github.com/dupe"},
+            ],
+        }
+        pg_conn.execute("INSERT INTO users (id) VALUES ('u1')")
+        for label, data in (
+            ("R", {"contact": contact}),
+            ("E", {}),
+            ("N", {"contact": {"name": "x"}}),
+        ):
+            pg_conn.execute(
+                "INSERT INTO resume_version (user_id, label, resume_data, tags) "
+                "VALUES ('u1', %s, %s, '[]')",
+                (label, json.dumps(data)),
+            )
+        pg_conn.commit()
+
+        def stored(label: str) -> dict:
+            row = pg_conn.execute(
+                "SELECT resume_data FROM resume_version WHERE label = %s", (label,)
+            ).fetchone()
+            return json.loads(row["resume_data"])
+
+        migrate_v15_to_v16(pg_conn)
+        c = stored("R")["contact"]
+        assert c["name"] == "Jo" and c["phone"] == "555"
+        assert c["fields"] == [
+            {"key": "Email", "value": "jo@x.io"},
+            {"key": "LinkedIn", "value": "https://linkedin.com/in/jo"},
+            {"key": "GitHub", "value": "https://github.com/jo"},
+            {"key": "GitLab", "value": "https://gitlab.com/jo"},
+        ]
+        assert not {"email", "website", "linkedin", "github", "profiles"} & set(c)
+        assert stored("E") == {} and "fields" not in stored("N")["contact"]
+        assert _get_version(pg_conn) == 16
+
+        first = stored("R")
+        migrate_v15_to_v16(pg_conn)
+        assert stored("R") == first

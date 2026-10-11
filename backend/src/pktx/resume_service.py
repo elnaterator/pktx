@@ -19,7 +19,7 @@ from pktx.database import (
 )
 from pktx.db import DBConnection
 from pktx.link_service import LinkService
-from pktx.models import ContactInfo
+from pktx.models import LEGACY_CONTACT_KEYS, ContactInfo
 from pktx.resume_order import CORE, normalize_enabled
 from pktx.resume_sections import (
     ALL_SECTIONS,
@@ -37,7 +37,6 @@ from pktx.validation import (
 
 _CONTACT_LIMITS = {
     "name": MAX_NAME,
-    "email": MAX_SHORT,
     "phone": MAX_SHORT,
     "location": MAX_SHORT,
 }
@@ -250,20 +249,17 @@ class ResumeService:
         resume_data = version["resume_data"]
 
         if section == "contact":
-            known_fields = set(ContactInfo.model_fields.keys())
-            filtered = {k: v for k, v in data.items() if k in known_fields}
+            # Legacy keys (email, website, linkedin, github, profiles) are still
+            # accepted and upsert into `fields`; see ContactInfo.upgrade_legacy.
+            known = {*ContactInfo.model_fields, *LEGACY_CONTACT_KEYS, "profiles"}
+            filtered = {k: v for k, v in data.items() if k in known}
             if not filtered:
                 raise ValueError("At least one contact field must be provided")
             check_lengths(filtered, _CONTACT_LIMITS)
-            for profile in filtered.get("profiles") or []:
-                if isinstance(profile, dict):
-                    _check_entry_lengths(
-                        {k: v for k, v in profile.items() if k != "url"}
-                    )
             merged = {**(resume_data.get("contact") or {}), **filtered}
-            # Validates types and http(s)-only linkedin/website/github/profiles.
+            # Validates types, key/value rules and http(s)-only URL values.
             contact = ContactInfo.model_validate(merged)
-            resume_data["contact"] = contact.model_dump(exclude_unset=True)
+            resume_data["contact"] = contact.model_dump()
             update_resume_version_data(self._conn, vid, resume_data, user_id=user_id)
             return f"Updated contact fields: {', '.join(filtered.keys())}"
 

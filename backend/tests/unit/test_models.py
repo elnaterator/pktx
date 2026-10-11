@@ -5,41 +5,113 @@ from pydantic import ValidationError
 
 
 class TestContactInfo:
-    """Tests for ContactInfo model — all fields optional."""
+    """Contact = name/phone/location plus key/value fields."""
 
-    def test_empty_contact_info(self) -> None:
+    def test_empty(self) -> None:
         from pktx.models import ContactInfo
 
         contact = ContactInfo()
-        assert contact.name is None
-        assert contact.email is None
-        assert contact.phone is None
-        assert contact.location is None
-        assert contact.linkedin is None
-        assert contact.website is None
-        assert contact.github is None
+        assert contact.name is None and contact.phone is None
+        assert contact.location is None and contact.fields == []
 
-    def test_full_contact_info(self) -> None:
+    def test_fields_validated_by_key_kind(self) -> None:
         from pktx.models import ContactInfo
 
-        contact = ContactInfo(
-            name="Jane Doe",
-            email="jane@example.com",
-            phone="+1-555-0100",
-            location="San Francisco, CA",
-            linkedin="https://linkedin.com/in/janedoe",
-            website="https://janedoe.dev",
-            github="https://github.com/janedoe",
+        c = ContactInfo.model_validate(
+            {
+                "name": "Jane",
+                "fields": [
+                    {"key": "linked in", "value": "linkedin.com/in/jane"},
+                    {"key": "Email", "value": " jane@example.com "},
+                    {"key": "Pronouns", "value": "she/her"},
+                ],
+            }
         )
-        assert contact.name == "Jane Doe"
-        assert contact.email == "jane@example.com"
+        assert [(f.key, f.value) for f in c.fields] == [
+            ("LinkedIn", "https://linkedin.com/in/jane"),
+            ("Email", "jane@example.com"),
+            ("Pronouns", "she/her"),
+        ]
 
-    def test_partial_contact_info(self) -> None:
+    @pytest.mark.parametrize(
+        "field",
+        [
+            {"key": "GitHub", "value": "javascript:alert(1)"},
+            {"key": "Email", "value": "not-an-email"},
+            {"key": "", "value": "x"},
+            {"key": "Custom", "value": "  "},
+            {"key": "Custom", "value": "x" * 501},
+            {"key": "k" * 201, "value": "x"},
+        ],
+    )
+    def test_invalid_fields_rejected(self, field: dict) -> None:
         from pktx.models import ContactInfo
 
-        contact = ContactInfo(name="Jane", email="jane@example.com")
-        assert contact.name == "Jane"
-        assert contact.phone is None
+        with pytest.raises(ValidationError):
+            ContactInfo.model_validate({"fields": [field]})
+
+    def test_duplicate_keys_rejected_case_insensitively(self) -> None:
+        from pktx.models import ContactInfo
+
+        with pytest.raises(ValidationError, match="Duplicate"):
+            ContactInfo.model_validate(
+                {
+                    "fields": [
+                        {"key": "Pronouns", "value": "a"},
+                        {"key": "pronouns", "value": "b"},
+                    ]
+                }
+            )
+
+    def test_too_many_fields_rejected(self) -> None:
+        from pktx.models import ContactInfo
+
+        fields = [{"key": f"k{i}", "value": "v"} for i in range(31)]
+        with pytest.raises(ValidationError, match="At most"):
+            ContactInfo.model_validate({"fields": fields})
+
+    def test_legacy_shape_upgrades(self) -> None:
+        from pktx.models import ContactInfo
+
+        c = ContactInfo.model_validate(
+            {
+                "name": "Jane",
+                "email": "jane@example.com",
+                "github": "github.com/jane",
+                "profiles": [{"label": "GitLab", "url": "https://gitlab.com/jane"}],
+            }
+        )
+        assert {f.key: f.value for f in c.fields} == {
+            "Email": "jane@example.com",
+            "GitHub": "https://github.com/jane",
+            "GitLab": "https://gitlab.com/jane",
+        }
+
+    def test_legacy_key_overrides_and_empty_removes(self) -> None:
+        from pktx.models import ContactInfo
+
+        base = {"fields": [{"key": "Email", "value": "old@example.com"}]}
+        c = ContactInfo.model_validate({**base, "email": "new@example.com"})
+        assert [(f.key, f.value) for f in c.fields] == [("Email", "new@example.com")]
+        c = ContactInfo.model_validate({**base, "email": None})
+        assert c.fields == []
+
+
+class TestContactKeys:
+    def test_presets_start_with_common_links(self) -> None:
+        from pktx.contact_keys import CONTACT_KEYS
+
+        keys = [c.key for c in CONTACT_KEYS]
+        assert keys[:5] == ["Email", "Website", "LinkedIn", "GitHub", "GitLab"]
+
+    def test_canonical_and_kind(self) -> None:
+        from pktx.contact_keys import canonical_key, key_kind
+
+        assert canonical_key("  git   hub ") == "GitHub"
+        assert canonical_key("  Pronouns ") == "Pronouns"
+        assert key_kind("github") == "url"
+        assert key_kind("EMAIL") == "email"
+        assert key_kind("Pronouns") == "text"
 
 
 class TestWorkExperience:

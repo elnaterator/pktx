@@ -19,6 +19,7 @@ from pktx.note_service import NoteService
 from pktx.resume_sections import (
     ALL_SECTIONS,
     LIST_SECTIONS,
+    describe_contact_keys,
     describe_sections,
 )
 from pktx.resume_service import ResumeService
@@ -335,6 +336,12 @@ def create_router(
         except ValueError as e:
             raise _client_error(e)
         return {"message": msg}
+
+    @api.get("/api/resume-contact-keys")
+    def list_resume_contact_keys(
+        current_user: UserContext = Depends(_user_dep),
+    ) -> list[dict[str, str]]:
+        return describe_contact_keys()
 
     @api.get("/api/resume-sections")
     def list_resume_sections(

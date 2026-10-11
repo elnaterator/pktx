@@ -1,6 +1,7 @@
 import { z } from 'zod'
-import { httpUrl, requiredHttpUrl } from './httpUrl'
-import type { SectionField } from '../types'
+import { MAX_URL_LENGTH, httpUrl, requiredHttpUrl } from './httpUrl'
+import { isHttpUrl } from '../utils/safeUrl'
+import type { ContactKind, SectionField } from '../types'
 
 const optionalTrimmed = (max?: number) => {
   const s = z.string().trim()
@@ -14,24 +15,63 @@ const optionalFreeDate = z
   .transform((v) => v || undefined)
   .optional()
 
-export const profileSchema = z.object({
-  label: z.string().trim().min(1, 'Label is required').max(200),
-  url: requiredHttpUrl(),
-})
+const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i
 
-export const contactInfoSchema = z.object({
-  name: optionalTrimmed(200),
-  email: optionalTrimmed()
-    .pipe(z.string().email('Invalid email').optional()),
-  phone: optionalTrimmed(50),
-  location: optionalTrimmed(200),
-  linkedin: httpUrl(),
-  website: httpUrl(),
-  github: httpUrl(),
-  profiles: z.array(profileSchema).default([]),
-})
+/** Bare hosts (github.com/me) get https://, mirroring the backend. */
+export function withScheme(value: string): string {
+  const v = value.trim()
+  return URL_SCHEME.test(v) || v.startsWith('//') ? v : `https://${v}`
+}
 
-export type ContactInfoInput = z.infer<typeof contactInfoSchema>
+const contactFieldSchema = (kindOf: (key: string) => ContactKind) =>
+  z
+    .object({
+      key: z.string().trim().min(1, 'Key is required').max(200),
+      value: z.string().trim().min(1, 'Value is required'),
+      /** Form-only: the key is user-typed rather than a preset. Not sent. */
+      custom: z.boolean().optional(),
+    })
+    .superRefine((f, ctx) => {
+      const kind = kindOf(f.key)
+      if (kind === 'email' && !z.string().email().safeParse(f.value).success) {
+        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Invalid email' })
+      } else if (kind === 'url' && !isHttpUrl(withScheme(f.value))) {
+        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Enter a valid http(s) URL' })
+      } else if (f.value.length > (kind === 'url' ? MAX_URL_LENGTH : 500)) {
+        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Value is too long' })
+      }
+    })
+    .transform((f) => ({
+      key: f.key,
+      value: kindOf(f.key) === 'url' ? withScheme(f.value) : f.value,
+      custom: f.custom,
+    }))
+
+/**
+ * Contact form: name/phone/location plus key/value details. `kindOf` maps a key
+ * to how its value is validated (presets are email/url, anything else is text).
+ */
+export function buildContactSchema(kindOf: (key: string) => ContactKind) {
+  return z
+    .object({
+      name: optionalTrimmed(200),
+      phone: optionalTrimmed(500),
+      location: optionalTrimmed(500),
+      fields: z.array(contactFieldSchema(kindOf)).max(30, 'At most 30 details').default([]),
+    })
+    .superRefine((data, ctx) => {
+      const seen = new Set<string>()
+      data.fields.forEach((f, i) => {
+        const folded = f.key.toLowerCase()
+        if (seen.has(folded)) {
+          ctx.addIssue({ code: 'custom', path: ['fields', i, 'key'], message: 'Duplicate key' })
+        }
+        seen.add(folded)
+      })
+    })
+}
+
+export type ContactFormInput = z.input<ReturnType<typeof buildContactSchema>>
 
 export const summarySchema = z.object({
   summary: z.string().trim().min(1, 'Summary cannot be empty'),

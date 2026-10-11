@@ -66,7 +66,7 @@ class TestCrossInterfaceSharedState:
         assert response.status_code == 200
         contact = response.json()
         assert contact["name"] == "John Updated"
-        assert contact["email"] == "updated@example.com"
+        assert {"key": "Email", "value": "updated@example.com"} in contact["fields"]
 
     def test_concurrent_operations_no_corruption(
         self, app_and_service: tuple[Any, ResumeService, TestClient]

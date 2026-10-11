@@ -142,7 +142,9 @@ class TestUpdateContact:
         # Verify the data was saved
         get_resp = client.get(f"{base}/contact")
         assert get_resp.json()["name"] == "John Doe"
-        assert get_resp.json()["email"] == "john@example.com"
+        assert {"key": "Email", "value": "john@example.com"} in get_resp.json()[
+            "fields"
+        ]
 
     def test_update_contact_merge(self, service_with_data: ResumeService) -> None:
         client = _make_client(service_with_data)
@@ -155,7 +157,9 @@ class TestUpdateContact:
         assert resp.status_code == 200
 
         get_resp = client.get(f"{base}/contact")
-        assert get_resp.json()["email"] == "newemail@example.com"
+        assert {"key": "Email", "value": "newemail@example.com"} in get_resp.json()[
+            "fields"
+        ]
         assert get_resp.json()["name"] == "Jane Doe"  # preserved
 
 

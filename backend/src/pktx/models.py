@@ -5,7 +5,13 @@ from typing import Literal
 
 from pydantic import BaseModel, field_validator, model_validator
 
-from pktx.validation import validate_http_url
+from pktx.contact_keys import canonical_key, key_kind
+from pktx.validation import (
+    MAX_NAME,
+    MAX_SHORT,
+    check_len,
+    validate_http_url,
+)
 
 RESOURCE_TYPES_LITERAL = Literal[
     "application", "accomplishment", "resume", "note", "contact"
@@ -24,37 +30,112 @@ class ResourceRef(BaseModel):
 GroupedLinks = dict[str, list[ResourceRef]]
 
 
-class Profile(BaseModel):
-    """A labelled link to an online profile (e.g. GitLab, Dribbble)."""
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+MAX_CONTACT_FIELDS = 30
 
-    label: str
-    url: str
+# Pre-key/value contact shape: top-level email/website/... and a profiles list.
+LEGACY_CONTACT_KEYS = {
+    "email": "Email",
+    "website": "Website",
+    "linkedin": "LinkedIn",
+    "github": "GitHub",
+}
 
-    @field_validator("url", mode="before")
+
+class ContactField(BaseModel):
+    """One contact detail: a key (preset or custom) and its value."""
+
+    key: str
+    value: str
+
+    @field_validator("key", mode="before")
     @classmethod
-    def http_url_only(cls, v: object) -> str:
-        url = validate_http_url(v)
-        if url is None:
-            raise ValueError("Profile URL must not be empty")
-        return url
+    def clean_key(cls, v: object) -> str:
+        if not isinstance(v, str) or not canonical_key(v):
+            raise ValueError("Contact key must not be empty")
+        key = canonical_key(v)
+        if len(key) > MAX_NAME:
+            raise ValueError(f"Contact key must not exceed {MAX_NAME} characters")
+        return key
+
+    @model_validator(mode="after")
+    def check_value(self) -> "ContactField":
+        value = self.value.strip() if isinstance(self.value, str) else ""
+        if not value:
+            raise ValueError(f"{self.key} must not be empty")
+        kind = key_kind(self.key)
+        if kind == "url":
+            value = validate_http_url(value, self.key) or value
+        elif kind == "email":
+            if not _EMAIL.match(value):
+                raise ValueError(f"{self.key} must be a valid email address")
+        check_len(self.key, value, MAX_SHORT)
+        self.value = value
+        return self
 
 
 class ContactInfo(BaseModel):
-    """Personal contact details stored in YAML front-matter."""
+    """Name, phone and location plus any number of key/value details."""
 
     name: str | None = None
-    email: str | None = None
     phone: str | None = None
     location: str | None = None
-    linkedin: str | None = None
-    website: str | None = None
-    github: str | None = None
-    profiles: list[Profile] = []
+    fields: list[ContactField] = []
 
-    @field_validator("linkedin", "website", "github", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def http_url_only(cls, v: object) -> str | None:
-        return validate_http_url(v)
+    def upgrade_legacy(cls, data: object) -> object:
+        """Accept the old shape (email/website/linkedin/github, profiles).
+
+        Legacy keys upsert into ``fields`` (an empty value removes the field), so
+        unmigrated blobs and old API/MCP clients keep working.
+        """
+        if not isinstance(data, dict):
+            return data
+        data = dict(data)
+        fields = [
+            dict(f) if isinstance(f, dict) else f for f in data.get("fields") or []
+        ]
+
+        def upsert(key: str, value: object) -> None:
+            folded = canonical_key(key).lower()
+            fields[:] = [
+                f
+                for f in fields
+                if not (
+                    isinstance(f, dict)
+                    and canonical_key(str(f.get("key", ""))).lower() == folded
+                )
+            ]
+            if isinstance(value, str) and value.strip():
+                fields.append({"key": key, "value": value})
+            elif value not in (None, ""):
+                fields.append({"key": key, "value": value})
+
+        legacy = False
+        for old, label in LEGACY_CONTACT_KEYS.items():
+            if old in data:
+                legacy = True
+                upsert(label, data.pop(old))
+        if "profiles" in data:
+            legacy = True
+            for p in data.pop("profiles") or []:
+                if isinstance(p, dict):
+                    upsert(str(p.get("label", "")), p.get("url"))
+        if legacy:
+            data["fields"] = fields
+        return data
+
+    @model_validator(mode="after")
+    def check_fields(self) -> "ContactInfo":
+        if len(self.fields) > MAX_CONTACT_FIELDS:
+            raise ValueError(f"At most {MAX_CONTACT_FIELDS} contact details allowed")
+        seen: set[str] = set()
+        for f in self.fields:
+            if f.key.lower() in seen:
+                raise ValueError(f"Duplicate contact key: '{f.key}'")
+            seen.add(f.key.lower())
+        return self
 
 
 class Entry(BaseModel):
