@@ -132,6 +132,12 @@ The resume only has contact, summary, experience, education, and skills. Add the
 Notes: research/resume-sections.md
 
 
+## 034 Simplify the resume schema: adopt JSON Resume
+
+033 left the resume with 9 bespoke entry schemas (inconsistent names: title/role/name, company/organization/institution/issuer/venue, start_date/issued/date), a contact model with preset keys, value kinds and legacy shortcuts, stored `enabled_sections` that duplicates "has entries", and dual id/index entry addressing. Make JSON Resume (jsonresume.org) the canonical shape, snake_case internally, camelCase on import/export via a Pydantic alias generator, plus a stable `id` on every entry. Contact + summary become `basics` {name, label, email, phone, url, location, summary, profiles[]}. Drop `enabled_sections` (a section shows when it has entries), the section toggle endpoint + MCP tool, contact keys/kinds + presets endpoint, legacy contact shortcuts and index addressing. Skills become groups {name, level, keywords[]}. Dates are validated partial ISO (`YYYY`, `YYYY-MM`, `YYYY-MM-DD`), missing end = present. Add entry reorder (REST + MCP) and `import_resume` (whole JSON Resume, validated). MCP `data` args typed from the Pydantic models; `/api/resume-sections` derived from model JSON Schema. Keep full copies per version. One data migration, then delete every legacy path (no back-compat shims).
+Notes: research/resume-schema.md
+
+
 ## 032 Spike: replace OAuth proxy with Clerk native CIMD
 
 Clerk shipped CIMD GA (2026-09-17). Spike whether we can delete the FastMCP `OAuthProxy` (`auth.build_mcp_auth`, `oauth_store.py`, `oauth_kv`, client secret env) and point RFC 9728 protected-resource metadata at Clerk as the authorization server, with a plain JWT verifier on `/mcp`. Throwaway spike branch; test Claude Desktop, Cursor, VS Code (and ChatGPT). Pass only if all hold: (1) `localhost` vs `127.0.0.1` redirect mismatch does not 400, (2) token `aud` bound to `<PKTX_PUBLIC_URL>/mcp` (RFC 8707), (3) revocation-aware validation, (4) consent page and hosted-client redirect allowlist acceptable, (5) Clerk AS metadata advertises `client_id_metadata_document_supported`. Output: written findings plus go/no-go in the research note. If go, add a follow-up item to remove the proxy; if no-go, record why and a re-check trigger.
