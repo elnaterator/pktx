@@ -101,17 +101,9 @@ def _cases(ids: dict[str, Any]) -> dict[tuple[str, str], tuple[str, Any]]:
             f"/api/resumes/{r}/experience/entries/0",
             None,
         ),
-        ("PUT", "/api/resumes/{version_id}/layout"): (
-            f"/api/resumes/{r}/layout",
-            {"layout": []},
-        ),
-        ("POST", "/api/resumes/{version_id}/custom-sections"): (
-            f"/api/resumes/{r}/custom-sections",
-            {"title": "x"},
-        ),
-        ("DELETE", "/api/resumes/{version_id}/custom-sections/{custom_id}"): (
-            f"/api/resumes/{r}/custom-sections/abc",
-            None,
+        ("PUT", "/api/resumes/{version_id}/sections/{section}"): (
+            f"/api/resumes/{r}/sections/projects",
+            {"enabled": True},
         ),
         ("GET", "/api/applications/{app_id}"): (f"/api/applications/{a}", None),
         ("PATCH", "/api/applications/{app_id}"): (

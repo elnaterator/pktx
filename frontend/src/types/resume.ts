@@ -100,25 +100,6 @@ export interface Language extends Entry {
   proficiency: string | null
 }
 
-export interface CustomEntry extends Entry {
-  heading: string | null
-  body: string | null
-  highlights: string[]
-}
-
-export interface CustomSection {
-  title: string
-  entries: CustomEntry[]
-}
-
-/** Order, visibility and optional title override for one section. */
-export interface LayoutItem {
-  /** Section key, or `custom:<id>` for a user-defined section. */
-  section: string
-  visible: boolean
-  title: string | null
-}
-
 /** Generic list entry as rendered by the registry-driven section. */
 export type ListEntry = Entry & Record<string, unknown>
 
@@ -134,8 +115,8 @@ export interface Resume {
   publications: Publication[]
   volunteer: Volunteer[]
   languages: Language[]
-  custom_sections: Record<string, CustomSection>
-  layout: LayoutItem[]
+  /** Optional sections added to this version (shown in fixed order). */
+  enabled_sections: string[]
 }
 
 export interface SectionField {
@@ -149,6 +130,8 @@ export interface SectionField {
 export interface SectionMeta {
   key: string
   label: string
+  /** Optional sections are added by the user; the rest are always shown. */
+  optional: boolean
   primary_field: string | null
   unique_field: string | null
   insert: 'prepend' | 'append'

@@ -1,4 +1,4 @@
-"""Section registry, stable entry ids, layout and the 033 sections."""
+"""Section registry, stable entry ids, optional sections and the 033 sections."""
 
 import json
 from typing import Any
@@ -6,7 +6,7 @@ from typing import Any
 import pytest
 
 from pktx.models import Resume
-from pktx.resume_layout import LIST_ORDER, normalize_layout
+from pktx.resume_order import CORE, LIST_ORDER, OPTIONAL, normalize_enabled
 from pktx.resume_sections import (
     ALL_SECTIONS,
     LIST_SECTIONS,
@@ -41,7 +41,8 @@ class TestRegistry:
 
     def test_describe_sections_lists_fields_without_id(self) -> None:
         desc = {d["key"]: d for d in describe_sections()}
-        assert set(desc) == set(SECTIONS) | {"custom"}
+        assert set(desc) == set(SECTIONS)
+        assert [k for k, d in desc.items() if not d["optional"]] == list(CORE)
         proj = {f["name"]: f for f in desc["projects"]["fields"]}
         assert "id" not in proj
         assert proj["name"]["required"] is True
@@ -50,42 +51,20 @@ class TestRegistry:
         assert proj["description"]["widget"] == "textarea"
 
 
-class TestLayoutNormalize:
-    def test_default_layout_keeps_legacy_visible_and_hides_empty_new(self) -> None:
-        layout = normalize_layout([], {"summary": "", "projects": []})
-        by = {i["section"]: i for i in layout}
-        assert [i["section"] for i in layout][:4] == [
-            "summary",
-            "experience",
-            "education",
-            "skills",
-        ]
-        assert by["experience"]["visible"] is True
-        assert by["projects"]["visible"] is False
+class TestEnabledSections:
+    def test_optional_sections_hidden_until_added_or_used(self) -> None:
+        assert normalize_enabled([], {"projects": []}) == []
+        assert normalize_enabled([], {"projects": [{"name": "x"}]}) == ["projects"]
 
-    def test_new_section_with_content_is_visible(self) -> None:
-        layout = normalize_layout([], {"projects": [{"name": "x"}]})
-        assert {i["section"]: i["visible"] for i in layout}["projects"] is True
+    def test_fixed_order_and_unknown_dropped(self) -> None:
+        out = normalize_enabled(["languages", "nope", "experience", "awards"], {})
+        assert out == ["awards", "languages"]
+        assert list(OPTIONAL) == [k for k in LIST_ORDER if k not in CORE]
 
-    def test_drops_unknown_and_duplicates_keeps_order(self) -> None:
-        layout = normalize_layout(
-            [
-                {"section": "skills", "visible": False},
-                {"section": "nope"},
-                {"section": "skills"},
-                {"section": "summary", "title": "About"},
-            ],
-            {},
-        )
-        assert [i["section"] for i in layout][:2] == ["skills", "summary"]
-        assert layout[0]["visible"] is False
-        assert layout[1]["title"] == "About"
-        assert sum(i["section"] == "skills" for i in layout) == 1
-
-    def test_resume_model_normalizes_layout(self) -> None:
-        r = Resume()
-        assert [i.section for i in r.layout][0] == "summary"
-        assert len(r.layout) == 1 + len(LIST_ORDER)
+    def test_resume_model_normalizes(self) -> None:
+        assert Resume().enabled_sections == []
+        r = Resume.model_validate({"enabled_sections": ["languages", "x"]})
+        assert r.enabled_sections == ["languages"]
 
 
 class TestEntryIds:
@@ -199,16 +178,12 @@ class TestNewSections:
         with pytest.raises(ValueError, match="Invalid section"):
             resume_service.add_entry("hobbies", {}, user_id=U)
 
-    def test_new_section_becomes_visible_in_layout(
+    def test_adding_an_entry_shows_the_section(
         self, resume_service: ResumeService
     ) -> None:
         resume_service.add_entry("projects", NEW_ENTRIES["projects"], user_id=U)
         data = resume_service.get_resume(user_id=U)["resume_data"]
-        layout = {
-            i["section"]: i["visible"] for i in Resume(**data).model_dump()["layout"]
-        }
-        assert layout["projects"] is True
-        assert layout["certifications"] is False
+        assert data["enabled_sections"] == ["projects"]
 
 
 class TestContactProfiles:
@@ -236,89 +211,37 @@ class TestContactProfiles:
         assert r.contact.profiles == []
 
 
-class TestLayout:
-    def test_update_layout_order_visibility_title(
-        self, resume_service: ResumeService
-    ) -> None:
-        out = resume_service.update_layout(
-            [
-                {"section": "skills", "visible": True, "title": "  Tech  "},
-                {"section": "experience", "visible": False},
-            ],
-            user_id=U,
-        )
-        assert [i["section"] for i in out][:2] == ["skills", "experience"]
-        assert out[0]["title"] == "Tech"
-        assert out[1]["visible"] is False
+class TestOptionalSections:
+    def test_add_then_remove_empty_section(self, resume_service: ResumeService) -> None:
+        resume_service.set_section_enabled("awards", True, user_id=U)
+        resume_service.set_section_enabled("projects", True, user_id=U)
         data = resume_service.get_resume(user_id=U)["resume_data"]
-        assert data["layout"][0]["section"] == "skills"
-        assert len(data["layout"]) == 1 + len(LIST_ORDER)
+        assert data["enabled_sections"] == ["projects", "awards"]  # fixed order
+        resume_service.set_section_enabled("awards", False, user_id=U)
+        data = resume_service.get_resume(user_id=U)["resume_data"]
+        assert data["enabled_sections"] == ["projects"]
 
-    def test_rejects_unknown_duplicate_and_bad_types(
+    def test_cannot_remove_section_with_entries(
         self, resume_service: ResumeService
     ) -> None:
-        with pytest.raises(ValueError, match="Unknown layout section"):
-            resume_service.update_layout([{"section": "contact"}], user_id=U)
-        with pytest.raises(ValueError, match="Duplicate"):
-            resume_service.update_layout(
-                [{"section": "skills"}, {"section": "skills"}], user_id=U
-            )
-        with pytest.raises(ValueError, match="title"):
-            resume_service.update_layout([{"section": "skills", "title": 5}], user_id=U)
-        with pytest.raises(ValueError, match="must not exceed"):
-            resume_service.update_layout(
-                [{"section": "skills", "title": "x" * 201}], user_id=U
-            )
+        resume_service.add_entry("awards", NEW_ENTRIES["awards"], user_id=U)
+        with pytest.raises(ValueError, match="has entries"):
+            resume_service.set_section_enabled("awards", False, user_id=U)
 
-    def test_create_resume_copies_layout(self, resume_service: ResumeService) -> None:
-        resume_service.update_layout(
-            [{"section": "skills", "visible": False}], user_id=U
-        )
+    def test_core_and_unknown_sections_rejected(
+        self, resume_service: ResumeService
+    ) -> None:
+        with pytest.raises(ValueError, match="always shown"):
+            resume_service.set_section_enabled("skills", False, user_id=U)
+        with pytest.raises(ValueError, match="Invalid section"):
+            resume_service.set_section_enabled("hobbies", True, user_id=U)
+
+    def test_create_resume_copies_enabled_sections(
+        self, resume_service: ResumeService
+    ) -> None:
+        resume_service.set_section_enabled("languages", True, user_id=U)
         v2 = resume_service.create_resume("Copy", user_id=U)
-        assert v2["resume_data"]["layout"][0] == {
-            "section": "skills",
-            "visible": False,
-            "title": None,
-        }
-
-
-class TestCustomSections:
-    def test_add_entries_remove(self, resume_service: ResumeService) -> None:
-        key = resume_service.add_custom_section("Open Source", user_id=U)
-        assert key.startswith("custom:")
-        data = resume_service.get_resume(user_id=U)["resume_data"]
-        layout = {i["section"]: i["visible"] for i in data["layout"]}
-        assert layout[key] is True
-
-        resume_service.add_entry(
-            key, {"heading": "Linux", "body": "patches"}, user_id=U
-        )
-        entry = resume_service.get_section(key, user_id=U)[0]
-        assert entry["heading"] == "Linux" and entry["id"]
-        resume_service.update_entry(key, entry["id"], {"body": "more"}, user_id=U)
-        assert resume_service.get_section(key, user_id=U)[0]["body"] == "more"
-        resume_service.remove_entry(key, entry["id"], user_id=U)
-
-        resume_service.remove_custom_section(key, user_id=U)
-        data = resume_service.get_resume(user_id=U)["resume_data"]
-        assert key not in {i["section"] for i in data["layout"]}
-        with pytest.raises(ValueError, match="Unknown custom section"):
-            resume_service.add_entry(key, {"heading": "x"}, user_id=U)
-
-    def test_title_validation_and_layout_override(
-        self, resume_service: ResumeService
-    ) -> None:
-        with pytest.raises(ValueError, match="empty"):
-            resume_service.add_custom_section("  ", user_id=U)
-        key = resume_service.add_custom_section("Talks", user_id=U)
-        out = resume_service.update_layout(
-            [{"section": key, "title": "Speaking"}], user_id=U
-        )
-        assert out[0]["title"] == "Speaking"
-
-    def test_remove_non_custom_rejected(self, resume_service: ResumeService) -> None:
-        with pytest.raises(ValueError, match="Not a custom section"):
-            resume_service.remove_custom_section("skills", user_id=U)
+        assert v2["resume_data"]["enabled_sections"] == ["languages"]
 
 
 def test_blob_round_trips_through_resume_model(resume_service: ResumeService) -> None:

@@ -1,20 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { ContactInfo, LayoutItem } from '../../types'
+import type { ContactInfo } from '../../types'
 import {
-  addCustomSection,
   addVersionEntry,
   createResume,
   deleteResume,
   getResumeVersion,
   listResumeSections,
   listResumes,
-  removeCustomSection,
   removeVersionEntry,
   setDefaultResume,
   updateResumeLabel,
   updateVersionContact,
   updateVersionEntry,
-  updateVersionLayout,
+  setVersionSectionEnabled,
   updateVersionSummary,
 } from '../../services/api'
 
@@ -137,19 +135,16 @@ export function useResumeMutations() {
     }) => removeVersionEntry(id, section, entryRef),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
-  const updateLayout = useMutation({
-    mutationFn: ({ id, layout }: { id: number; layout: LayoutItem[] }) =>
-      updateVersionLayout(id, layout),
-    onSuccess: (_d, { id }) => invalidateResume(id),
-  })
-  const addCustom = useMutation({
-    mutationFn: ({ id, title }: { id: number; title: string }) =>
-      addCustomSection(id, title),
-    onSuccess: (_d, { id }) => invalidateResume(id),
-  })
-  const removeCustom = useMutation({
-    mutationFn: ({ id, customId }: { id: number; customId: string }) =>
-      removeCustomSection(id, customId),
+  const setSectionEnabled = useMutation({
+    mutationFn: ({
+      id,
+      section,
+      enabled,
+    }: {
+      id: number
+      section: string
+      enabled: boolean
+    }) => setVersionSectionEnabled(id, section, enabled),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
 
@@ -163,8 +158,6 @@ export function useResumeMutations() {
     addEntry,
     updateEntry,
     removeEntry,
-    updateLayout,
-    addCustom,
-    removeCustom,
+    setSectionEnabled,
   }
 }

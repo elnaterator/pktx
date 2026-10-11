@@ -762,17 +762,18 @@ def migrate_v13_to_v14(conn) -> None:
 
 
 def migrate_v14_to_v15(conn) -> None:
-    """Give every resume list entry a stable id and seed the section layout.
+    """Give every resume list entry a stable id.
 
-    Data-only and idempotent: entries that already have an id are untouched and
-    an existing layout is kept. Sections that predate the layout stay visible;
-    the new ones start hidden until they have content. Values are hardcoded so
-    later registry changes cannot alter what this migration did.
+    Data-only and idempotent: entries that already have an id are untouched.
+    Section names are hardcoded so later registry changes cannot alter what
+    this migration did.
     """
     import uuid
 
-    legacy = ("experience", "education", "skills")
-    later = (
+    sections = (
+        "experience",
+        "education",
+        "skills",
         "projects",
         "certifications",
         "awards",
@@ -787,19 +788,17 @@ def migrate_v14_to_v15(conn) -> None:
         data = json.loads(row["resume_data"] or "{}")
         if not isinstance(data, dict):
             continue
-        for key in (*legacy, *later):
+        changed = False
+        for key in sections:
             for entry in data.get(key) or []:
                 if isinstance(entry, dict) and not entry.get("id"):
                     entry["id"] = uuid.uuid4().hex
-        if not data.get("layout"):
-            data["layout"] = [
-                {"section": k, "visible": True, "title": None}
-                for k in ("summary", *legacy)
-            ] + [{"section": k, "visible": False, "title": None} for k in later]
-        conn.execute(
-            "UPDATE resume_version SET resume_data = %s WHERE id = %s",
-            (json.dumps(data), row["id"]),
-        )
+                    changed = True
+        if changed:
+            conn.execute(
+                "UPDATE resume_version SET resume_data = %s WHERE id = %s",
+                (json.dumps(data), row["id"]),
+            )
 
     conn.execute("UPDATE schema_version SET version = %s", (15,))
     conn.commit()

@@ -10,7 +10,6 @@ import type {
   Skill,
   ResumeVersion,
   ResumeVersionSummary,
-  LayoutItem,
   SectionMeta,
   ApiSuccessResponse,
 } from '../../types'
@@ -303,51 +302,20 @@ export async function listResumeSections(): Promise<SectionMeta[]> {
 }
 
 /**
- * Replace the section order / visibility / titles of a version
+ * Add an optional section to a version, or remove an empty one
  */
-export async function updateVersionLayout(
+export async function setVersionSectionEnabled(
   versionId: number,
-  layout: LayoutItem[]
-): Promise<{ layout: LayoutItem[] }> {
+  section: string,
+  enabled: boolean
+): Promise<ApiSuccessResponse> {
   const response = await fetchWithErrorHandling(
-    `${API_BASE}/resumes/${versionId}/layout`,
+    `${API_BASE}/resumes/${versionId}/sections/${encodeURIComponent(section)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ layout }),
+      body: JSON.stringify({ enabled }),
     }
-  )
-  return handleResponse<{ layout: LayoutItem[] }>(response)
-}
-
-/**
- * Add a user-defined section; resolves to its `custom:<id>` key
- */
-export async function addCustomSection(
-  versionId: number,
-  title: string
-): Promise<{ section: string }> {
-  const response = await fetchWithErrorHandling(
-    `${API_BASE}/resumes/${versionId}/custom-sections`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title }),
-    }
-  )
-  return handleResponse<{ section: string }>(response)
-}
-
-/**
- * Delete a user-defined section (`customId` is the part after `custom:`)
- */
-export async function removeCustomSection(
-  versionId: number,
-  customId: string
-): Promise<ApiSuccessResponse> {
-  const response = await fetchWithErrorHandling(
-    `${API_BASE}/resumes/${versionId}/custom-sections/${encodeURIComponent(customId)}`,
-    { method: 'DELETE' }
   )
   return handleResponse<ApiSuccessResponse>(response)
 }

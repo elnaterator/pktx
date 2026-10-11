@@ -20,6 +20,8 @@ interface GenericListSectionProps {
   entries: ListEntry[]
   versionId: number
   onUpdate?: () => void
+  /** Optional sections can be removed while empty. */
+  onRemoveSection?: () => void
 }
 
 type Mode = 'view' | 'add' | { type: 'edit'; ref: string | number } | { type: 'delete'; ref: string | number }
@@ -145,6 +147,7 @@ export default function GenericListSection({
   entries,
   versionId,
   onUpdate,
+  onRemoveSection,
 }: GenericListSectionProps) {
   const [mode, setMode] = useState<Mode>('view')
   const { success, error } = useToast()
@@ -250,7 +253,9 @@ export default function GenericListSection({
           })}
         </div>
       ) : (
-        mode !== 'add' && <p className={styles.placeholder}>Nothing here yet — add your first entry.</p>
+        mode !== 'add' && (
+          <p className={styles.placeholder}>Nothing here yet — add your first entry.</p>
+        )
       )}
 
       {mode === 'add' && (
@@ -263,9 +268,16 @@ export default function GenericListSection({
       )}
 
       {mode === 'view' && (
-        <button className={styles.addButton} onClick={() => setMode('add')}>
-          Add {title}
-        </button>
+        <div className={styles.footer}>
+          <button className={styles.addButton} onClick={() => setMode('add')}>
+            Add {title}
+          </button>
+          {entries.length === 0 && onRemoveSection && (
+            <button className={styles.removeSectionButton} onClick={onRemoveSection}>
+              Remove section
+            </button>
+          )}
+        </div>
       )}
 
       {typeof mode === 'object' && mode.type === 'delete' && (

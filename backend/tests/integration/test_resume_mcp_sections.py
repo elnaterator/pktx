@@ -1,4 +1,4 @@
-"""MCP tools for registry-driven resume sections, entry ids and layout."""
+"""MCP tools for registry-driven resume sections and entry ids."""
 
 import asyncio
 from typing import Any
@@ -41,23 +41,14 @@ def test_entry_roundtrip_by_id(tools) -> None:
     assert fns["get_resume_section"]("projects", vid) == []
 
 
-def test_layout_and_custom_section(tools) -> None:
+def test_optional_sections(tools) -> None:
     vid, fns = tools
-    out = fns["update_resume_layout"](vid, [{"section": "skills", "visible": False}])
-    assert out.startswith("Updated layout: skills (hidden)")
-
-    msg = fns["add_resume_custom_section"](vid, "Talks")
-    key = msg[msg.index("(") + 1 : -1]
-    assert key.startswith("custom:")
-    fns["add_resume_entry"](vid, key, {"heading": "KubeCon"})
-    assert fns["get_resume_section"](key, vid)[0]["heading"] == "KubeCon"
-    data = fns["get_resume"](vid)["resume_data"]
-    assert data["custom_sections"][key.split(":")[1]]["title"] == "Talks"
-    assert data["layout"][0]["section"] == "skills"
-
-    fns["remove_resume_custom_section"](vid, key)
-    with pytest.raises(ValueError, match="Unknown custom section"):
-        fns["get_resume_section"](key, vid)
+    fns["set_resume_section_enabled"](vid, "languages", True)
+    assert fns["get_resume"](vid)["resume_data"]["enabled_sections"] == ["languages"]
+    fns["set_resume_section_enabled"](vid, "languages", False)
+    assert fns["get_resume"](vid)["resume_data"]["enabled_sections"] == []
+    with pytest.raises(ValueError, match="always shown"):
+        fns["set_resume_section_enabled"](vid, "skills", False)
 
 
 def test_invalid_section_rejected(tools) -> None:

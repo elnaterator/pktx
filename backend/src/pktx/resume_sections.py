@@ -3,7 +3,7 @@
 The service, MCP tools, REST routes and the frontend (via
 ``GET /api/resume-sections``) all derive from ``SECTIONS``. Adding a section
 means adding a model in ``models.py``, a ``Resume`` field, a ``LIST_ORDER``
-entry in ``resume_layout`` and one ``SectionDef`` here.
+entry in ``resume_order`` and one ``SectionDef`` here.
 """
 
 from collections.abc import Callable
@@ -15,7 +15,6 @@ from pydantic import BaseModel
 from pktx.models import (
     Award,
     Certification,
-    CustomEntry,
     Education,
     Language,
     Project,
@@ -25,7 +24,7 @@ from pktx.models import (
     Volunteer,
     WorkExperience,
 )
-from pktx.resume_layout import CUSTOM_PREFIX, LIST_ORDER
+from pktx.resume_order import CORE, LIST_ORDER
 
 
 @dataclass(frozen=True)
@@ -119,16 +118,6 @@ SECTIONS: dict[str, SectionDef] = {
     )
 }
 
-# Entries of user-defined sections (``custom:<id>``) all share this definition.
-CUSTOM_DEF = SectionDef(
-    "custom",
-    "Custom",
-    CustomEntry,
-    lambda e: e.heading or (e.body or "entry")[:40],
-    insert="append",
-    primary_field="heading",
-)
-
 LIST_SECTIONS: tuple[str, ...] = tuple(SECTIONS)
 # Singleton sections are edited in place rather than as entry lists.
 SECTION_UPDATE: tuple[str, ...] = ("contact", "summary")
@@ -136,24 +125,17 @@ ALL_SECTIONS: tuple[str, ...] = (*SECTION_UPDATE, *LIST_SECTIONS)
 
 # Fail at import if the registry drifts from the model / layout order.
 if LIST_SECTIONS != LIST_ORDER:
-    raise RuntimeError("resume_layout.LIST_ORDER is out of sync with SECTIONS")
+    raise RuntimeError("resume_order.LIST_ORDER is out of sync with SECTIONS")
 if not all(k in Resume.model_fields for k in ALL_SECTIONS):
     raise RuntimeError("Resume model is missing a registered section field")
 
 
-def is_custom(section: str) -> bool:
-    return section.startswith(CUSTOM_PREFIX)
-
-
 def section_def(section: str) -> SectionDef:
-    """Definition for a list section key (built-in or ``custom:<id>``)."""
-    if is_custom(section):
-        return CUSTOM_DEF
+    """Definition for a list section key."""
     d = SECTIONS.get(section)
     if d is None:
         raise ValueError(
-            f"Invalid section: '{section}'. "
-            f"Must be one of: {', '.join(LIST_SECTIONS)} or custom:<id>"
+            f"Invalid section: '{section}'. Must be one of: {', '.join(LIST_SECTIONS)}"
         )
     return d
 
@@ -199,11 +181,12 @@ def fields_for(model: type[BaseModel]) -> list[FieldDef]:
 def describe_sections() -> list[dict[str, Any]]:
     """Registry metadata served to the frontend."""
     out: list[dict[str, Any]] = []
-    for d in (*(SECTIONS[k] for k in LIST_SECTIONS), CUSTOM_DEF):
+    for d in (SECTIONS[k] for k in LIST_SECTIONS):
         out.append(
             {
                 "key": d.key,
                 "label": d.label,
+                "optional": d.key not in CORE,
                 "primary_field": d.primary_field,
                 "unique_field": d.unique_field,
                 "insert": d.insert,
@@ -215,12 +198,10 @@ def describe_sections() -> list[dict[str, Any]]:
 
 __all__ = [
     "ALL_SECTIONS",
-    "CUSTOM_DEF",
     "LIST_SECTIONS",
     "SECTIONS",
     "SECTION_UPDATE",
     "SectionDef",
     "describe_sections",
-    "is_custom",
     "section_def",
 ]

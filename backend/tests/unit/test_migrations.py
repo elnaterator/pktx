@@ -390,9 +390,9 @@ class TestMigrateV13ToV14:
 
 
 class TestMigrateV14ToV15:
-    """v14→v15 backfills stable entry ids and seeds the section layout."""
+    """v14→v15 backfills stable entry ids."""
 
-    def test_backfills_ids_and_layout_idempotently(self, pg_conn) -> None:
+    def test_backfills_ids_idempotently(self, pg_conn) -> None:
         import json
 
         from pktx.migrations import MIGRATIONS, apply_migrations, migrate_v14_to_v15
@@ -432,18 +432,8 @@ class TestMigrateV14ToV15:
         ids = [e["id"] for e in first["experience"] + first["skills"]]
         assert all(ids) and len(set(ids)) == 3
         assert first["skills"][0]["id"] == "keepme"
-        visible = {i["section"]: i["visible"] for i in first["layout"]}
-        assert visible["experience"] is True and visible["summary"] is True
-        assert visible["projects"] is False
-        assert [i["section"] for i in first["layout"]][:4] == [
-            "summary",
-            "experience",
-            "education",
-            "skills",
-        ]
-        assert _get_version(pg_conn) == 15
-        # Content other than ids/layout is untouched.
         assert first["experience"][0]["title"] == "Dev" and first["summary"] == "s"
+        assert _get_version(pg_conn) == 15
 
         migrate_v14_to_v15(pg_conn)
         assert stored() == first

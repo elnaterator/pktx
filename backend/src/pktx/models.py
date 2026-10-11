@@ -169,29 +169,6 @@ class Language(Entry):
     proficiency: str | None = None
 
 
-class CustomEntry(Entry):
-    """Free-form entry in a user-defined section."""
-
-    heading: str | None = None
-    body: str | None = None
-    highlights: list[str] = []
-
-
-class CustomSection(BaseModel):
-    """A user-defined section: a title (also in layout) plus free-form entries."""
-
-    title: str
-    entries: list[CustomEntry] = []
-
-
-class LayoutItem(BaseModel):
-    """Position, visibility and optional title override for one section."""
-
-    section: str
-    visible: bool = True
-    title: str | None = None
-
-
 class Resume(BaseModel):
     """Aggregate resume model combining all sections."""
 
@@ -206,20 +183,16 @@ class Resume(BaseModel):
     publications: list[Publication] = []
     volunteer: list[Volunteer] = []
     languages: list[Language] = []
-    custom_sections: dict[str, CustomSection] = {}
-    layout: list[LayoutItem] = []
+    # Optional sections the user added (shown in fixed order, see resume_order).
+    enabled_sections: list[str] = []
 
     @model_validator(mode="after")
-    def _normalize_layout(self) -> "Resume":
-        from pktx.resume_layout import normalize_layout
+    def _normalize_enabled(self) -> "Resume":
+        from pktx.resume_order import normalize_enabled
 
-        self.layout = [
-            LayoutItem.model_validate(i)
-            for i in normalize_layout(
-                [i.model_dump() for i in self.layout],
-                self.model_dump(exclude={"layout"}),
-            )
-        ]
+        self.enabled_sections = normalize_enabled(
+            self.enabled_sections, self.model_dump(exclude={"enabled_sections"})
+        )
         return self
 
 

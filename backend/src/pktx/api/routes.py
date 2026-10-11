@@ -20,7 +20,6 @@ from pktx.resume_sections import (
     ALL_SECTIONS,
     LIST_SECTIONS,
     describe_sections,
-    is_custom,
 )
 from pktx.resume_service import ResumeService
 from pktx.search_service import SearchService
@@ -55,18 +54,17 @@ def _client_error(e: Exception) -> HTTPException:
 _NOT_FOUND_MARKERS = (
     "not found",
     "out of range",
-    "Unknown custom section",
     " entry with id ",
 )
 
 
 def _check_list_section(section: str) -> None:
-    if section not in LIST_SECTIONS and not is_custom(section):
+    if section not in LIST_SECTIONS:
         raise HTTPException(
             status_code=400,
             detail=(
                 f"Invalid section for entries: '{section}'. "
-                f"Must be one of: {', '.join(LIST_SECTIONS)} or custom:<id>"
+                f"Must be one of: {', '.join(LIST_SECTIONS)}"
             ),
         )
 
@@ -224,7 +222,7 @@ def create_router(
         section: str,
         current_user: UserContext = Depends(_user_dep),
     ) -> Any:
-        if section not in ALL_SECTIONS and not is_custom(section):
+        if section not in ALL_SECTIONS:
             raise HTTPException(
                 status_code=404,
                 detail=(
@@ -237,11 +235,6 @@ def create_router(
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
         resume = Resume(**version["resume_data"])
-        if is_custom(section):
-            try:
-                return service.get_section(section, version_id, user_id=current_user.id)
-            except ValueError as e:
-                raise HTTPException(status_code=404, detail=str(e))
         return resume.model_dump()[section]
 
     @api.put("/api/resumes/{version_id}/contact")
@@ -324,43 +317,20 @@ def create_router(
             raise _client_error(e)
         return {"message": msg}
 
-    @api.put("/api/resumes/{version_id}/layout")
-    def update_resume_layout(
+    @api.put("/api/resumes/{version_id}/sections/{section}")
+    def set_resume_section_enabled(
         version_id: int,
-        data: dict[str, Any],
-        current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, Any]:
-        try:
-            layout = service.update_layout(
-                data.get("layout", []), version_id, user_id=current_user.id
-            )
-        except ValueError as e:
-            raise _client_error(e)
-        return {"layout": layout}
-
-    @api.post("/api/resumes/{version_id}/custom-sections", status_code=201)
-    def add_resume_custom_section(
-        version_id: int,
+        section: str,
         data: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, str]:
+        """Add (``{"enabled": true}``) or remove an optional section."""
         try:
-            key = service.add_custom_section(
-                data.get("title", ""), version_id, user_id=current_user.id
-            )
-        except ValueError as e:
-            raise _client_error(e)
-        return {"section": key}
-
-    @api.delete("/api/resumes/{version_id}/custom-sections/{custom_id}")
-    def remove_resume_custom_section(
-        version_id: int,
-        custom_id: str,
-        current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
-        try:
-            msg = service.remove_custom_section(
-                f"custom:{custom_id}", version_id, user_id=current_user.id
+            msg = service.set_section_enabled(
+                section,
+                bool(data.get("enabled", True)),
+                version_id,
+                user_id=current_user.id,
             )
         except ValueError as e:
             raise _client_error(e)

@@ -8,8 +8,6 @@ import { SkillAdder } from './SkillAdder'
 import styles from './SkillsSection.module.css'
 
 interface SkillsSectionProps {
-  /** Heading override from the resume layout. */
-  title?: string
 
   skills: Skill[]
   onUpdate?: () => void
@@ -19,7 +17,7 @@ interface SkillsSectionProps {
 /** Display label for skills stored with a null category. */
 const UNCATEGORIZED = 'Other'
 
-export default function SkillsSection({ skills, onUpdate, versionId, title = 'Skills' }: SkillsSectionProps) {
+export default function SkillsSection({ skills, onUpdate, versionId }: SkillsSectionProps) {
   /** Category label being edited (chips removable + adder open), or null. */
   const [editingCategory, setEditingCategory] = useState<string | null>(null)
   /** Client-only category: exists until its first skill is persisted. */
@@ -178,7 +176,7 @@ export default function SkillsSection({ skills, onUpdate, versionId, title = 'Sk
 
   return (
     <section className={styles.container} data-testid="skills-section">
-      <h2 className={styles.sectionLabel}>{title}</h2>
+      <h2 className={styles.sectionLabel}>Skills</h2>
 
       {categories.length > 0 || draftCategory !== null ? (
         <div className={styles.list}>

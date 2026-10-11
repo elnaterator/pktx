@@ -19,13 +19,11 @@ from pktx.database import (
 )
 from pktx.db import DBConnection
 from pktx.link_service import LinkService
-from pktx.models import ContactInfo, CustomSection
-from pktx.resume_layout import CUSTOM_PREFIX, custom_key, normalize_layout
+from pktx.models import ContactInfo
+from pktx.resume_order import CORE, normalize_enabled
 from pktx.resume_sections import (
     ALL_SECTIONS,
-    LIST_SECTIONS,
     SECTION_UPDATE,
-    is_custom,
     section_def,
 )
 from pktx.validation import (
@@ -90,15 +88,8 @@ def _clean_label(label: Any) -> str:
 
 
 def _entries(resume_data: dict[str, Any], section: str) -> list[dict[str, Any]]:
-    """The mutable entry list for a built-in or ``custom:<id>`` list section."""
+    """The mutable entry list for a list section."""
     section_def(section)  # validates the key
-    if is_custom(section):
-        custom = (resume_data.get("custom_sections") or {}).get(
-            section[len(CUSTOM_PREFIX) :]
-        )
-        if custom is None:
-            raise ValueError(f"Unknown custom section: '{section}'")
-        return custom.setdefault("entries", [])
     return resume_data.setdefault(section, [])
 
 
@@ -232,8 +223,6 @@ class ResumeService:
         """Get a section from a resume version."""
         version = self.get_resume(version_id, user_id=user_id)
         resume_data = version["resume_data"]
-        if is_custom(section):
-            return _entries(resume_data, section)
         if section not in ALL_SECTIONS:
             raise ValueError(
                 f"Invalid section: '{section}'. "
@@ -327,12 +316,7 @@ class ResumeService:
         else:
             entries.append(entry_dict)
 
-        if len(entries) == 1:
-            # First entry in a section that started out empty (and hidden by
-            # default): show it, otherwise the new content would be invisible.
-            for item in resume_data.get("layout") or []:
-                if item.get("section") == section:
-                    item["visible"] = True
+        _enable(resume_data, section)
         update_resume_version_data(self._conn, vid, resume_data, user_id=user_id)
         return f"Added {section} entry: {sdef.summary(entry)} (id={entry_dict['id']})"
 
@@ -386,104 +370,42 @@ class ResumeService:
         update_resume_version_data(self._conn, vid, resume_data, user_id=user_id)
         return f"Removed {section} entry: {sdef.summary(removed)}"
 
-    # --- Layout and custom sections ---
+    # --- Optional sections ---
 
-    def update_layout(
-        self,
-        layout: list[dict[str, Any]],
-        version_id: int | None = None,
-        *,
-        user_id: str,
-    ) -> list[dict[str, Any]]:
-        """Replace the section order / visibility / titles of a version.
-
-        Sections omitted from ``layout`` are appended in default order.
-        """
-        if not isinstance(layout, list):
-            raise ValueError("Layout must be a list")
-        version = self.get_resume(version_id, user_id=user_id)
-        resume_data = version["resume_data"]
-        valid = {
-            "summary",
-            *LIST_SECTIONS,
-            *(custom_key(c) for c in resume_data.get("custom_sections") or {}),
-        }
-        seen: set[str] = set()
-        items: list[dict[str, Any]] = []
-        for raw in layout:
-            if not isinstance(raw, dict):
-                raise ValueError("Each layout item must be an object")
-            key = raw.get("section")
-            if key not in valid:
-                raise ValueError(f"Unknown layout section: '{key}'")
-            if key in seen:
-                raise ValueError(f"Duplicate layout section: '{key}'")
-            seen.add(key)
-            title = raw.get("title")
-            if title is not None and not isinstance(title, str):
-                raise ValueError("Layout title must be a string")
-            check_len("title", title, MAX_NAME)
-            items.append(
-                {
-                    "section": key,
-                    "visible": bool(raw.get("visible", True)),
-                    "title": (title or "").strip() or None,
-                }
-            )
-        resume_data["layout"] = normalize_layout(items, resume_data)
-        update_resume_version_data(
-            self._conn, version["id"], resume_data, user_id=user_id
-        )
-        return resume_data["layout"]
-
-    def add_custom_section(
-        self,
-        title: str,
-        version_id: int | None = None,
-        *,
-        user_id: str,
-    ) -> str:
-        """Add an empty user-defined section; returns its ``custom:<id>`` key."""
-        if not isinstance(title, str) or not title.strip():
-            raise ValueError("Section title must not be empty")
-        title = title.strip()
-        check_len("title", title, MAX_NAME)
-        version = self.get_resume(version_id, user_id=user_id)
-        resume_data = version["resume_data"]
-        cid = uuid.uuid4().hex[:8]
-        customs = resume_data.setdefault("custom_sections", {})
-        customs[cid] = CustomSection(title=title).model_dump()
-        layout = normalize_layout(resume_data.get("layout") or [], resume_data)
-        for item in layout:
-            if item["section"] == custom_key(cid):
-                item["visible"] = True
-        resume_data["layout"] = layout
-        update_resume_version_data(
-            self._conn, version["id"], resume_data, user_id=user_id
-        )
-        return custom_key(cid)
-
-    def remove_custom_section(
+    def set_section_enabled(
         self,
         section: str,
+        enabled: bool,
         version_id: int | None = None,
         *,
         user_id: str,
     ) -> str:
-        """Delete a user-defined section and all of its entries."""
-        if not is_custom(section):
-            raise ValueError(f"Not a custom section: '{section}'")
+        """Add an optional section to a version, or remove an empty one."""
+        section_def(section)
+        if section in CORE:
+            raise ValueError(f"'{section}' is always shown and cannot be removed")
         version = self.get_resume(version_id, user_id=user_id)
         resume_data = version["resume_data"]
-        customs = resume_data.get("custom_sections") or {}
-        removed = customs.pop(section[len(CUSTOM_PREFIX) :], None)
-        if removed is None:
-            raise ValueError(f"Unknown custom section: '{section}'")
-        resume_data["custom_sections"] = customs
-        resume_data["layout"] = normalize_layout(
-            resume_data.get("layout") or [], resume_data
-        )
+        if enabled:
+            _enable(resume_data, section)
+        else:
+            if resume_data.get(section):
+                raise ValueError(
+                    f"Cannot remove '{section}' while it has entries; delete them first"
+                )
+            resume_data["enabled_sections"] = [
+                k for k in resume_data.get("enabled_sections") or [] if k != section
+            ]
         update_resume_version_data(
             self._conn, version["id"], resume_data, user_id=user_id
         )
-        return f"Removed custom section '{removed.get('title')}'"
+        return f"{'Added' if enabled else 'Removed'} section: {section}"
+
+
+def _enable(resume_data: dict[str, Any], section: str) -> None:
+    """Mark an optional section as shown (core sections always are)."""
+    if section in CORE:
+        return
+    resume_data["enabled_sections"] = normalize_enabled(
+        [*(resume_data.get("enabled_sections") or []), section], resume_data
+    )

@@ -4,6 +4,8 @@ import userEvent from '@testing-library/user-event'
 import GenericListSection from '../../pages/resumes/GenericListSection'
 import type { ListEntry, SectionMeta } from '../../types'
 import * as api from '../../services/api'
+import { QueryClientProvider } from '@tanstack/react-query'
+import { ToastProvider } from '../../components/toast'
 import { renderWithQuery } from '../test-utils'
 
 vi.mock('../../services/api')
@@ -11,6 +13,7 @@ vi.mock('../../services/api')
 const experienceMeta: SectionMeta = {
   key: 'experience',
   label: 'Experience',
+  optional: false,
   primary_field: 'title',
   unique_field: null,
   insert: 'prepend',
@@ -27,6 +30,7 @@ const experienceMeta: SectionMeta = {
 const projectMeta: SectionMeta = {
   key: 'projects',
   label: 'Projects',
+  optional: true,
   primary_field: 'name',
   unique_field: null,
   insert: 'prepend',
@@ -85,10 +89,34 @@ describe('GenericListSection', () => {
       expect(screen.getByText('Led team of 5')).toBeInTheDocument()
     })
 
-    it('shows the layout title and an add button', () => {
+    it('shows the section title and an add button', () => {
       renderSection({ title: 'Work history' })
       expect(screen.getByRole('heading', { name: 'Work history' })).toBeInTheDocument()
       expect(screen.getByRole('button', { name: /add work history/i })).toBeInTheDocument()
+    })
+
+    it('offers section removal only when empty and removable', async () => {
+      const user = userEvent.setup()
+      const onRemoveSection = vi.fn()
+      const { rerender, queryClient } = renderSection({ entries: [], onRemoveSection })
+      await user.click(screen.getByRole('button', { name: /remove section/i }))
+      expect(onRemoveSection).toHaveBeenCalled()
+
+      rerender(
+        <QueryClientProvider client={queryClient}>
+          <ToastProvider>
+            <GenericListSection
+              meta={experienceMeta}
+              sectionKey="experience"
+              title="Experience"
+              entries={entries}
+              versionId={7}
+              onRemoveSection={onRemoveSection}
+            />
+          </ToastProvider>
+        </QueryClientProvider>,
+      )
+      expect(screen.queryByRole('button', { name: /remove section/i })).not.toBeInTheDocument()
     })
 
     it('has edit and delete buttons per entry', () => {

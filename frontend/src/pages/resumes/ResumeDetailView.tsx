@@ -18,8 +18,7 @@ import ContactSection from './ContactSection'
 import SummarySection from './SummarySection'
 import SkillsSection from './SkillsSection'
 import GenericListSection from './GenericListSection'
-import ManageSections from './ManageSections'
-import { CUSTOM_PREFIX, displayTitle } from './layout'
+import AddSectionBar from './AddSectionBar'
 import Breadcrumb from '../../components/Breadcrumb'
 import NotFound from '../../components/NotFound'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
@@ -27,12 +26,7 @@ import { useToast } from '../../components/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LinksPanel } from '../../components/LinksPanel'
 import DetailLayout from '../../components/DetailLayout'
-import {
-  ApiClientError,
-  type LayoutItem,
-  type ListEntry,
-  type SectionMeta,
-} from '../../types'
+import { ApiClientError, type ListEntry } from '../../types'
 import styles from './ResumeDetailView.module.css'
 
 export default function ResumeDetailView() {
@@ -67,7 +61,7 @@ export default function ResumeDetailView() {
   const detailQuery = useResumeDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
   const sectionsQuery = useResumeSections()
-  const { remove, setDefault, updateLabelOrTags } = useResumeMutations()
+  const { remove, setDefault, updateLabelOrTags, setSectionEnabled } = useResumeMutations()
 
   const version = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
@@ -141,52 +135,41 @@ export default function ResumeDetailView() {
 
   const resume = version.resume_data
   const sections = sectionsQuery.data ?? []
-  const customSections = resume.custom_sections ?? {}
-  const layout = resume.layout ?? []
+  const enabled = resume.enabled_sections ?? []
+  // Fixed order from the registry; optional sections only once added.
+  const shown = sections.filter((m) => !m.optional || enabled.includes(m.key))
+  const available = sections.filter((m) => m.optional && !enabled.includes(m.key))
 
-  const renderSection = (item: LayoutItem) => {
-    const title = displayTitle(item, sections, customSections)
-    if (item.section === 'summary') {
-      return (
-        <SummarySection
-          key={item.section}
-          summary={resume.summary}
-          title={title}
-          onUpdate={reloadResume}
-          versionId={numericId}
-        />
-      )
+  const setSection = async (section: string, on: boolean) => {
+    try {
+      await setSectionEnabled.mutateAsync({ id: numericId, section, enabled: on })
+    } catch {
+      error(on ? 'Failed to add section' : 'Failed to remove section')
     }
-    if (item.section === 'skills') {
+  }
+
+  const renderSection = (meta: (typeof sections)[number]) => {
+    if (meta.key === 'skills') {
       return (
         <SkillsSection
-          key={item.section}
+          key={meta.key}
           skills={resume.skills}
-          title={title}
           onUpdate={reloadResume}
           versionId={numericId}
         />
       )
     }
-    const isCustom = item.section.startsWith(CUSTOM_PREFIX)
-    const meta: SectionMeta | undefined = sections.find(
-      (s) => s.key === (isCustom ? 'custom' : item.section),
-    )
-    if (!meta) return null
-    const entries = isCustom
-      ? (customSections[item.section.slice(CUSTOM_PREFIX.length)]?.entries as unknown as
-          | ListEntry[]
-          | undefined)
-      : (resume as unknown as Record<string, ListEntry[]>)[item.section]
+    const entries = (resume as unknown as Record<string, ListEntry[]>)[meta.key] ?? []
     return (
       <GenericListSection
-        key={item.section}
+        key={meta.key}
         meta={meta}
-        sectionKey={item.section}
-        title={title}
-        entries={entries ?? []}
+        sectionKey={meta.key}
+        title={meta.label}
+        entries={entries}
         versionId={numericId}
         onUpdate={reloadResume}
+        onRemoveSection={meta.optional ? () => setSection(meta.key, false) : undefined}
       />
     )
   }
@@ -300,17 +283,15 @@ export default function ResumeDetailView() {
             onUpdate={reloadResume}
             versionId={numericId}
           />
-          {layout.filter((item) => item.visible).map(renderSection)}
+          <SummarySection
+            summary={resume.summary}
+            onUpdate={reloadResume}
+            versionId={numericId}
+          />
+          {shown.map(renderSection)}
         </div>
 
-        {sectionsQuery.isSuccess && (
-          <ManageSections
-            versionId={numericId}
-            layout={layout}
-            customSections={customSections}
-            sections={sections}
-          />
-        )}
+        <AddSectionBar available={available} onAdd={(key) => setSection(key, true)} />
       </DetailLayout>
 
       {confirmDelete && (

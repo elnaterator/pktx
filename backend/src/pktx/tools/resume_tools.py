@@ -6,7 +6,7 @@ from fastmcp import FastMCP
 
 from pktx.auth import require_user_id
 from pktx.models import Resume
-from pktx.resume_sections import ALL_SECTIONS, is_custom
+from pktx.resume_sections import ALL_SECTIONS
 from pktx.resume_service import ResumeService
 
 
@@ -32,8 +32,8 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
             id: Resume version ID. If omitted, returns the default version.
 
         Returns the full resume version: contact, summary, every list section
-        (each entry has a stable `id`), custom sections, and `layout` (section
-        order, visibility and title overrides).
+        (each entry has a stable `id`) and `enabled_sections` (the optional
+        sections shown for this version).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
@@ -57,7 +57,7 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             section: One of: contact, summary, experience, education, skills,
                 projects, certifications, awards, publications, volunteer,
-                languages, or `custom:<id>` for a custom section.
+                languages.
             id: Resume version ID. If omitted, uses default.
         """
         user_id = require_user_id()
@@ -65,8 +65,6 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         version = service.get_resume(id, user_id=user_id)
         resume = Resume(**version["resume_data"])
         data = resume.model_dump()
-        if is_custom(section):
-            return service.get_section(section, id, user_id=user_id)
         if section not in ALL_SECTIONS:
             raise ValueError(
                 f"Invalid section: '{section}'. "
@@ -95,8 +93,7 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             id: Resume version ID.
             section: One of: experience, education, skills, projects,
-                certifications, awards, publications, volunteer, languages,
-                or `custom:<id>`.
+                certifications, awards, publications, volunteer, languages.
             data: Entry fields. Required fields vary by section
                   (see the `fields` of `GET /api/resume-sections`).
         """
@@ -113,8 +110,7 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             id: Resume version ID.
             section: One of: experience, education, skills, projects,
-                certifications, awards, publications, volunteer, languages,
-                or `custom:<id>`.
+                certifications, awards, publications, volunteer, languages.
             entry_id: Stable `id` of the entry (a 0-based index is also accepted).
             data: Fields to update (partial update).
         """
@@ -129,8 +125,7 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             id: Resume version ID.
             section: One of: experience, education, skills, projects,
-                certifications, awards, publications, volunteer, languages,
-                or `custom:<id>`.
+                certifications, awards, publications, volunteer, languages.
             entry_id: Stable `id` of the entry (a 0-based index is also accepted).
         """
         user_id = require_user_id()
@@ -138,49 +133,23 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         return service.remove_entry(section, entry_id, id, user_id=user_id)
 
     @mcp.tool()
-    def update_resume_layout(id: int, layout: list[dict[str, Any]]) -> str:
-        """Set section order, visibility and titles for a resume version.
+    def set_resume_section_enabled(id: int, section: str, enabled: bool = True) -> str:
+        """Add or remove an optional section on a resume version.
+
+        Sections are shown in a fixed order. experience, education and skills
+        are always shown; the optional ones are projects, certifications,
+        awards, publications, volunteer and languages. Adding an entry to an
+        optional section shows it automatically.
 
         Args:
             id: Resume version ID.
-            layout: Ordered list of {"section": key, "visible": bool,
-                "title": optional override}. Keys: summary, experience, education,
-                skills, projects, certifications, awards, publications,
-                volunteer, languages, and `custom:<id>`.
+            section: An optional section key.
+            enabled: True to add the section, False to remove it (only
+                allowed while it has no entries).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
-        result = service.update_layout(layout, id, user_id=user_id)
-        return "Updated layout: " + ", ".join(
-            i["section"] + ("" if i["visible"] else " (hidden)") for i in result
-        )
-
-    @mcp.tool()
-    def add_resume_custom_section(id: int, title: str) -> str:
-        """Add a custom section (title plus free-form entries) to a resume version.
-
-        Args:
-            id: Resume version ID.
-            title: Section title, e.g. "Open Source".
-
-        Returns the new section key (`custom:<id>`) for use with add_resume_entry.
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        key = service.add_custom_section(title, id, user_id=user_id)
-        return f"Added custom section '{title}' ({key})"
-
-    @mcp.tool()
-    def remove_resume_custom_section(id: int, section: str) -> str:
-        """Delete a custom section and all of its entries.
-
-        Args:
-            id: Resume version ID.
-            section: The `custom:<id>` key.
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        return service.remove_custom_section(section, id, user_id=user_id)
+        return service.set_section_enabled(section, enabled, id, user_id=user_id)
 
     @mcp.tool()
     def create_resume(label: str, tags: list[str] | None = None) -> str:

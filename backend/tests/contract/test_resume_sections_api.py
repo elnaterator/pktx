@@ -24,8 +24,10 @@ def client(db_conn: Connection[Any]):
 def test_sections_metadata(client) -> None:
     r = client.get("/api/resume-sections")
     assert r.status_code == 200
-    keys = [s["key"] for s in r.json()]
-    assert "projects" in keys and "certifications" in keys and keys[-1] == "custom"
+    sections = {s["key"]: s for s in r.json()}
+    assert "projects" in sections and "custom" not in sections
+    assert sections["projects"]["optional"] is True
+    assert sections["experience"]["optional"] is False
 
 
 def test_new_section_crud_by_id(client) -> None:
@@ -59,57 +61,32 @@ def test_error_mapping(client) -> None:
     )
     assert client.delete(f"/api/resumes/{v}/projects/entries/nope").status_code == 404
     assert client.delete(f"/api/resumes/{v}/projects/entries/7").status_code == 404
-    assert client.get(f"/api/resumes/{v}/custom:zzz").status_code == 404
+    assert client.get(f"/api/resumes/{v}/bogus").status_code == 404
 
 
-def test_layout_and_resume_payload(client) -> None:
+def test_optional_section_lifecycle(client) -> None:
     v = client.vid
-    r = client.put(
-        f"/api/resumes/{v}/layout",
-        json={"layout": [{"section": "skills", "visible": False, "title": "Tech"}]},
+    put = lambda section, enabled: client.put(  # noqa: E731
+        f"/api/resumes/{v}/sections/{section}", json={"enabled": enabled}
     )
-    assert r.status_code == 200, r.text
-    assert r.json()["layout"][0] == {
-        "section": "skills",
-        "visible": False,
-        "title": "Tech",
-    }
-    detail = client.get(f"/api/resumes/{v}").json()["resume_data"]
-    assert detail["layout"][0]["section"] == "skills"
-    assert "projects" in detail and "custom_sections" in detail
+    assert put("projects", True).status_code == 200
+    data = client.get(f"/api/resumes/{v}").json()["resume_data"]
+    assert data["enabled_sections"] == ["projects"]
+    assert put("projects", False).status_code == 200
     assert (
-        client.put(
-            f"/api/resumes/{v}/layout", json={"layout": [{"section": "x"}]}
-        ).status_code
-        == 422
+        client.get(f"/api/resumes/{v}").json()["resume_data"]["enabled_sections"] == []
     )
 
-
-def test_custom_section_lifecycle(client) -> None:
-    v = client.vid
-    r = client.post(f"/api/resumes/{v}/custom-sections", json={"title": "Talks"})
-    assert r.status_code == 201
-    key = r.json()["section"]
-    assert (
-        client.post(
-            f"/api/resumes/{v}/{key}/entries", json={"heading": "KubeCon"}
-        ).status_code
-        == 201
-    )
-    assert client.get(f"/api/resumes/{v}/{key}").json()[0]["heading"] == "KubeCon"
-    detail = client.get(f"/api/resumes/{v}").json()["resume_data"]
-    assert detail["custom_sections"][key.split(":")[1]]["title"] == "Talks"
-
-    r = client.delete(f"/api/resumes/{v}/custom-sections/{key.split(':')[1]}")
-    assert r.status_code == 200
-    assert client.get(f"/api/resumes/{v}/{key}").status_code == 404
+    client.post(f"/api/resumes/{v}/awards/entries", json={"title": "Best"})
+    assert put("awards", False).status_code == 422  # has entries
+    assert put("skills", False).status_code == 422  # core
+    assert put("bogus", True).status_code == 422
 
 
 def test_export_includes_new_sections(client) -> None:
     v = client.vid
     client.post(f"/api/resumes/{v}/awards/entries", json={"title": "Best"})
-    client.post(f"/api/resumes/{v}/custom-sections", json={"title": "Extra"})
     export = client.get("/api/export").json()
     data = export["resumes"][0]["resume_data"]
     assert data["awards"][0]["title"] == "Best" and data["awards"][0]["id"]
-    assert data["layout"] and data["custom_sections"]
+    assert data["enabled_sections"] == ["awards"]

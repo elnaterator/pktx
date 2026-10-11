@@ -154,3 +154,26 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-6);
+  margin-top: var(--space-6);
+}
+
+.footer .addButton {
+  margin-top: 0;
+}
+
+.removeSectionButton {
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-family: var(--font-mono);
+}
+
+.removeSectionButton:hover {
+  color: var(--status-error);
+}

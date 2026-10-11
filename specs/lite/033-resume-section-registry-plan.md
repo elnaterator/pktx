@@ -95,3 +95,7 @@ Manual: open an existing resume (no ids/layout) — unchanged; add project/cert;
 ## Out of scope
 
 Date validation/parsing, resume print/PDF templates, drag-and-drop reorder, interests/references sections, per-application layout overrides, company URL on experience.
+
+## Revision (after first PR review)
+
+Per-version layout (reorder, hide/show, title override) and free-form custom sections were dropped as too complex for the UI. Final shape: fixed opinionated order; experience/education/skills always shown; projects, certifications, awards, publications, volunteer and languages are optional and added from a fixed list (`enabled_sections`; a section with entries is always shown; an empty one can be removed). Replaces the layout/custom acceptance criteria above. Migration v15 backfills entry ids only.

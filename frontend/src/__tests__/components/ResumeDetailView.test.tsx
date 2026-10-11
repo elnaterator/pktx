@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen } from '@testing-library/react'
+import { screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import ResumeDetailView from '../../pages/resumes/ResumeDetailView'
 import * as api from '../../services/api'
-import type { LayoutItem, ResumeVersion, SectionMeta } from '../../types'
+import type { ResumeVersion, SectionMeta } from '../../types'
 import { renderWithQuery } from '../test-utils'
 
 vi.mock('../../services/api')
@@ -11,13 +12,25 @@ vi.mock('../../services/api')
 const field = (name: string, label: string, required = false) =>
   ({ name, label, widget: 'text', required }) as SectionMeta['fields'][number]
 
+const meta = (key: string, label: string, optional: boolean, primary: string): SectionMeta => ({
+  key,
+  label,
+  optional,
+  primary_field: primary,
+  unique_field: null,
+  insert: 'prepend',
+  fields: [field(primary, primary, true)],
+})
+
 const sections: SectionMeta[] = [
-  { key: 'experience', label: 'Experience', primary_field: 'title', unique_field: null, insert: 'prepend', fields: [field('title', 'Title', true), field('company', 'Company', true)] },
-  { key: 'projects', label: 'Projects', primary_field: 'name', unique_field: null, insert: 'prepend', fields: [field('name', 'Name', true)] },
-  { key: 'custom', label: 'Custom', primary_field: 'heading', unique_field: null, insert: 'append', fields: [field('heading', 'Heading')] },
+  meta('experience', 'Experience', false, 'title'),
+  meta('education', 'Education', false, 'institution'),
+  meta('skills', 'Skills', false, 'name'),
+  meta('projects', 'Projects', true, 'name'),
+  meta('awards', 'Awards', true, 'title'),
 ]
 
-function version(layout: LayoutItem[]): ResumeVersion {
+function version(enabled: string[]): ResumeVersion {
   return {
     id: 1,
     label: 'Main',
@@ -39,14 +52,13 @@ function version(layout: LayoutItem[]): ResumeVersion {
       publications: [],
       volunteer: [],
       languages: [],
-      custom_sections: { ab: { title: 'Talks', entries: [{ id: 'c1', heading: 'KubeCon', body: null, highlights: [] }] } },
-      layout,
+      enabled_sections: enabled,
     },
   }
 }
 
-function renderView(layout: LayoutItem[]) {
-  vi.mocked(api.getResumeVersion).mockResolvedValue(version(layout))
+function renderView(enabled: string[]) {
+  vi.mocked(api.getResumeVersion).mockResolvedValue(version(enabled))
   vi.mocked(api.listResumeSections).mockResolvedValue(sections)
   vi.mocked(api.listAllTags).mockResolvedValue([])
   return renderWithQuery(
@@ -60,32 +72,50 @@ function renderView(layout: LayoutItem[]) {
 
 const headings = () => screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)
 
-describe('ResumeDetailView layout', () => {
+describe('ResumeDetailView sections', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('renders visible sections in layout order with title overrides', async () => {
-    renderView([
-      { section: 'projects', visible: true, title: null },
-      { section: 'custom:ab', visible: true, title: 'Speaking' },
-      { section: 'experience', visible: true, title: 'Work' },
-      { section: 'summary', visible: true, title: null },
-    ])
+  it('shows core sections in a fixed order and only the optional ones that were added', async () => {
+    renderView(['awards', 'projects'])
     await screen.findByText('pktx')
-    const order = headings().filter((h) => ['Projects', 'Speaking', 'Work', 'Summary'].includes(h ?? ''))
-    expect(order).toEqual(['Projects', 'Speaking', 'Work', 'Summary'])
-    expect(screen.getByText('KubeCon')).toBeInTheDocument()
+    const order = headings().filter((h) =>
+      ['Summary', 'Experience', 'Education', 'Skills', 'Projects', 'Awards'].includes(h ?? ''),
+    )
+    expect(order).toEqual(['Summary', 'Experience', 'Education', 'Skills', 'Projects', 'Awards'])
   })
 
-  it('omits hidden sections from the page but lists them in Manage sections', async () => {
-    renderView([
-      { section: 'summary', visible: true, title: null },
-      { section: 'experience', visible: false, title: null },
-      { section: 'projects', visible: true, title: null },
-    ])
+  it('offers only the optional sections not yet added', async () => {
+    renderView(['projects'])
     await screen.findByText('pktx')
-    expect(screen.queryByText('Dev')).not.toBeInTheDocument()
-    expect(await screen.findByLabelText('Show Experience')).not.toBeChecked()
+    const bar = await screen.findByTestId('add-section-bar')
+    expect(bar).toHaveTextContent('Awards')
+    expect(bar).not.toHaveTextContent('Projects')
+    expect(screen.queryByRole('heading', { name: 'Awards' })).not.toBeInTheDocument()
+  })
+
+  it('adds a section from the list', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.setVersionSectionEnabled).mockResolvedValue({ message: 'ok' })
+    renderView([])
+    await user.click(await screen.findByRole('button', { name: /awards/i }))
+    await waitFor(() => {
+      expect(api.setVersionSectionEnabled).toHaveBeenCalledWith(1, 'awards', true)
+    })
+  })
+
+  it('removes an empty optional section but never a core one', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.setVersionSectionEnabled).mockResolvedValue({ message: 'ok' })
+    renderView(['awards'])
+    await screen.findByRole('heading', { name: 'Awards' })
+    // Only the empty optional section (Awards) offers removal; Education is core and empty.
+    const remove = await screen.findAllByRole('button', { name: /remove section/i })
+    expect(remove).toHaveLength(1)
+    await user.click(remove[0])
+    await waitFor(() => {
+      expect(api.setVersionSectionEnabled).toHaveBeenCalledWith(1, 'awards', false)
+    })
   })
 })
