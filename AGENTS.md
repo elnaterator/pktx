@@ -42,7 +42,7 @@ frontend/                 # React SPA
   src/
     pages/                # Route-level page modules
       home/               # HomeView
-      resumes/            # ListView, DetailView, ResumeView, *Section components
+      resumes/            # ListView, DetailView, GenericListSection (registry-driven), AddSectionBar, Contact/Summary/Skills sections
       applications/       # ListView, DetailView
       accomplishments/    # ListView, DetailView
       notes/              # ListView, DetailView
@@ -79,6 +79,9 @@ backend/                  # Python FastAPI + MCP server
     auth.py               # Clerk JWT (REST) + MCP OAuth proxy (build_mcp_auth)
     oauth_store.py        # PostgreSQL-backed AsyncKeyValue for OAuth-proxy state
     resume_service.py     # Shared business logic (one *_service.py per resource)
+    resume_sections.py    # Resume section registry (one SectionDef per section; drives service/tools/routes/UI)
+    contact_keys.py       # Preset contact keys (Email, Website, LinkedIn, ...) + value kind
+    resume_order.py       # Fixed section order, core vs optional sections, enabled-section normalization
     export_service.py     # Per-user JSON export behind GET /api/export
     api/                  # REST API routes
       routes.py           # FastAPI route handlers
@@ -99,6 +102,8 @@ specs/                    # Feature specifications
 ```
 
 **Connect UX (030):** per-assistant connect steps, snippets, install links, and `lastVerified` dates live only in `frontend/src/components/connect/connectAssistants.ts` — edit data there, not JSX. Shared by the side panel (`ConnectAssistantPanel`) and `/connect` (`pages/connect`).
+
+**Resume sections (033):** `backend/src/pktx/resume_sections.py` is the single registry — add a model in `models.py`, a `Resume` field, a `LIST_ORDER` entry in `resume_order.py` and one `SectionDef`; service, REST (`/api/resumes/{id}/{section}/entries/{entry_id}`), MCP tools and the UI (`GET /api/resume-sections` → `GenericListSection`) follow. Order is fixed (no reordering, no custom sections): experience/education/skills are always shown, the rest are optional and added from a fixed list (`enabled_sections`, `PUT /api/resumes/{id}/sections/{section}`); a section with entries is always shown. Entries carry a stable `id` (legacy 0-based index still accepted). Contact is name/phone/location plus `fields` — key/value pairs; preset keys (`contact_keys.py`, served by `GET /api/resume-contact-keys`, most common first) are validated by kind (email/url), any other key is custom free text; the old `email`/`website`/`linkedin`/`github`/`profiles` inputs still upsert into `fields` (`ContactInfo.upgrade_legacy`).
 
 **Frontend Organization:** A component used in exactly one page lives in `pages/<name>/`. A component reused across ≥2 pages, or a UI primitive (dialog, form input, badge), lives in `components/`. Types live in `types/` with a barrel `index.ts`. Services are split per resource in `services/api/` with a barrel `index.ts`. Hooks in `hooks/` extract shared state patterns (list loading, detail loading, status messages).
 
@@ -184,7 +189,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - FastMCP >=3.4.7 for MCP server (streamable-http + stdio)
 - FastAPI >=0.100.0 for REST API + static file serving
 - uvicorn >=0.20.0 for ASGI HTTP server
-- PostgreSQL 16+ via `psycopg` + `psycopg-pool`, `DBConnection` protocol, migrations in `migrations.py` (schema v14)
+- PostgreSQL 16+ via `psycopg` + `psycopg-pool`, `DBConnection` protocol, migrations in `migrations.py` (schema v15)
 - `uv` for dependency management + packaging
 - pytest for testing (unit, contract, integration)
 - ruff for linting + formatting
@@ -206,6 +211,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - AWS Lambda (container image + Function URL) via Terraform in `infra/`; EventBridge keep-warm rule pings `GET /health` every 5 min (toggle: `keep_warm_enabled` module var)
 
 ## Recent Changes
+- 033-resume-sections: section registry + stable entry ids; fixed section order with optional sections added from a fixed list; new sections (projects, certifications, awards, publications, volunteer, languages, contact as key/value details); schema v14 → v16 (backfill entry ids; contact links → `contact.fields`)
 - 029-pyjwt: python-jose → PyJWT for REST Clerk JWT verification (drops `ecdsa`/`rsa`/`pyasn1` and the PYSEC-2026-1325 pip-audit waiver); RS256 pinned, unusable JWKS entries → 401
 - 028-security-scanning: Renovate + Trivy (replaces Checkov) + pip-audit + npm audit + ruff `S`; new `security.yml` (PR + weekly); Dockerfile on node 22, all images digest-pinned, runtime drops system pip/setuptools and applies Debian security updates; Actions SHA-pinned with read-only `permissions`; vulnerable deps bumped; unused `clerk-backend-api` dropped
 - 027-security-fixes: fail-closed user scoping (required `user_id`, owner checks in SQL, 404 not 403), legacy `/api/resume*` routes removed, per-request pooled connection + transaction, http(s)-only URLs (server + `ExternalLink`), tag/length validation, REST JWT `azp` check (new optional env `CLERK_AUTHORIZED_PARTIES`), `PKTX_USER_ID` stdio-only, JWKS refetch throttle, 1 MB body cap; schema v13 → v14 (data repair)

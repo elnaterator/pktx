@@ -90,6 +90,9 @@ def test_non_http_urls_rejected_everywhere(carol: TestClient, url: str) -> None:
     for field in ("linkedin", "website", "github"):
         resp = carol.put(f"{resume}/contact", json={field: url})
         assert resp.status_code == 422, field
+    for key in ("LinkedIn", "GitLab", "Website"):
+        payload = {"fields": [{"key": key, "value": url}]}
+        assert carol.put(f"{resume}/contact", json=payload).status_code == 422, key
 
 
 def test_http_urls_accepted(carol: TestClient) -> None:
@@ -98,7 +101,8 @@ def test_http_urls_accepted(carol: TestClient) -> None:
     resume = _resume_url(carol)
     resp = carol.put(f"{resume}/contact", json={"website": "https://me.dev"})
     assert resp.status_code == 200
-    assert carol.get(f"{resume}/contact").json()["website"] == "https://me.dev"
+    fields = carol.get(f"{resume}/contact").json()["fields"]
+    assert {"key": "Website", "value": "https://me.dev"} in fields
 
 
 def test_mcp_create_application_rejects_javascript_url(

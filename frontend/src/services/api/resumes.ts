@@ -10,6 +10,8 @@ import type {
   Skill,
   ResumeVersion,
   ResumeVersionSummary,
+  SectionMeta,
+  ContactKeyPreset,
   ApiSuccessResponse,
 } from '../../types'
 import { API_BASE, fetchWithErrorHandling, handleResponse } from './client'
@@ -261,12 +263,13 @@ export async function addVersionEntry(
 export async function updateVersionEntry(
   versionId: number,
   section: string,
-  index: number,
+  /** Stable entry id (a legacy 0-based index is also accepted by the API). */
+  entryRef: string | number,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   data: any
 ): Promise<ApiSuccessResponse> {
   const response = await fetchWithErrorHandling(
-    `${API_BASE}/resumes/${versionId}/${section}/entries/${index}`,
+    `${API_BASE}/resumes/${versionId}/${section}/entries/${encodeURIComponent(entryRef)}`,
     {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -282,11 +285,46 @@ export async function updateVersionEntry(
 export async function removeVersionEntry(
   versionId: number,
   section: string,
-  index: number
+  entryRef: string | number
 ): Promise<ApiSuccessResponse> {
   const response = await fetchWithErrorHandling(
-    `${API_BASE}/resumes/${versionId}/${section}/entries/${index}`,
+    `${API_BASE}/resumes/${versionId}/${section}/entries/${encodeURIComponent(entryRef)}`,
     { method: 'DELETE' }
+  )
+  return handleResponse<ApiSuccessResponse>(response)
+}
+
+/**
+ * Preset contact keys (Email, Website, LinkedIn, ...), most common first
+ */
+export async function listResumeContactKeys(): Promise<ContactKeyPreset[]> {
+  const response = await fetchWithErrorHandling(`${API_BASE}/resume-contact-keys`)
+  return handleResponse<ContactKeyPreset[]>(response)
+}
+
+/**
+ * Section registry (field definitions for every list section)
+ */
+export async function listResumeSections(): Promise<SectionMeta[]> {
+  const response = await fetchWithErrorHandling(`${API_BASE}/resume-sections`)
+  return handleResponse<SectionMeta[]>(response)
+}
+
+/**
+ * Add an optional section to a version, or remove an empty one
+ */
+export async function setVersionSectionEnabled(
+  versionId: number,
+  section: string,
+  enabled: boolean
+): Promise<ApiSuccessResponse> {
+  const response = await fetchWithErrorHandling(
+    `${API_BASE}/resumes/${versionId}/sections/${encodeURIComponent(section)}`,
+    {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ enabled }),
+    }
   )
   return handleResponse<ApiSuccessResponse>(response)
 }

@@ -6,6 +6,7 @@ from fastmcp import FastMCP
 
 from pktx.auth import require_user_id
 from pktx.models import Resume
+from pktx.resume_sections import ALL_SECTIONS
 from pktx.resume_service import ResumeService
 
 
@@ -30,8 +31,9 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             id: Resume version ID. If omitted, returns the default version.
 
-        Returns the full resume version including contact, summary,
-        experience, education, and skills.
+        Returns the full resume version: contact, summary, every list section
+        (each entry has a stable `id`) and `enabled_sections` (the optional
+        sections shown for this version).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
@@ -53,7 +55,9 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         """Get a specific section from a resume version.
 
         Args:
-            section: One of: contact, summary, experience, education, skills.
+            section: One of: contact, summary, experience, education, skills,
+                projects, certifications, awards, publications, volunteer,
+                languages.
             id: Resume version ID. If omitted, uses default.
         """
         user_id = require_user_id()
@@ -61,9 +65,7 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         version = service.get_resume(id, user_id=user_id)
         resume = Resume(**version["resume_data"])
         data = resume.model_dump()
-        if section not in data:
-            from pktx.resume_service import ALL_SECTIONS
-
+        if section not in ALL_SECTIONS:
             raise ValueError(
                 f"Invalid section: '{section}'. "
                 f"Must be one of: {', '.join(ALL_SECTIONS)}"
@@ -77,7 +79,11 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
         Args:
             id: Resume version ID.
             section: One of: contact, summary.
-            data: Fields to update. For contact: any subset of contact fields.
+            data: Fields to update. For contact: name, phone, location and
+                  `fields`, the full list of {"key", "value"} details. Common
+                  keys: Email, Website, LinkedIn, GitHub, GitLab, Portfolio, X,
+                  Bluesky; any other key is allowed. Shortcut: email, website,
+                  linkedin and github are upserted into `fields`.
                   For summary: {"text": "new summary"}.
         """
         user_id = require_user_id()
@@ -90,8 +96,10 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
 
         Args:
             id: Resume version ID.
-            section: One of: experience, education, skills.
-            data: Entry fields. Required fields vary by section.
+            section: One of: experience, education, skills, projects,
+                certifications, awards, publications, volunteer, languages.
+            data: Entry fields. Required fields vary by section
+                  (see the `fields` of `GET /api/resume-sections`).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
@@ -99,32 +107,53 @@ def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
 
     @mcp.tool()
     def update_resume_entry(
-        id: int, section: str, index: int, data: dict[str, Any]
+        id: int, section: str, entry_id: str, data: dict[str, Any]
     ) -> str:
         """Update an entry in a list section of a resume version.
 
         Args:
             id: Resume version ID.
-            section: One of: experience, education, skills.
-            index: 0-based index of the entry to update.
+            section: One of: experience, education, skills, projects,
+                certifications, awards, publications, volunteer, languages.
+            entry_id: Stable `id` of the entry (a 0-based index is also accepted).
             data: Fields to update (partial update).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
-        return service.update_entry(section, index, data, id, user_id=user_id)
+        return service.update_entry(section, entry_id, data, id, user_id=user_id)
 
     @mcp.tool()
-    def remove_resume_entry(id: int, section: str, index: int) -> str:
+    def remove_resume_entry(id: int, section: str, entry_id: str) -> str:
         """Remove an entry from a list section of a resume version.
 
         Args:
             id: Resume version ID.
-            section: One of: experience, education, skills.
-            index: 0-based index of the entry to remove.
+            section: One of: experience, education, skills, projects,
+                certifications, awards, publications, volunteer, languages.
+            entry_id: Stable `id` of the entry (a 0-based index is also accepted).
         """
         user_id = require_user_id()
         service: ResumeService = get_service()
-        return service.remove_entry(section, index, id, user_id=user_id)
+        return service.remove_entry(section, entry_id, id, user_id=user_id)
+
+    @mcp.tool()
+    def set_resume_section_enabled(id: int, section: str, enabled: bool = True) -> str:
+        """Add or remove an optional section on a resume version.
+
+        Sections are shown in a fixed order. experience, education and skills
+        are always shown; the optional ones are projects, certifications,
+        awards, publications, volunteer and languages. Adding an entry to an
+        optional section shows it automatically.
+
+        Args:
+            id: Resume version ID.
+            section: An optional section key.
+            enabled: True to add the section, False to remove it (only
+                allowed while it has no entries).
+        """
+        user_id = require_user_id()
+        service: ResumeService = get_service()
+        return service.set_section_enabled(section, enabled, id, user_id=user_id)
 
     @mcp.tool()
     def create_resume(label: str, tags: list[str] | None = None) -> str:

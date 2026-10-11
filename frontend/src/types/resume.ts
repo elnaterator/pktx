@@ -7,17 +7,33 @@
 
 import type { GroupedLinks } from './link'
 
-export interface ContactInfo {
-  name: string | null
-  email: string | null
-  phone: string | null
-  location: string | null
-  linkedin: string | null
-  website: string | null
-  github: string | null
+/** One contact detail: a preset key (Email, GitHub, ...) or a custom one. */
+export interface ContactField {
+  key: string
+  value: string
 }
 
-export interface WorkExperience {
+export interface ContactInfo {
+  name: string | null
+  phone: string | null
+  location: string | null
+  fields: ContactField[]
+}
+
+export type ContactKind = 'email' | 'url' | 'text'
+
+/** Preset contact key served by `GET /api/resume-contact-keys`, most common first. */
+export interface ContactKeyPreset {
+  key: string
+  kind: ContactKind
+}
+
+/** Stable id assigned by the backend; absent only on entries not yet saved. */
+interface Entry {
+  id?: string | null
+}
+
+export interface WorkExperience extends Entry {
   title: string
   company: string
   start_date: string | null
@@ -26,7 +42,7 @@ export interface WorkExperience {
   highlights: string[]
 }
 
-export interface Education {
+export interface Education extends Entry {
   institution: string
   degree: string
   field: string | null
@@ -36,10 +52,61 @@ export interface Education {
   highlights: string[]
 }
 
-export interface Skill {
+export interface Skill extends Entry {
   name: string
   category: string | null
 }
+
+export interface Project extends Entry {
+  name: string
+  description: string | null
+  url: string | null
+  tech: string[]
+  start_date: string | null
+  end_date: string | null
+  highlights: string[]
+}
+
+export interface Certification extends Entry {
+  name: string
+  issuer: string | null
+  issued: string | null
+  expires: string | null
+  credential_id: string | null
+  url: string | null
+}
+
+export interface Award extends Entry {
+  title: string
+  issuer: string | null
+  date: string | null
+  description: string | null
+}
+
+export interface Publication extends Entry {
+  title: string
+  venue: string | null
+  date: string | null
+  url: string | null
+  description: string | null
+}
+
+export interface Volunteer extends Entry {
+  role: string
+  organization: string
+  start_date: string | null
+  end_date: string | null
+  location: string | null
+  highlights: string[]
+}
+
+export interface Language extends Entry {
+  language: string
+  proficiency: string | null
+}
+
+/** Generic list entry as rendered by the registry-driven section. */
+export type ListEntry = Entry & Record<string, unknown>
 
 export interface Resume {
   contact: ContactInfo
@@ -47,6 +114,33 @@ export interface Resume {
   experience: WorkExperience[]
   education: Education[]
   skills: Skill[]
+  projects: Project[]
+  certifications: Certification[]
+  awards: Award[]
+  publications: Publication[]
+  volunteer: Volunteer[]
+  languages: Language[]
+  /** Optional sections added to this version (shown in fixed order). */
+  enabled_sections: string[]
+}
+
+export interface SectionField {
+  name: string
+  label: string
+  widget: 'text' | 'textarea' | 'url' | 'bullets' | 'tags'
+  required: boolean
+}
+
+/** Section definition served by `GET /api/resume-sections`. */
+export interface SectionMeta {
+  key: string
+  label: string
+  /** Optional sections are added by the user; the rest are always shown. */
+  optional: boolean
+  primary_field: string | null
+  unique_field: string | null
+  insert: 'prepend' | 'append'
+  fields: SectionField[]
 }
 
 export interface ResumeVersion {

@@ -75,7 +75,7 @@ class TestResumeServiceGetSection:
 
         assert isinstance(result, dict)
         assert result["name"] == "Jane Doe"
-        assert result["email"] == "jane@example.com"
+        assert {"key": "Email", "value": "jane@example.com"} in result["fields"]
 
     def test_get_summary_section_returns_string(
         self, resume_service_with_data: object
@@ -158,7 +158,8 @@ class TestResumeServiceUpdateSection:
         )
 
         contact = service.get_section("contact", user_id="legacy")
-        assert contact["email"] == "new@example.com"
+        emails = [f["value"] for f in contact["fields"] if f["key"] == "Email"]
+        assert emails == ["new@example.com"]  # upserted, not duplicated
         assert contact["name"] == "Jane Doe"  # preserved
 
     def test_update_contact_returns_string(
@@ -211,7 +212,7 @@ class TestResumeServiceUpdateSection:
         )
 
         contact = service.get_section("contact", user_id="legacy")
-        assert contact["email"] == "updated@test.com"
+        assert {"key": "Email", "value": "updated@test.com"} in contact["fields"]
         assert contact["phone"] == "+1-800-0000"
         assert contact["name"] == "Jane Doe"  # preserved
 

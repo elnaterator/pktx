@@ -10,14 +10,15 @@ import {
   useAllTags,
   useResumeDetail,
   useResumeMutations,
+  useResumeSections,
 } from '../../hooks/queries'
 import { TagInput } from '../../components/TagInput'
 import { resumeUpdateSchema } from '../../schemas/resume'
 import ContactSection from './ContactSection'
 import SummarySection from './SummarySection'
-import ExperienceSection from './ExperienceSection'
-import EducationSection from './EducationSection'
 import SkillsSection from './SkillsSection'
+import GenericListSection from './GenericListSection'
+import AddSectionBar from './AddSectionBar'
 import Breadcrumb from '../../components/Breadcrumb'
 import NotFound from '../../components/NotFound'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
@@ -25,7 +26,7 @@ import { useToast } from '../../components/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LinksPanel } from '../../components/LinksPanel'
 import DetailLayout from '../../components/DetailLayout'
-import { ApiClientError } from '../../types'
+import { ApiClientError, type ListEntry } from '../../types'
 import styles from './ResumeDetailView.module.css'
 
 export default function ResumeDetailView() {
@@ -59,7 +60,8 @@ export default function ResumeDetailView() {
 
   const detailQuery = useResumeDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
-  const { remove, setDefault, updateLabelOrTags } = useResumeMutations()
+  const sectionsQuery = useResumeSections()
+  const { remove, setDefault, updateLabelOrTags, setSectionEnabled } = useResumeMutations()
 
   const version = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
@@ -132,6 +134,45 @@ export default function ResumeDetailView() {
   if (!version) return null
 
   const resume = version.resume_data
+  const sections = sectionsQuery.data ?? []
+  const enabled = resume.enabled_sections ?? []
+  // Fixed order from the registry; optional sections only once added.
+  const shown = sections.filter((m) => !m.optional || enabled.includes(m.key))
+  const available = sections.filter((m) => m.optional && !enabled.includes(m.key))
+
+  const setSection = async (section: string, on: boolean) => {
+    try {
+      await setSectionEnabled.mutateAsync({ id: numericId, section, enabled: on })
+    } catch {
+      error(on ? 'Failed to add section' : 'Failed to remove section')
+    }
+  }
+
+  const renderSection = (meta: (typeof sections)[number]) => {
+    if (meta.key === 'skills') {
+      return (
+        <SkillsSection
+          key={meta.key}
+          skills={resume.skills}
+          onUpdate={reloadResume}
+          versionId={numericId}
+        />
+      )
+    }
+    const entries = (resume as unknown as Record<string, ListEntry[]>)[meta.key] ?? []
+    return (
+      <GenericListSection
+        key={meta.key}
+        meta={meta}
+        sectionKey={meta.key}
+        title={meta.label}
+        entries={entries}
+        versionId={numericId}
+        onUpdate={reloadResume}
+        onRemoveSection={meta.optional ? () => setSection(meta.key, false) : undefined}
+      />
+    )
+  }
 
   return (
     <div className={styles.container} data-testid="resume-detail-view">
@@ -247,22 +288,10 @@ export default function ResumeDetailView() {
             onUpdate={reloadResume}
             versionId={numericId}
           />
-          <ExperienceSection
-            experience={resume.experience}
-            onUpdate={reloadResume}
-            versionId={numericId}
-          />
-          <EducationSection
-            education={resume.education}
-            onUpdate={reloadResume}
-            versionId={numericId}
-          />
-          <SkillsSection
-            skills={resume.skills}
-            onUpdate={reloadResume}
-            versionId={numericId}
-          />
+          {shown.map(renderSection)}
         </div>
+
+        <AddSectionBar available={available} onAdd={(key) => setSection(key, true)} />
       </DetailLayout>
 
       {confirmDelete && (

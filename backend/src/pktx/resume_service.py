@@ -1,6 +1,7 @@
 """ResumeService — shared business logic for resume version CRUD operations."""
 
 import json
+import uuid
 from typing import Any
 
 from pktx.database import (
@@ -18,11 +19,12 @@ from pktx.database import (
 )
 from pktx.db import DBConnection
 from pktx.link_service import LinkService
-from pktx.models import (
-    ContactInfo,
-    Education,
-    Skill,
-    WorkExperience,
+from pktx.models import LEGACY_CONTACT_KEYS, ContactInfo
+from pktx.resume_order import CORE, normalize_enabled
+from pktx.resume_sections import (
+    ALL_SECTIONS,
+    SECTION_UPDATE,
+    section_def,
 )
 from pktx.validation import (
     MAX_LONG,
@@ -35,20 +37,42 @@ from pktx.validation import (
 
 _CONTACT_LIMITS = {
     "name": MAX_NAME,
-    "email": MAX_SHORT,
     "phone": MAX_SHORT,
     "location": MAX_SHORT,
 }
 # Entry fields that are names/titles get the tighter limit; every other
 # scalar string gets MAX_SHORT; each highlight bullet gets _MAX_HIGHLIGHT.
-_ENTRY_NAME_FIELDS = {"title", "company", "institution", "degree", "name", "category"}
+_ENTRY_NAME_FIELDS = {
+    "title",
+    "company",
+    "institution",
+    "degree",
+    "name",
+    "category",
+    "issuer",
+    "venue",
+    "role",
+    "organization",
+    "language",
+    "proficiency",
+    "heading",
+    "label",
+}
+# Free-text bodies get the long limit.
+_ENTRY_LONG_FIELDS = {"description", "body"}
 _MAX_HIGHLIGHT = 2000
 
 
 def _check_entry_lengths(entry: dict[str, Any]) -> None:
     for key, value in entry.items():
         if isinstance(value, str):
-            check_len(key, value, MAX_NAME if key in _ENTRY_NAME_FIELDS else MAX_SHORT)
+            if key in _ENTRY_LONG_FIELDS:
+                limit = MAX_LONG
+            elif key in _ENTRY_NAME_FIELDS:
+                limit = MAX_NAME
+            else:
+                limit = MAX_SHORT
+            check_len(key, value, limit)
         elif isinstance(value, list):
             for item in value:
                 check_len(key, item, _MAX_HIGHLIGHT)
@@ -62,9 +86,27 @@ def _clean_label(label: Any) -> str:
     return label
 
 
-SECTION_UPDATE = ("contact", "summary")
-SECTION_LIST = ("experience", "education", "skills")
-ALL_SECTIONS = ("contact", "summary", "experience", "education", "skills")
+def _entries(resume_data: dict[str, Any], section: str) -> list[dict[str, Any]]:
+    """The mutable entry list for a list section."""
+    section_def(section)  # validates the key
+    return resume_data.setdefault(section, [])
+
+
+def _resolve(entries: list[dict[str, Any]], section: str, ref: str | int) -> int:
+    """Index of the entry addressed by stable id, or by legacy 0-based index."""
+    if isinstance(ref, str):
+        for i, e in enumerate(entries):
+            if e.get("id") == ref:
+                return i
+        if not ref.lstrip("-").isdigit():
+            raise ValueError(f"No {section} entry with id '{ref}'")
+    index = int(ref)
+    if index < 0 or index >= len(entries):
+        raise ValueError(
+            f"{section.title()} index {index} out of range. "
+            f"Resume has {len(entries)} {section} entries."
+        )
+    return index
 
 
 class ResumeService:
@@ -178,15 +220,14 @@ class ResumeService:
         self, section: str, version_id: int | None = None, *, user_id: str
     ) -> Any:
         """Get a section from a resume version."""
+        version = self.get_resume(version_id, user_id=user_id)
+        resume_data = version["resume_data"]
         if section not in ALL_SECTIONS:
             raise ValueError(
                 f"Invalid section: '{section}'. "
                 f"Must be one of: {', '.join(ALL_SECTIONS)}"
             )
-        version = self.get_resume(version_id, user_id=user_id)
-        resume_data = version["resume_data"]
-        value = resume_data.get(section)
-        return value
+        return resume_data.get(section)
 
     def update_section(
         self,
@@ -208,15 +249,17 @@ class ResumeService:
         resume_data = version["resume_data"]
 
         if section == "contact":
-            known_fields = set(ContactInfo.model_fields.keys())
-            filtered = {k: v for k, v in data.items() if k in known_fields}
+            # Legacy keys (email, website, linkedin, github, profiles) are still
+            # accepted and upsert into `fields`; see ContactInfo.upgrade_legacy.
+            known = {*ContactInfo.model_fields, *LEGACY_CONTACT_KEYS, "profiles"}
+            filtered = {k: v for k, v in data.items() if k in known}
             if not filtered:
                 raise ValueError("At least one contact field must be provided")
             check_lengths(filtered, _CONTACT_LIMITS)
             merged = {**(resume_data.get("contact") or {}), **filtered}
-            # Validates types and http(s)-only linkedin/website/github.
+            # Validates types, key/value rules and http(s)-only URL values.
             contact = ContactInfo.model_validate(merged)
-            resume_data["contact"] = contact.model_dump(exclude_unset=True)
+            resume_data["contact"] = contact.model_dump()
             update_resume_version_data(self._conn, vid, resume_data, user_id=user_id)
             return f"Updated contact fields: {', '.join(filtered.keys())}"
 
@@ -238,130 +281,127 @@ class ResumeService:
         user_id: str,
     ) -> str:
         """Add an entry to a list section of a resume version."""
-        if section not in SECTION_LIST:
-            raise ValueError(
-                f"Invalid section for add_entry: '{section}'. "
-                f"Must be one of: {', '.join(SECTION_LIST)}"
-            )
+        sdef = section_def(section)
 
         # Validate entry data by constructing the model
-        model_cls = _SECTION_MODELS[section]
-        entry = model_cls.model_validate(data)
+        entry = sdef.model.model_validate({**data, "id": None})
         _check_entry_lengths(entry.model_dump())
 
         version = self.get_resume(version_id, user_id=user_id)
         vid = version["id"]
         resume_data = version["resume_data"]
+        entries = _entries(resume_data, section)
 
-        entries = resume_data.get(section, [])
-
-        # For skills, check for case-insensitive duplicates
-        if section == "skills":
+        if sdef.unique_field:
+            value = getattr(entry, sdef.unique_field)
             for existing in entries:
-                if existing.get("name", "").lower() == entry.name.lower():
+                if str(existing.get(sdef.unique_field, "")).lower() == value.lower():
                     raise ValueError(
-                        f"Skill '{entry.name}' already exists "
-                        f"under category '{existing.get('category')}'"
+                        f"{sdef.label} entry '{value}' already exists"
+                        + (
+                            f" under category '{existing.get('category')}'"
+                            if section == "skills"
+                            else ""
+                        )
                     )
 
-        # Prepend for experience/education, append for skills
         entry_dict = json.loads(entry.model_dump_json())
-        if section in ("experience", "education"):
+        entry_dict["id"] = uuid.uuid4().hex
+        if sdef.insert == "prepend":
             entries.insert(0, entry_dict)
         else:
             entries.append(entry_dict)
 
-        resume_data[section] = entries
+        _enable(resume_data, section)
         update_resume_version_data(self._conn, vid, resume_data, user_id=user_id)
-        return f"Added {section} entry: {_entry_summary(section, entry)}"
+        return f"Added {section} entry: {sdef.summary(entry)} (id={entry_dict['id']})"
 
     def update_entry(
         self,
         section: str,
-        index: int,
+        ref: str | int,
         data: dict[str, Any],
         version_id: int | None = None,
         *,
         user_id: str,
     ) -> str:
-        """Update an entry in a list section by index."""
-        if section not in SECTION_LIST:
-            raise ValueError(
-                f"Invalid section for update_entry: '{section}'. "
-                f"Must be one of: {', '.join(SECTION_LIST)}"
-            )
+        """Update an entry in a list section by stable id (or legacy index)."""
+        sdef = section_def(section)
 
         version = self.get_resume(version_id, user_id=user_id)
         vid = version["id"]
         resume_data = version["resume_data"]
-        entries = resume_data.get(section, [])
+        entries = _entries(resume_data, section)
+        index = _resolve(entries, section, ref)
 
-        if index < 0 or index >= len(entries):
-            raise ValueError(
-                f"{section.title()} index {index} out of range. "
-                f"Resume has {len(entries)} {section} entries."
-            )
-
-        model_cls = _SECTION_MODELS[section]
         # Re-validate the merged entry so bad types never reach storage.
-        updated = model_cls.model_validate({**entries[index], **data})
+        entry_id = entries[index].get("id")
+        patch = {k: v for k, v in data.items() if k != "id"}
+        updated = sdef.model.model_validate({**entries[index], **patch})
         _check_entry_lengths(updated.model_dump())
-        entries[index] = json.loads(updated.model_dump_json())
+        entries[index] = {**json.loads(updated.model_dump_json()), "id": entry_id}
 
-        resume_data[section] = entries
         update_resume_version_data(self._conn, vid, resume_data, user_id=user_id)
-        return (
-            f"Updated {section} entry at index {index}: "
-            f"{_entry_summary(section, updated)}"
-        )
+        return f"Updated {section} entry at index {index}: {sdef.summary(updated)}"
 
     def remove_entry(
         self,
         section: str,
-        index: int,
+        ref: str | int,
         version_id: int | None = None,
         *,
         user_id: str,
     ) -> str:
-        """Remove an entry from a list section by index."""
-        if section not in SECTION_LIST:
-            raise ValueError(
-                f"Invalid section for remove_entry: '{section}'. "
-                f"Must be one of: {', '.join(SECTION_LIST)}"
-            )
+        """Remove an entry from a list section by stable id (or legacy index)."""
+        sdef = section_def(section)
 
         version = self.get_resume(version_id, user_id=user_id)
         vid = version["id"]
         resume_data = version["resume_data"]
-        entries = resume_data.get(section, [])
+        entries = _entries(resume_data, section)
+        index = _resolve(entries, section, ref)
 
-        if index < 0 or index >= len(entries):
-            raise ValueError(
-                f"{section.title()} index {index} out of range. "
-                f"Resume has {len(entries)} {section} entries."
-            )
+        removed = sdef.model.model_validate(entries.pop(index))
 
-        model_cls = _SECTION_MODELS[section]
-        removed = model_cls(**entries[index])
-        entries.pop(index)
-
-        resume_data[section] = entries
         update_resume_version_data(self._conn, vid, resume_data, user_id=user_id)
-        return f"Removed {section} entry: {_entry_summary(section, removed)}"
+        return f"Removed {section} entry: {sdef.summary(removed)}"
+
+    # --- Optional sections ---
+
+    def set_section_enabled(
+        self,
+        section: str,
+        enabled: bool,
+        version_id: int | None = None,
+        *,
+        user_id: str,
+    ) -> str:
+        """Add an optional section to a version, or remove an empty one."""
+        section_def(section)
+        if section in CORE:
+            raise ValueError(f"'{section}' is always shown and cannot be removed")
+        version = self.get_resume(version_id, user_id=user_id)
+        resume_data = version["resume_data"]
+        if enabled:
+            _enable(resume_data, section)
+        else:
+            if resume_data.get(section):
+                raise ValueError(
+                    f"Cannot remove '{section}' while it has entries; delete them first"
+                )
+            resume_data["enabled_sections"] = [
+                k for k in resume_data.get("enabled_sections") or [] if k != section
+            ]
+        update_resume_version_data(
+            self._conn, version["id"], resume_data, user_id=user_id
+        )
+        return f"{'Added' if enabled else 'Removed'} section: {section}"
 
 
-_SECTION_MODELS: dict[str, Any] = {
-    "experience": WorkExperience,
-    "education": Education,
-    "skills": Skill,
-}
-
-
-def _entry_summary(section: str, entry: WorkExperience | Education | Skill) -> str:
-    """Create a short human-readable summary of an entry."""
-    if isinstance(entry, WorkExperience):
-        return f"{entry.title} at {entry.company}"
-    elif isinstance(entry, Education):
-        return f"{entry.degree} from {entry.institution}"
-    else:
-        return f"{entry.name} ({entry.category})"
+def _enable(resume_data: dict[str, Any], section: str) -> None:
+    """Mark an optional section as shown (core sections always are)."""
+    if section in CORE:
+        return
+    resume_data["enabled_sections"] = normalize_enabled(
+        [*(resume_data.get("enabled_sections") or []), section], resume_data
+    )

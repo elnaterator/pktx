@@ -23,3 +23,13 @@ export const httpUrl = () =>
         .refine(isHttpUrl, 'URL must start with http:// or https://')
         .optional(),
     )
+
+/** Required http(s) URL field (same rules as {@link httpUrl}). */
+export const requiredHttpUrl = (requiredMessage = 'URL is required') =>
+  z
+    .string()
+    .trim()
+    .min(1, requiredMessage)
+    .max(MAX_URL_LENGTH)
+    .url('Invalid URL')
+    .refine(isHttpUrl, 'URL must start with http:// or https://')

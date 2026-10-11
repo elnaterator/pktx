@@ -1,21 +1,19 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type {
-  ContactInfo,
-  Education,
-  Skill,
-  WorkExperience,
-} from '../../types'
+import type { ContactInfo } from '../../types'
 import {
   addVersionEntry,
   createResume,
   deleteResume,
   getResumeVersion,
+  listResumeContactKeys,
+  listResumeSections,
   listResumes,
   removeVersionEntry,
   setDefaultResume,
   updateResumeLabel,
   updateVersionContact,
   updateVersionEntry,
+  setVersionSectionEnabled,
   updateVersionSummary,
 } from '../../services/api'
 
@@ -48,6 +46,24 @@ export function useResumeDetail(id: number | undefined) {
     queryKey: id ? resumeKeys.detail(id) : resumeKeys.details(),
     queryFn: () => getResumeVersion(id!),
     enabled: !!id,
+  })
+}
+
+/** Section registry: static per deploy, so cache for the session. */
+export function useResumeSections() {
+  return useQuery({
+    queryKey: [...resumeKeys.all, 'sections'] as const,
+    queryFn: listResumeSections,
+    staleTime: Infinity,
+  })
+}
+
+/** Preset contact keys: static per deploy, so cache for the session. */
+export function useResumeContactKeys() {
+  return useQuery({
+    queryKey: [...resumeKeys.all, 'contact-keys'] as const,
+    queryFn: listResumeContactKeys,
+    staleTime: Infinity,
   })
 }
 
@@ -98,8 +114,8 @@ export function useResumeMutations() {
       data,
     }: {
       id: number
-      section: 'experience' | 'education' | 'skills'
-      data: WorkExperience | Education | Skill
+      section: string
+      data: Record<string, unknown>
     }) => addVersionEntry(id, section, data),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
@@ -107,26 +123,38 @@ export function useResumeMutations() {
     mutationFn: ({
       id,
       section,
-      index,
+      entryRef,
       data,
     }: {
       id: number
-      section: 'experience' | 'education' | 'skills'
-      index: number
-      data: Partial<WorkExperience | Education | Skill>
-    }) => updateVersionEntry(id, section, index, data),
+      section: string
+      entryRef: string | number
+      data: Record<string, unknown>
+    }) => updateVersionEntry(id, section, entryRef, data),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
   const removeEntry = useMutation({
     mutationFn: ({
       id,
       section,
-      index,
+      entryRef,
     }: {
       id: number
-      section: 'experience' | 'education' | 'skills'
-      index: number
-    }) => removeVersionEntry(id, section, index),
+      section: string
+      entryRef: string | number
+    }) => removeVersionEntry(id, section, entryRef),
+    onSuccess: (_d, { id }) => invalidateResume(id),
+  })
+  const setSectionEnabled = useMutation({
+    mutationFn: ({
+      id,
+      section,
+      enabled,
+    }: {
+      id: number
+      section: string
+      enabled: boolean
+    }) => setVersionSectionEnabled(id, section, enabled),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
 
@@ -140,5 +168,6 @@ export function useResumeMutations() {
     addEntry,
     updateEntry,
     removeEntry,
+    setSectionEnabled,
   }
 }

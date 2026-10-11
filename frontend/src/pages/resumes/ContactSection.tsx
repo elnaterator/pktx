@@ -1,12 +1,15 @@
-import { useEffect } from 'react';
-import { useForm } from 'react-hook-form';
+import { useEffect, useMemo } from 'react';
+import { useFieldArray, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import type { ContactInfo } from '../../types';
+import { Trash2 } from 'lucide-react';
+import type { ContactInfo, ContactKind } from '../../types';
 import { EditableSection } from '../../components/EditableSection';
 import { updateResumeContact, updateVersionContact } from '../../services/api';
+import { useResumeContactKeys } from '../../hooks/queries';
 import { FieldError } from '../../components/FieldError';
-import { contactInfoSchema, type ContactInfoInput } from '../../schemas/resumeEntry';
+import { buildContactSchema, type ContactFormInput } from '../../schemas/resumeEntry';
 import { ExternalLink } from '../../components/ExternalLink';
+import { safeHref } from '../../utils/safeUrl';
 import styles from './ContactSection.module.css';
 
 interface ContactSectionProps {
@@ -15,33 +18,56 @@ interface ContactSectionProps {
   versionId?: number;
 }
 
-function ContactReadView({ contact }: { contact: ContactInfo }) {
-  const details: string[] = [];
-  if (contact.email) details.push(contact.email);
-  if (contact.phone) details.push(contact.phone);
-  if (contact.location) details.push(contact.location);
+const CUSTOM = '__custom__';
 
-  const links: { label: string; href: string }[] = [];
-  if (contact.linkedin) links.push({ label: 'LinkedIn', href: contact.linkedin });
-  if (contact.website) links.push({ label: 'Website', href: contact.website });
-  if (contact.github) links.push({ label: 'GitHub', href: contact.github });
+function ContactReadView({
+  contact,
+  kindOf,
+}: {
+  contact: ContactInfo;
+  kindOf: (key: string) => ContactKind;
+}) {
+  const items: React.ReactNode[] = [];
+  if (contact.phone) items.push(<span className={styles.contactItem}>{contact.phone}</span>);
+  if (contact.location) items.push(<span className={styles.contactItem}>{contact.location}</span>);
+  for (const f of contact.fields ?? []) {
+    const kind = kindOf(f.key);
+    if (kind === 'email') {
+      items.push(
+        <ExternalLink
+          href={`mailto:${f.value}`}
+          allowMailto
+          className={`${styles.contactItem} ${styles.contactLink}`}
+        >
+          {f.value}
+        </ExternalLink>,
+      );
+    } else if (kind === 'url' || safeHref(f.value)) {
+      // Links read as their key (LinkedIn, GitHub, ...). An unsafe stored URL
+      // renders as plain, non-clickable text.
+      items.push(
+        <ExternalLink href={f.value} className={`${styles.contactItem} ${styles.contactLink}`}>
+          {f.key}
+        </ExternalLink>,
+      );
+    } else {
+      items.push(
+        <span className={styles.contactItem}>
+          {f.key}: {f.value}
+        </span>,
+      );
+    }
+  }
 
   return (
     <div className={styles.readView}>
       {contact.name && <h1 className={styles.nameHeading}>{contact.name}</h1>}
-      {(details.length > 0 || links.length > 0) && (
+      {items.length > 0 && (
         <div className={styles.contactRow}>
-          {details.map((d, i) => (
-            <span key={i} className={styles.contactItem}>{d}</span>
-          ))}
-          {links.map((l, i) => (
-            <ExternalLink
-              key={i}
-              href={l.href}
-              className={`${styles.contactItem} ${styles.contactLink}`}
-            >
-              {l.label}
-            </ExternalLink>
+          {items.map((item, i) => (
+            <span key={i} className={styles.contactCell}>
+              {item}
+            </span>
           ))}
         </div>
       )}
@@ -49,39 +75,52 @@ function ContactReadView({ contact }: { contact: ContactInfo }) {
   );
 }
 
-const toDefaults = (c: ContactInfo): ContactInfoInput => ({
-  name: c.name ?? '',
-  email: c.email ?? '',
-  phone: c.phone ?? '',
-  location: c.location ?? '',
-  linkedin: c.linkedin ?? '',
-  website: c.website ?? '',
-  github: c.github ?? '',
-})
-
 export default function ContactSection({ contact, onUpdate, versionId }: ContactSectionProps) {
-  const { register, trigger, getValues, reset, formState: { errors } } = useForm<ContactInfoInput>({
-    resolver: zodResolver(contactInfoSchema),
+  const presetsQuery = useResumeContactKeys();
+  const presets = useMemo(() => presetsQuery.data ?? [], [presetsQuery.data]);
+  const kindOf = useMemo(() => {
+    const byKey = new Map(presets.map((p) => [p.key.toLowerCase().replace(/\s+/g, ''), p.kind]));
+    return (key: string): ContactKind => byKey.get(key.toLowerCase().replace(/\s+/g, '')) ?? 'text';
+  }, [presets]);
+  const schema = useMemo(() => buildContactSchema(kindOf), [kindOf]);
+  const isPreset = (key: string) => presets.some((p) => p.key.toLowerCase() === key.toLowerCase());
+
+  const toDefaults = (c: ContactInfo): ContactFormInput => ({
+    name: c.name ?? '',
+    phone: c.phone ?? '',
+    location: c.location ?? '',
+    fields: (c.fields ?? []).map((f) => ({ ...f, custom: !isPreset(f.key) })),
+  });
+
+  const {
+    register,
+    control,
+    trigger,
+    getValues,
+    reset,
+    watch,
+    formState: { errors },
+  } = useForm<ContactFormInput>({
+    resolver: zodResolver(schema),
     mode: 'onChange',
     defaultValues: toDefaults(contact),
   });
+  const fields = useFieldArray({ control, name: 'fields' });
 
   useEffect(() => {
     reset(toDefaults(contact));
-  }, [contact, reset]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- presets only affect which rows are custom
+  }, [contact, presets, reset]);
 
   const handleSave = async () => {
     const isValid = await trigger();
     if (!isValid) throw new Error('Please fix validation errors');
-    const parsed = contactInfoSchema.parse(getValues());
+    const parsed = schema.parse(getValues());
     const contactData: ContactInfo = {
       name: parsed.name ?? null,
-      email: parsed.email ?? null,
       phone: parsed.phone ?? null,
       location: parsed.location ?? null,
-      linkedin: parsed.linkedin ?? null,
-      website: parsed.website ?? null,
-      github: parsed.github ?? null,
+      fields: parsed.fields.map(({ key, value }) => ({ key, value })),
     };
     if (versionId !== undefined) {
       await updateVersionContact(versionId, contactData);
@@ -94,10 +133,13 @@ export default function ContactSection({ contact, onUpdate, versionId }: Contact
   if (!onUpdate) {
     return (
       <section data-testid="contact-section">
-        <ContactReadView contact={contact} />
+        <ContactReadView contact={contact} kindOf={kindOf} />
       </section>
     );
   }
+
+  const used = new Set(watch('fields')?.map((f) => (f.key ?? '').toLowerCase()));
+  const available = presets.filter((p) => !used.has(p.key.toLowerCase()));
 
   return (
     <EditableSection title="Contact Information" onSave={handleSave}>
@@ -117,23 +159,8 @@ export default function ContactSection({ contact, onUpdate, versionId }: Contact
 
               <div className={styles.formRow}>
                 <div className={styles.formField}>
-                  <label htmlFor="email" className={styles.formLabel}>Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
-                    {...register('email')}
-                  />
-                  <FieldError error={errors.email} />
-                </div>
-                <div className={styles.formField}>
                   <label htmlFor="phone" className={styles.formLabel}>Phone</label>
-                  <input
-                    type="tel"
-                    id="phone"
-                    className={styles.input}
-                    {...register('phone')}
-                  />
+                  <input type="tel" id="phone" className={styles.input} {...register('phone')} />
                 </div>
                 <div className={styles.formField}>
                   <label htmlFor="location" className={styles.formLabel}>Location</label>
@@ -146,44 +173,73 @@ export default function ContactSection({ contact, onUpdate, versionId }: Contact
                 </div>
               </div>
 
-              <div className={styles.formRow}>
-                <div className={styles.formField}>
-                  <label htmlFor="linkedin" className={styles.formLabel}>LinkedIn</label>
-                  <input
-                    type="url"
-                    id="linkedin"
-                    className={styles.input}
-                    placeholder="https://linkedin.com/in/username"
-                    {...register('linkedin')}
-                  />
-                  <FieldError error={errors.linkedin} />
-                </div>
-                <div className={styles.formField}>
-                  <label htmlFor="website" className={styles.formLabel}>Website</label>
-                  <input
-                    type="url"
-                    id="website"
-                    className={styles.input}
-                    placeholder="https://example.com"
-                    {...register('website')}
-                  />
-                  <FieldError error={errors.website} />
-                </div>
-                <div className={styles.formField}>
-                  <label htmlFor="github" className={styles.formLabel}>GitHub</label>
-                  <input
-                    type="url"
-                    id="github"
-                    className={styles.input}
-                    placeholder="https://github.com/username"
-                    {...register('github')}
-                  />
-                  <FieldError error={errors.github} />
-                </div>
+              {fields.fields.map((row, index) => {
+                const rowErrors = errors.fields?.[index];
+                const key = watch(`fields.${index}.key`) ?? '';
+                const custom = watch(`fields.${index}.custom`);
+                return (
+                  <div key={row.id} className={styles.detailRow}>
+                    <div className={styles.formField}>
+                      {custom ? (
+                        <input
+                          type="text"
+                          className={styles.input}
+                          placeholder="Custom key (e.g. Pronouns)"
+                          aria-label={`Detail ${index + 1} key`}
+                          {...register(`fields.${index}.key` as const)}
+                        />
+                      ) : (
+                        <label htmlFor={`detail-${index}`} className={styles.formLabel}>
+                          {key}
+                        </label>
+                      )}
+                      <FieldError error={rowErrors?.key} />
+                    </div>
+                    <div className={`${styles.formField} ${styles.detailValue}`}>
+                      <input
+                        type={kindOf(key) === 'email' ? 'email' : 'text'}
+                        id={`detail-${index}`}
+                        className={`${styles.input} ${rowErrors?.value ? styles.inputError : ''}`}
+                        placeholder={kindOf(key) === 'url' ? 'https://...' : undefined}
+                        aria-label={custom ? `Detail ${index + 1} value` : undefined}
+                        {...register(`fields.${index}.value` as const)}
+                      />
+                      <FieldError error={rowErrors?.value} />
+                    </div>
+                    <button
+                      type="button"
+                      className={styles.removeDetail}
+                      onClick={() => fields.remove(index)}
+                      aria-label={`Remove ${key || `detail ${index + 1}`}`}
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  </div>
+                );
+              })}
+
+              <div className={styles.formField}>
+                <label htmlFor="add-detail" className={styles.formLabel}>Add detail</label>
+                <select
+                  id="add-detail"
+                  className={styles.input}
+                  value=""
+                  onChange={(e) => {
+                    const choice = e.target.value;
+                    if (choice === CUSTOM) fields.append({ key: '', value: '', custom: true });
+                    else if (choice) fields.append({ key: choice, value: '', custom: false });
+                  }}
+                >
+                  <option value="">Choose a detail…</option>
+                  {available.map((p) => (
+                    <option key={p.key} value={p.key}>{p.key}</option>
+                  ))}
+                  <option value={CUSTOM}>Custom…</option>
+                </select>
               </div>
             </form>
           ) : (
-            <ContactReadView contact={contact} />
+            <ContactReadView contact={contact} kindOf={kindOf} />
           )}
         </div>
       )}

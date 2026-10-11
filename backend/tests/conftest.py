@@ -103,12 +103,14 @@ def db_conn(_schema_applied, pg_dsn: str) -> Generator[Connection[Any], None, No
 SAMPLE_RESUME_DATA: dict[str, Any] = {
     "contact": {
         "name": "Jane Doe",
-        "email": "jane@example.com",
         "phone": "+1-555-0100",
         "location": "San Francisco, CA",
-        "linkedin": "https://linkedin.com/in/janedoe",
-        "website": "https://janedoe.dev",
-        "github": "https://github.com/janedoe",
+        "fields": [
+            {"key": "Email", "value": "jane@example.com"},
+            {"key": "Website", "value": "https://janedoe.dev"},
+            {"key": "LinkedIn", "value": "https://linkedin.com/in/janedoe"},
+            {"key": "GitHub", "value": "https://github.com/janedoe"},
+        ],
     },
     "summary": "Experienced software engineer with 10 years of experience.",
     "experience": [
