@@ -113,10 +113,6 @@
   cursor: not-allowed;
 }
 
-.editButton:focus,
-.deleteButton:focus,
-.saveIconButton:focus,
-
 /* Meta row — view mode: tag badges + updated date */
 .meta {
   display: flex;

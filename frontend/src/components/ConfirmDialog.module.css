@@ -60,5 +60,3 @@
 .confirmButton:hover {
   background-color: var(--status-error-bg-strong);
 }
-
-.cancelButton:focus,
