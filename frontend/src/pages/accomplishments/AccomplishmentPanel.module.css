@@ -19,39 +19,35 @@
   gap: var(--space-3);
 }
 
-.editButton {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
+.editButton,
+.deleteButton,
+.saveIconButton,
+.cancelIconButton {
+  background: none;
+  color: var(--text-muted);
   border: none;
-  padding: var(--space-2) var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-none);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
-.editButton:hover {
-  background-color: var(--bg-active);
+.editButton:hover,
+.saveIconButton:hover:not(:disabled) {
   color: var(--accent-green);
 }
 
-.deleteButton {
-  background-color: var(--status-error-bg);
+.deleteButton:hover,
+.cancelIconButton:hover {
   color: var(--status-error);
-  border: none;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
 }
 
-.deleteButton:hover {
-  background-color: var(--status-error-bg-hover);
+.saveIconButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .meta {
@@ -180,42 +176,6 @@
   font-size: 0.875rem;
   color: var(--status-error);
   margin: 0 0 var(--space-3);
-}
-
-.saveIconButton,
-.cancelIconButton {
-  background-color: var(--bg-hover);
-  border: none;
-  border-radius: var(--radius-none);
-  padding: var(--space-2) var(--space-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.saveIconButton {
-  color: var(--text-secondary);
-}
-
-.saveIconButton:hover:not(:disabled) {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.saveIconButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancelIconButton {
-  color: var(--text-secondary);
-}
-
-.cancelIconButton:hover {
-  background-color: var(--bg-active);
-  color: var(--status-error);
 }
 
 .panelCreate {

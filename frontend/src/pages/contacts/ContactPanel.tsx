@@ -200,7 +200,7 @@ export function ContactPanel({
                 {...register('followup_date')}
               />
             </div>
-            <div className={styles.fieldGroup}>
+            {mode === 'create' && <div className={styles.fieldGroup}>
               <label className={styles.fieldLabel}>Tags</label>
               <Controller
                 control={control}
@@ -214,7 +214,7 @@ export function ContactPanel({
                   />
                 )}
               />
-            </div>
+            </div>}
           </div>
           <div className={styles.editNotes}>
             <label className={styles.fieldLabel}>Notes</label>
@@ -292,13 +292,6 @@ export function ContactPanel({
                 </div>
               )}
             </div>
-            {contact?.tags && contact.tags.length > 0 && (
-              <div className={styles.tagList}>
-                {contact.tags.map((tag) => (
-                  <span key={tag} className={styles.tagBadge}>{tag}</span>
-                ))}
-              </div>
-            )}
             {contact?.updated_at && (
               <span className={styles.updatedDate}>Updated {new Date(contact.updated_at).toLocaleDateString()}</span>
             )}

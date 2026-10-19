@@ -8,6 +8,7 @@ import {
   useApplicationMutations,
 } from '../../hooks/queries'
 import { LinksPanel } from '../../components/LinksPanel'
+import { TagsPanel } from '../../components/TagsPanel'
 import DetailLayout from '../../components/DetailLayout'
 import Breadcrumb from '../../components/Breadcrumb'
 import NotFound from '../../components/NotFound'
@@ -63,7 +64,7 @@ export default function ApplicationDetailView() {
           url: data.url ?? null,
           description: data.description ?? undefined,
           notes: data.notes ?? undefined,
-          tags: data.tags ?? [],
+          tags: app.tags ?? [],
         },
       })
       setEditing(false)
@@ -112,18 +113,25 @@ export default function ApplicationDetailView() {
       <Breadcrumb
         items={[
           { label: 'Applications', to: '/applications' },
-          { label: `${app.company} — ${app.position}` },
+          { label: `${app.position} @ ${app.company}` },
         ]}
       />
 
       <DetailLayout
         sidebar={
-          <LinksPanel
-            resourceType="application"
-            resourceId={numericId}
-            links={mapGroupedLinks(app.links as Record<string, unknown[]>)}
-            onChange={() => detailQuery.refetch()}
-          />
+          <>
+            <TagsPanel
+              tags={app.tags ?? []}
+              allTags={allTags}
+              onSave={(tags) => update.mutateAsync({ id: numericId, data: { tags } })}
+            />
+            <LinksPanel
+              resourceType="application"
+              resourceId={numericId}
+              links={mapGroupedLinks(app.links as Record<string, unknown[]>)}
+              onChange={() => detailQuery.refetch()}
+            />
+          </>
         }
       >
         {editing ? (

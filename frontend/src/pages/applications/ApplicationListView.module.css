@@ -75,6 +75,11 @@
   min-width: 0;
 }
 
+.at {
+  color: var(--text-muted);
+  font-size: 0.9375rem;
+}
+
 .company {
   color: var(--text-secondary);
   font-size: 0.9375rem;

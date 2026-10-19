@@ -91,7 +91,7 @@ describe('ContactDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Jane Doe').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const nameInput = screen.getByDisplayValue('Jane Doe')
     expect(nameInput).toBeInTheDocument()
   })
@@ -104,7 +104,7 @@ describe('ContactDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Jane Doe').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const nameInput = screen.getByDisplayValue('Jane Doe')
     await user.clear(nameInput)
     await user.type(nameInput, 'Jane Updated')

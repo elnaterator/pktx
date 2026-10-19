@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Trash2, Pencil, Check, X } from 'lucide-react'
+import { Trash2, Pencil, Check, X, Star } from 'lucide-react'
 import { mapGroupedLinks } from '../../services/api'
 import {
   resumeKeys,
@@ -12,7 +12,7 @@ import {
   useResumeMutations,
   useResumeSchema,
 } from '../../hooks/queries'
-import { TagInput } from '../../components/TagInput'
+import { TagsPanel } from '../../components/TagsPanel'
 import { resumeUpdateSchema } from '../../schemas/resume'
 import BasicsSection from './BasicsSection'
 import SkillsSection from './SkillsSection'
@@ -37,8 +37,6 @@ export default function ResumeDetailView() {
 
   const qc = useQueryClient()
   const { success, error } = useToast()
-  const [editingTags, setEditingTags] = useState(false)
-  const [tagsForm, setTagsForm] = useState<string[]>([])
   const [editingLabel, setEditingLabel] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   /** Sections opened from "Add section" but not yet holding an entry. */
@@ -112,26 +110,6 @@ export default function ResumeDetailView() {
     }
   })
 
-  const handleTagsEdit = () => {
-    if (!version) return
-    setTagsForm(version.tags ?? [])
-    setEditingTags(true)
-  }
-
-  const handleTagsSave = async () => {
-    if (numericId === null || !version) return
-    try {
-      await updateLabelOrTags.mutateAsync({
-        id: numericId,
-        label: version.label,
-        tags: tagsForm,
-      })
-      setEditingTags(false)
-    } catch {
-      error('Failed to update tags')
-    }
-  }
-
   if (numericId === null) return null
   if (detailQuery.isPending) return <LoadingSpinner />
   if (notFound) return <NotFound entityName="Resume" backTo="/resumes" backLabel="Back to Resumes" />
@@ -187,18 +165,22 @@ export default function ResumeDetailView() {
 
       <DetailLayout
         sidebar={
-          <LinksPanel
-            resourceType="resume"
-            resourceId={numericId}
-            links={mapGroupedLinks(version.links as Record<string, unknown[]>)}
-            onChange={reloadResume}
-          />
+          <>
+            <TagsPanel
+              tags={version.tags ?? []}
+              allTags={allTags}
+              onSave={(tags) => updateLabelOrTags.mutateAsync({ id: numericId, tags })}
+            />
+            <LinksPanel
+              resourceType="resume"
+              resourceId={numericId}
+              links={mapGroupedLinks(version.links as Record<string, unknown[]>)}
+              onChange={reloadResume}
+            />
+          </>
         }
       >
         <div className={styles.topBar}>
-          {version.is_default && (
-            <span className={styles.defaultBadge}>Default</span>
-          )}
           <div className={styles.topBarActions}>
             {!version.is_default && (
               <button className={styles.setDefaultButton} onClick={handleSetDefault}>
@@ -206,7 +188,7 @@ export default function ResumeDetailView() {
               </button>
             )}
             <button
-              className={styles.deleteButton}
+              className={`${styles.iconBtn} ${styles.deleteButton}`}
               onClick={() => setConfirmDelete(true)}
               aria-label="Delete resume version"
             >
@@ -237,42 +219,13 @@ export default function ResumeDetailView() {
           ) : (
             <div className={styles.labelDisplay}>
               <h2 className={styles.label}>{version.label}</h2>
-              <button className={styles.iconBtn} onClick={() => { resetLabel({ label: version.label }); setEditingLabel(true) }} aria-label="Edit label">
-                <Pencil size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className={styles.tagsRow}>
-          {editingTags ? (
-            <div className={styles.tagsEdit}>
-              <TagInput
-                value={tagsForm}
-                onChange={setTagsForm}
-                availableTags={allTags}
-                allowCreate={true}
-                placeholder="Add tag..."
-              />
-              <button className={`${styles.iconBtn} ${styles.saveIcon}`} onClick={handleTagsSave} aria-label="Save tags">
-                <Check size={14} />
-              </button>
-              <button className={`${styles.iconBtn} ${styles.cancelIcon}`} onClick={() => setEditingTags(false)} aria-label="Cancel">
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className={styles.tagsDisplay}>
-              {version.tags && version.tags.length > 0 ? (
-                <div className={styles.tagList}>
-                  {version.tags.map((tag) => (
-                    <span key={tag} className={styles.tagBadge}>{tag}</span>
-                  ))}
-                </div>
-              ) : (
-                <span className={styles.tagsPlaceholder}>No tags</span>
+              {version.is_default && (
+                <span className={styles.defaultBadge}>
+                  <Star size={11} fill="currentColor" aria-hidden="true" />
+                  Default
+                </span>
               )}
-              <button className={styles.iconBtn} onClick={handleTagsEdit} aria-label="Edit tags">
+              <button className={styles.iconBtn} onClick={() => { resetLabel({ label: version.label }); setEditingLabel(true) }} aria-label="Edit label">
                 <Pencil size={14} />
               </button>
             </div>

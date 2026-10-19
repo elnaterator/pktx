@@ -7,30 +7,11 @@
 /* Top bar — 2-row grid: labels above, values+actions below */
 .topBar {
   display: grid;
-  grid-template-areas:
-    "labels labels"
-    "main actions";
+  grid-template-areas: "main actions";
   grid-template-columns: 1fr auto;
   column-gap: var(--space-4);
-  row-gap: var(--space-1);
   margin-bottom: var(--space-6);
   align-items: center;
-}
-
-/* Labels row: Company | Position (same column proportions as topBarMain) */
-.topBarLabels {
-  grid-area: labels;
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  gap: 3rem;
-}
-
-.topBarLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
 }
 
 .topBarMain {
@@ -41,11 +22,42 @@
   align-items: flex-start;
 }
 
+.topBarMainEdit {
+  grid-area: main;
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+}
+
+.topBarMainEdit .topBarField {
+  flex: 1;
+}
+
+.topBarMainEdit .topBarAt {
+  padding-top: var(--space-1);
+  font-size: 1.25rem;
+}
+
 .topBarField {
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
+}
+
+.topBarTitle {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1.2;
+  text-align: left;
+}
+
+.topBarAt {
+  color: var(--text-muted);
+  font-weight: 400;
 }
 
 .topBarValue {
@@ -84,71 +96,35 @@
   align-self: center;
 }
 
-.editButton {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-  border: none;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.editButton:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.deleteButton {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-  border: none;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-
-.deleteButton:hover {
-  background-color: var(--status-error-bg-hover);
-}
-
+.editButton,
+.deleteButton,
 .saveIconButton,
 .cancelIconButton {
-  background-color: var(--bg-hover);
+  background: none;
+  color: var(--text-muted);
   border: none;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-none);
-  padding: var(--space-2) var(--space-2);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
+  transition: color var(--transition-fast);
 }
 
-.saveIconButton { color: var(--text-secondary); }
-
+.editButton:hover,
 .saveIconButton:hover:not(:disabled) {
-  background-color: var(--bg-active);
   color: var(--accent-green);
+}
+
+.deleteButton:hover,
+.cancelIconButton:hover {
+  color: var(--status-error);
 }
 
 .saveIconButton:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-}
-
-.cancelIconButton { color: var(--text-secondary); }
-
-.cancelIconButton:hover {
-  background-color: var(--bg-active);
-  color: var(--status-error);
 }
 
 .editButton:focus,
@@ -344,11 +320,6 @@
 @media (max-width: 640px) {
   .topBar {
     row-gap: var(--space-3);
-  }
-
-  .topBarLabels {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
   }
 
   .topBarMain {

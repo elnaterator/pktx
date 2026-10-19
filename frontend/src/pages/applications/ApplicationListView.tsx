@@ -134,6 +134,7 @@ export default function ApplicationListView() {
               <Link to={`/applications/${app.id}`} className={styles.itemLink}>
                 <div className={styles.itemMain}>
                   <span className={styles.position}>{app.position}</span>
+                  <span className={styles.at}>@</span>
                   <span className={styles.company}>{app.company}</span>
                   <span className={`${styles.statusBadge} ${STATUS_COLORS[app.status] || ''}`}>
                     {app.status}

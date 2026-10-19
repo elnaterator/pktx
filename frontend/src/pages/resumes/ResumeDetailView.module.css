@@ -17,10 +17,15 @@
 }
 
 .defaultBadge {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-  font-size: 0.875rem;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background-color: var(--accent-green);
+  color: var(--bg-primary, #111);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
   padding: var(--space-1) var(--space-3);
   border-radius: var(--radius-none);
 }
@@ -154,25 +159,8 @@
   outline: none;
 }
 
-.deleteButton {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-  border: none;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-
 .deleteButton:hover {
-  background-color: var(--status-error-bg-hover);
-}
-
-.deleteButton:focus {
-  outline: none;
+  color: var(--status-error);
 }
 
 .document {

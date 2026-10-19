@@ -1,0 +1,69 @@
+.panel {
+  margin-bottom: var(--space-8);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--accent-green);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.iconBtn {
+  display: flex;
+  align-items: center;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: var(--space-1);
+  cursor: pointer;
+  transition: color var(--transition-fast);
+}
+
+.iconBtn:hover {
+  color: var(--accent-green);
+}
+
+.save {
+  color: var(--accent-green);
+}
+
+.cancel:hover {
+  color: var(--text-primary);
+}
+
+.tagList {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.tagBadge {
+  font-size: 0.875rem;
+  font-weight: 500;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-none);
+  background-color: var(--accent-green-bg);
+  color: var(--accent-green);
+}
+
+.empty {
+  font-size: 0.875rem;
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}

@@ -4,6 +4,7 @@ import { ApiClientError } from '../../types'
 import { mapGroupedLinks } from '../../services/api'
 import { useAllTags, useNoteDetail, useNoteMutations } from '../../hooks/queries'
 import { LinksPanel } from '../../components/LinksPanel'
+import { TagsPanel } from '../../components/TagsPanel'
 import DetailLayout from '../../components/DetailLayout'
 import Breadcrumb from '../../components/Breadcrumb'
 import NotFound from '../../components/NotFound'
@@ -53,7 +54,7 @@ export default function NoteDetailView() {
       data: {
         title: data.title,
         content: data.content,
-        tags: data.tags ?? [],
+        tags: note.tags ?? [],
       },
     })
     setEditing(false)
@@ -82,12 +83,19 @@ export default function NoteDetailView() {
 
       <DetailLayout
         sidebar={
-          <LinksPanel
-            resourceType="note"
-            resourceId={numericId}
-            links={mapGroupedLinks(note.links as Record<string, unknown[]>)}
-            onChange={reloadNote}
-          />
+          <>
+            <TagsPanel
+              tags={note.tags ?? []}
+              allTags={allTags}
+              onSave={(tags) => update.mutateAsync({ id: numericId, data: { tags } })}
+            />
+            <LinksPanel
+              resourceType="note"
+              resourceId={numericId}
+              links={mapGroupedLinks(note.links as Record<string, unknown[]>)}
+              onChange={reloadNote}
+            />
+          </>
         }
       >
         {editing ? (

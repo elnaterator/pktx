@@ -64,7 +64,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const titleInput = screen.getByDisplayValue('Python async patterns')
     expect(titleInput).toBeInTheDocument()
   })
@@ -78,7 +78,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     await user.click(screen.getByRole('button', { name: /Cancel/i }))
     expect(screen.queryByDisplayValue('Python async patterns')).not.toBeInTheDocument()
     expect(api.updateNote).not.toHaveBeenCalled()
@@ -97,7 +97,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const contentField = screen.getByDisplayValue(/Key learnings/)
     await user.clear(contentField)
     await user.type(contentField, 'Updated content.')

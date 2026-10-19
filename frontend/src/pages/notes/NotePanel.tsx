@@ -96,7 +96,7 @@ export function NotePanel({
       {errors.title && <p className={styles.formError}>{errors.title.message}</p>}
 
       {isEditable ? (
-        <div className={styles.metaEdit}>
+        mode === 'create' && <div className={styles.metaEdit}>
           <div className={styles.metaField}>
             <label className={styles.metaLabel}>Tags</label>
             <Controller
@@ -115,13 +115,6 @@ export function NotePanel({
         </div>
       ) : (
         <div className={styles.meta}>
-          {note?.tags && note.tags.length > 0 && (
-            <div className={styles.tagList}>
-              {note.tags.map((tag) => (
-                <span key={tag} className={styles.tagBadge}>{tag}</span>
-              ))}
-            </div>
-          )}
           {note?.updated_at && (
             <span className={styles.updatedDate}>Updated {new Date(note.updated_at).toLocaleDateString()}</span>
           )}

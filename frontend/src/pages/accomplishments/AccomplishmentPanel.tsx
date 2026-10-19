@@ -108,7 +108,7 @@ export function AccomplishmentPanel({
 
       {isEditable ? (
         <div className={styles.metaEdit}>
-          <div className={styles.metaField}>
+          {mode === 'create' && <div className={styles.metaField}>
             <label className={styles.metaLabel}>Tags</label>
             <Controller
               control={control}
@@ -122,7 +122,7 @@ export function AccomplishmentPanel({
                 />
               )}
             />
-          </div>
+          </div>}
           <div className={`${styles.metaField} ${styles.metaFieldDate}`}>
             <label className={styles.metaLabel}>Date</label>
             <input
@@ -133,15 +133,8 @@ export function AccomplishmentPanel({
           </div>
         </div>
       ) : (
-        (accomplishment?.accomplishment_date || (accomplishment?.tags && accomplishment.tags.length > 0)) && (
+        accomplishment?.accomplishment_date && (
           <div className={styles.meta}>
-            {accomplishment.tags.length > 0 && (
-              <div className={styles.tagList}>
-                {accomplishment.tags.map((tag) => (
-                  <span key={tag} className={styles.tagBadge}>{tag}</span>
-                ))}
-              </div>
-            )}
             {accomplishment.accomplishment_date && (
               <span className={styles.accomplishmentDate}>Accomplished {accomplishment.accomplishment_date}</span>
             )}

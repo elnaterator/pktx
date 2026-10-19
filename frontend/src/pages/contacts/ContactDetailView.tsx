@@ -4,6 +4,7 @@ import { ApiClientError } from '../../types'
 import { mapGroupedLinks } from '../../services/api'
 import { useAllTags, useContactDetail, useContactMutations } from '../../hooks/queries'
 import { LinksPanel } from '../../components/LinksPanel'
+import { TagsPanel } from '../../components/TagsPanel'
 import DetailLayout from '../../components/DetailLayout'
 import Breadcrumb from '../../components/Breadcrumb'
 import NotFound from '../../components/NotFound'
@@ -71,7 +72,7 @@ export default function ContactDetailView() {
         last_contacted_date: data.last_contacted_date ?? null,
         followup_date: data.followup_date ?? null,
         notes: data.notes,
-        tags: data.tags ?? [],
+        tags: contact.tags ?? [],
       },
     })
     setEditing(false)
@@ -100,12 +101,19 @@ export default function ContactDetailView() {
 
       <DetailLayout
         sidebar={
-          <LinksPanel
-            resourceType="contact"
-            resourceId={numericId}
-            links={mapGroupedLinks(contact.links as Record<string, unknown[]>)}
-            onChange={reloadContact}
-          />
+          <>
+            <TagsPanel
+              tags={contact.tags ?? []}
+              allTags={allTags}
+              onSave={(tags) => update.mutateAsync({ id: numericId, data: { tags } })}
+            />
+            <LinksPanel
+              resourceType="contact"
+              resourceId={numericId}
+              links={mapGroupedLinks(contact.links as Record<string, unknown[]>)}
+              onChange={reloadContact}
+            />
+          </>
         }
       >
         {editing ? (

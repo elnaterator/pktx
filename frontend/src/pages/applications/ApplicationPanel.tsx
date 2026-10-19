@@ -77,26 +77,9 @@ export function ApplicationPanel({
     <div className={mode === 'create' ? styles.panelCreate : undefined}>
       {/* Top bar: labels row above values/inputs row */}
       <div className={styles.topBar}>
-        <div className={styles.topBarLabels}>
-          <span className={styles.topBarLabel}>Company</span>
-          <span className={styles.topBarLabel}>Position</span>
-        </div>
-
-        <div className={styles.topBarMain}>
+        <div className={isEditable ? styles.topBarMainEdit : styles.topBarMain}>
           {isEditable ? (
             <>
-              <div className={styles.topBarField}>
-                <input
-                  className={styles.titleInput}
-                  type="text"
-                  placeholder="Company"
-                  aria-label="Company *"
-                  aria-invalid={!!errors.company}
-                  autoFocus={mode === 'create'}
-                  {...register('company')}
-                />
-                <FieldError error={errors.company} />
-              </div>
               <div className={styles.topBarField}>
                 <input
                   className={styles.titleInput}
@@ -104,16 +87,30 @@ export function ApplicationPanel({
                   placeholder="Position"
                   aria-label="Position *"
                   aria-invalid={!!errors.position}
+                  autoFocus={mode === 'create'}
                   {...register('position')}
                 />
                 <FieldError error={errors.position} />
               </div>
+              <span className={styles.topBarAt}>@</span>
+              <div className={styles.topBarField}>
+                <input
+                  className={styles.titleInput}
+                  type="text"
+                  placeholder="Company"
+                  aria-label="Company *"
+                  aria-invalid={!!errors.company}
+                  {...register('company')}
+                />
+                <FieldError error={errors.company} />
+              </div>
             </>
           ) : (
-            <>
-              <span className={styles.topBarValue}>{application?.company}</span>
-              <span className={styles.topBarValue}>{application?.position}</span>
-            </>
+            <h2 className={styles.topBarTitle}>
+              {application?.position}
+              <span className={styles.topBarAt}> @ </span>
+              {application?.company}
+            </h2>
           )}
         </div>
 
@@ -153,7 +150,7 @@ export function ApplicationPanel({
 
       {/* Meta: tags + date */}
       {isEditable ? (
-        <div className={styles.metaEdit}>
+        mode === 'create' && <div className={styles.metaEdit}>
           <div className={styles.metaField}>
             <span className={styles.metaLabel}>Tags</span>
             <Controller
@@ -173,13 +170,6 @@ export function ApplicationPanel({
         </div>
       ) : (
         <div className={styles.meta}>
-          {application?.tags && application.tags.length > 0 && (
-            <div className={styles.tagList}>
-              {application.tags.map((tag) => (
-                <span key={tag} className={styles.tagBadge}>{tag}</span>
-              ))}
-            </div>
-          )}
           {application?.updated_at && (
             <span className={styles.updatedDate}>
               Updated {new Date(application.updated_at).toLocaleDateString()}

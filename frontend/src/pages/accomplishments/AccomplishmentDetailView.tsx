@@ -8,6 +8,7 @@ import {
   useAllTags,
 } from '../../hooks/queries'
 import { LinksPanel } from '../../components/LinksPanel'
+import { TagsPanel } from '../../components/TagsPanel'
 import DetailLayout from '../../components/DetailLayout'
 import Breadcrumb from '../../components/Breadcrumb'
 import NotFound from '../../components/NotFound'
@@ -60,7 +61,7 @@ export default function AccomplishmentDetailView() {
         action: data.action,
         result: data.result,
         accomplishment_date: data.accomplishment_date ?? null,
-        tags: data.tags ?? [],
+        tags: acc.tags ?? [],
       },
     })
     setEditing(false)
@@ -89,12 +90,19 @@ export default function AccomplishmentDetailView() {
 
       <DetailLayout
         sidebar={
-          <LinksPanel
-            resourceType="accomplishment"
-            resourceId={numericId}
-            links={mapGroupedLinks(acc.links as Record<string, unknown[]>)}
-            onChange={() => detailQuery.refetch()}
-          />
+          <>
+            <TagsPanel
+              tags={acc.tags ?? []}
+              allTags={allTags}
+              onSave={(tags) => update.mutateAsync({ id: numericId, data: { tags } })}
+            />
+            <LinksPanel
+              resourceType="accomplishment"
+              resourceId={numericId}
+              links={mapGroupedLinks(acc.links as Record<string, unknown[]>)}
+              onChange={() => detailQuery.refetch()}
+            />
+          </>
         }
       >
         {editing ? (
