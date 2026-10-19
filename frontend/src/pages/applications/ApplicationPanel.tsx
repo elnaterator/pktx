@@ -1,7 +1,5 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Pencil, Trash2, Check, X } from 'lucide-react'
-import { ICON_SIZE } from '../../theme'
 import { FieldError } from '../../components/FieldError'
 import { TagInput } from '../../components/TagInput'
 import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
@@ -11,6 +9,8 @@ import { applicationCreateSchema, APPLICATION_STATUSES } from '../../schemas/app
 import type { ApplicationCreateInput } from '../../schemas/application'
 import type { Application } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
+import { PanelHeader } from '../../components/PanelHeader'
+import panelHeaderStyles from '../../components/PanelHeader.module.css'
 import styles from './ApplicationPanel.module.css'
 
 export type ApplicationPanelInput = ApplicationCreateInput
@@ -77,77 +77,50 @@ export function ApplicationPanel({
   return (
     <div className={mode === 'create' ? styles.panelCreate : undefined}>
       {/* Top bar: labels row above values/inputs row */}
-      <div className={styles.topBar}>
-        <div className={isEditable ? styles.topBarMainEdit : styles.topBarMain}>
-          {isEditable ? (
-            <>
-              <div className={styles.topBarField}>
-                <input
-                  className={styles.titleInput}
-                  type="text"
-                  placeholder="Position"
-                  aria-label="Position *"
-                  aria-invalid={!!errors.position}
-                  autoFocus={mode === 'create'}
-                  {...register('position')}
-                />
-                <FieldError error={errors.position} />
-              </div>
-              <span className={styles.topBarAt}>@</span>
-              <div className={styles.topBarField}>
-                <input
-                  className={styles.titleInput}
-                  type="text"
-                  placeholder="Company"
-                  aria-label="Company *"
-                  aria-invalid={!!errors.company}
-                  {...register('company')}
-                />
-                <FieldError error={errors.company} />
-              </div>
-            </>
-          ) : (
-            <h2 className={styles.topBarTitle}>
-              {application?.position}
-              <span className={styles.topBarAt}> @ </span>
-              {application?.company}
-            </h2>
-          )}
-        </div>
-
-        <div className={styles.topBarActions}>
-          {isEditable ? (
-            <>
-              <button
-                type="button"
-                className={styles.saveIconButton}
-                onClick={handleFormSave}
-                disabled={isSubmitting}
-                aria-label="Save"
-              >
-                <Check size={ICON_SIZE.md} />
-              </button>
-              <button
-                type="button"
-                className={styles.cancelIconButton}
-                onClick={onCancel}
-                aria-label="Cancel"
-              >
-                <X size={ICON_SIZE.md} />
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" className={styles.editButton} onClick={onEdit} aria-label="Edit application">
-                <Pencil size={ICON_SIZE.md} />
-              </button>
-              <button type="button" className={styles.deleteButton} onClick={onDelete} aria-label="Delete application">
-                <Trash2 size={ICON_SIZE.md} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      <PanelHeader
+        editing={isEditable}
+        entity="application"
+        title={
+          <>
+            {application?.position}
+            <span className={styles.titleAt}> @ </span>
+            {application?.company}
+          </>
+        }
+        titleEditor={
+          <div className={styles.titleEdit}>
+            <div className={styles.titleField}>
+              <input
+                className={panelHeaderStyles.titleInput}
+                type="text"
+                placeholder="Position"
+                aria-label="Position *"
+                aria-invalid={!!errors.position}
+                autoFocus={mode === 'create'}
+                {...register('position')}
+              />
+              <FieldError error={errors.position} />
+            </div>
+            <span className={styles.titleAt}>@</span>
+            <div className={styles.titleField}>
+              <input
+                className={panelHeaderStyles.titleInput}
+                type="text"
+                placeholder="Company"
+                aria-label="Company *"
+                aria-invalid={!!errors.company}
+                {...register('company')}
+              />
+              <FieldError error={errors.company} />
+            </div>
+          </div>
+        }
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onSave={handleFormSave}
+        onCancel={onCancel}
+        saving={isSubmitting}
+      />
 
       {/* Meta: tags + date */}
       {isEditable ? (

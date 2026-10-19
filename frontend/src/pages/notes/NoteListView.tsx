@@ -8,6 +8,8 @@ import { useToast } from '../../components/toast'
 import { NotePanel } from './NotePanel'
 import type { NoteCreateInput } from '../../schemas/note'
 import type { SearchValue } from '../../types'
+import { Button } from '../../components/Button'
+import { TagList } from '../../components/TagList'
 import styles from './NoteListView.module.css'
 
 export default function NoteListView() {
@@ -49,12 +51,12 @@ export default function NoteListView() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h2 className={styles.heading}>Notes</h2>
-        <button
-          className={styles.newButton}
+        <Button
+          variant="link"
           onClick={() => setShowForm((v) => !v)}
         >
           {showForm ? 'Cancel' : 'New Note'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
@@ -85,13 +87,7 @@ export default function NoteListView() {
                 <div className={styles.itemMain}>
                   <span className={styles.itemTitle}>{note.title}</span>
                 </div>
-                {note.tags.length > 0 && (
-                  <div className={styles.tagList}>
-                    {note.tags.map((tag) => (
-                      <span key={tag} className={styles.tagBadge}>{tag}</span>
-                    ))}
-                  </div>
-                )}
+                <TagList tags={note.tags} />
                 <div className={styles.itemMeta}>
                   <span>{new Date(note.updated_at).toLocaleDateString()}</span>
                   {!!note.link_count && (

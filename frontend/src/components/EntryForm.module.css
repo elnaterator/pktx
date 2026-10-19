@@ -38,11 +38,6 @@
   min-height: 4rem;
 }
 
-.error {
-  color: var(--status-error);
-  font-size: var(--font-size-4);
-}
-
 .fieldRow {
   display: flex;
   gap: var(--space-3);
@@ -77,23 +72,6 @@
   color: var(--text-primary);
 }
 
-.removeButton {
-  padding: var(--space-1) var(--space-2);
-  background: none;
-  color: var(--text-muted);
-  border: none;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-  transition: color var(--transition-fast);
-}
-
-.removeButton:hover {
-  color: var(--status-error);
-}
-
 .addButton {
   padding: var(--space-3) var(--space-6);
   background-color: var(--bg-active);
@@ -113,25 +91,4 @@
   display: flex;
   justify-content: flex-end;
   gap: var(--space-1);
-}
-
-.saveIconButton,
-.cancelIconButton {
-  background: none;
-  border: none;
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-muted);
-  transition: color var(--transition-fast);
-}
-
-.saveIconButton:hover {
-  color: var(--accent-green);
-}
-
-.cancelIconButton:hover {
-  color: var(--status-error);
 }

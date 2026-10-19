@@ -33,42 +33,6 @@
   margin-bottom: var(--space-4);
 }
 
-.tagsRow {
-  margin-bottom: var(--space-8);
-}
-
-.tagsDisplay {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.tagsEdit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tagBadge {
-  font-size: var(--font-size-4);
-  font-weight: var(--font-weight-medium);
-  padding: var(--space-1) var(--space-3);
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-}
-
-.tagsPlaceholder {
-  font-size: var(--font-size-4);
-  color: var(--text-muted);
-}
-
 .labelDisplay {
   display: flex;
   align-items: center;
@@ -80,30 +44,6 @@
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
-}
-
-.iconBtn {
-  color: var(--text-muted);
-  cursor: pointer;
-  background: none;
-  border: none;
-  padding: var(--space-1) var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--transition-fast);
-}
-
-.iconBtn:hover {
-  color: var(--accent-green);
-}
-
-.saveIcon:hover {
-  color: var(--accent-green);
-}
-
-.cancelIcon:hover {
-  color: var(--status-error);
 }
 
 .labelEdit {
@@ -119,26 +59,6 @@
   color: var(--text-primary);
   width: 20rem;
   max-width: 100%;
-}
-
-.setDefaultButton {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-  border: none;
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.setDefaultButton:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.deleteButton:hover {
-  color: var(--status-error);
 }
 
 .document {

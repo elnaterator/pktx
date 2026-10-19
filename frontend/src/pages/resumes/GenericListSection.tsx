@@ -11,6 +11,7 @@ import { useResumeMutations } from '../../hooks/queries'
 import { buildEntrySchema } from '../../schemas/resumeEntry'
 import SectionHeader from './SectionHeader'
 import { OWN_LINE_FIELDS, dateRange, fieldsOf, hasDateRange } from './sectionFields'
+import { IconButton } from '../../components/IconButton'
 import styles from './GenericListSection.module.css'
 
 interface GenericListSectionProps {
@@ -314,20 +315,17 @@ export default function GenericListSection({
                   <EntryView meta={meta} fields={fields} entry={entry} />
                   <div className={styles.entryActions}>
                     {row.handle}
-                    <button
-                      className={styles.editButton}
+                    <IconButton
+                      icon={Pencil}
+                      label={`Edit ${noun}`}
                       onClick={() => setMode({ type: 'edit', id: entryId })}
-                      aria-label={`Edit ${noun}`}
-                    >
-                      <Pencil size={ICON_SIZE.md} />
-                    </button>
-                    <button
-                      className={styles.deleteButton}
+                    />
+                    <IconButton
+                      icon={Trash2}
+                      label={`Delete ${noun}`}
+                      tone="danger"
                       onClick={() => setMode({ type: 'delete', id: entryId })}
-                      aria-label={`Delete ${noun}`}
-                    >
-                      <Trash2 size={ICON_SIZE.md} />
-                    </button>
+                    />
                   </div>
                 </div>
               </div>

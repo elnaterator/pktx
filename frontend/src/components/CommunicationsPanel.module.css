@@ -17,21 +17,6 @@
   margin: 0;
 }
 
-.addBtn {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-  padding: var(--space-1) var(--space-4);
-  font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.addBtn:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
 .empty {
   color: var(--text-muted);
   font-size: var(--font-size-5);
@@ -49,34 +34,6 @@
   justify-content: flex-end;
   gap: var(--space-1);
   margin-bottom: var(--space-3);
-}
-
-.saveIconBtn,
-.cancelIconBtn {
-  background-color: var(--bg-input);
-  border: none;
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.saveIconBtn:hover:not(:disabled) {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.saveIconBtn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.cancelIconBtn:hover {
-  background-color: var(--bg-active);
-  color: var(--status-error);
 }
 
 .formGrid {
@@ -247,38 +204,6 @@
   display: flex;
   gap: var(--space-1);
   flex-shrink: 0;
-}
-
-.editBtn {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-1);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.editBtn:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.deleteBtn {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-1);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.deleteBtn:hover {
-  background-color: var(--status-error-bg-hover);
-  color: var(--status-error);
 }
 
 .chevron {

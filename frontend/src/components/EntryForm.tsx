@@ -2,12 +2,13 @@ import { FormEvent } from 'react'
 import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Check, X, Trash2 } from 'lucide-react'
-import { ICON_SIZE } from '../theme'
+import { Trash2 } from 'lucide-react'
 import { AutoResizeTextarea } from './AutoResizeTextarea'
 import { DateInput } from './DateInput'
 import SortableList from './SortableList'
 import { FieldError } from './FieldError'
+import { EditActions } from './EditActions'
+import { IconButton } from './IconButton'
 import styles from './EntryForm.module.css'
 
 export interface FieldConfig {
@@ -155,12 +156,7 @@ export function EntryForm({ fields, schema, defaultValues = {}, onSubmit, onCanc
   return (
     <form className={styles.form} onSubmit={handleFormSubmit} noValidate>
       <div className={styles.formHeader}>
-        <button type="submit" className={styles.saveIconButton} aria-label="Save">
-          <Check size={ICON_SIZE.md} />
-        </button>
-        <button type="button" className={styles.cancelIconButton} onClick={onCancel} aria-label="Cancel">
-          <X size={ICON_SIZE.md} />
-        </button>
+        <EditActions editing saveType="submit" onCancel={onCancel} />
       </div>
       {rows.map((row) => {
         if (Array.isArray(row)) {
@@ -198,14 +194,12 @@ export function EntryForm({ fields, schema, defaultValues = {}, onSubmit, onCanc
                           value={form.watch(`${field.name}.${index}.value` as keyof InternalValues) as string ?? ''}
                           onChange={(value) => form.setValue(`${field.name}.${index}.value` as keyof InternalValues, value as InternalValues[keyof InternalValues])}
                         />
-                        <button
-                          type="button"
-                          className={styles.removeButton}
+                        <IconButton
+                          icon={Trash2}
+                          label="Remove"
+                          tone="danger"
                           onClick={() => highlightsArray.remove(index)}
-                          aria-label="Remove"
-                        >
-                          <Trash2 size={ICON_SIZE.md} />
-                        </button>
+                        />
                       </div>
                     )
                   }}

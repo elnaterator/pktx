@@ -14,24 +14,6 @@
   margin: 0;
 }
 
-.addButton {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  padding: var(--space-1) var(--space-4);
-  font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.addButton:hover {
-  color: var(--accent-green);
-}
-
 .empty {
   font-size: var(--font-size-4);
   color: var(--text-secondary);

@@ -1,0 +1,105 @@
+/*
+ * Shared button styles for <Button> and <IconButton>. Add a variant here
+ * rather than styling a <button> in a page module.
+ */
+
+.button,
+.iconButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  border: none;
+  font-family: var(--font-mono);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.button:disabled,
+.iconButton:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ── <Button> sizes ─────────────────────────────────────────────── */
+
+.sm {
+  padding: var(--space-2) var(--space-4);
+  font-size: var(--font-size-4);
+}
+
+.md {
+  padding: var(--space-3) var(--space-6);
+  font-size: var(--font-size-6);
+}
+
+.lg {
+  padding: var(--space-5) var(--space-9);
+  font-size: var(--font-size-6);
+  font-weight: var(--font-weight-semibold);
+}
+
+/* ── <Button> variants ──────────────────────────────────────────── */
+
+/* Solid accent: the one main call to action on a screen. */
+.primary {
+  background-color: var(--accent-green);
+  color: var(--bg-primary);
+}
+
+.primary:hover:not(:disabled) {
+  background-color: var(--accent-green-dim);
+}
+
+/* Quiet filled: neutral actions (cancel, set default, add). */
+.secondary {
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.secondary:hover:not(:disabled) {
+  background-color: var(--bg-active);
+  color: var(--text-primary);
+}
+
+/* Destructive confirmation. */
+.danger {
+  background-color: var(--status-error-bg-hover);
+  color: var(--status-error);
+}
+
+.danger:hover:not(:disabled) {
+  background-color: var(--status-error-bg-strong);
+}
+
+/* Text-only accent action ("New Note", inline confirm). */
+.link {
+  background: none;
+  color: var(--accent-green);
+  font-weight: var(--font-weight-medium);
+}
+
+.link:hover:not(:disabled) {
+  color: var(--accent-green-dim);
+}
+
+/* ── <IconButton> ───────────────────────────────────────────────── */
+
+.iconButton {
+  flex-shrink: 0;
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  color: var(--text-muted);
+}
+
+.accent:hover:not(:disabled) {
+  color: var(--accent-green);
+}
+
+.dangerTone:hover:not(:disabled) {
+  color: var(--status-error);
+}
+
+.neutral:hover:not(:disabled) {
+  color: var(--text-primary);
+}

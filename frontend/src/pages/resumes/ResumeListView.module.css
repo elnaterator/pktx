@@ -16,26 +16,6 @@
   margin: 0;
 }
 
-.newButton {
-  background: none;
-  color: var(--accent-green);
-  padding: var(--space-3) var(--space-6);
-  font-weight: var(--font-weight-medium);
-  border: none;
-  cursor: pointer;
-  transition: color var(--transition-fast);
-  font-family: var(--font-mono);
-}
-
-.newButton:hover {
-  color: var(--accent-green-dim);
-}
-
-.newButton:focus {
-  outline: 1px solid var(--border-hover);
-  outline-offset: 2px;
-}
-
 .filters {
   display: flex;
   gap: var(--space-4);
@@ -85,12 +65,4 @@
 
 .linkCount {
   composes: linkCount from '../../components/listRow.module.css';
-}
-
-.tagList {
-  composes: tagList from '../../components/listRow.module.css';
-}
-
-.tagBadge {
-  composes: tagBadge from '../../components/listRow.module.css';
 }

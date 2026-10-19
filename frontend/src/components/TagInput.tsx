@@ -1,6 +1,5 @@
 import { useState, useRef, useCallback, KeyboardEvent } from 'react'
-import { X } from 'lucide-react'
-import { ICON_SIZE } from '../theme'
+import { Chip } from './Chip'
 import styles from './TagInput.module.css'
 
 export interface TagInputProps {
@@ -146,18 +145,7 @@ export function TagInput({
     <div className={styles.container}>
       <div className={styles.inputRow}>
         {value.map((tag) => (
-          <span key={tag} className={styles.chip}>
-            <span className={styles.chipLabel}>{tag}</span>
-            <button
-              type="button"
-              className={styles.chipRemove}
-              aria-label={`Remove ${tag}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => removeTag(tag)}
-            >
-              <X size={ICON_SIZE.xs} />
-            </button>
-          </span>
+          <Chip key={tag} label={tag} onRemove={() => removeTag(tag)} />
         ))}
         <input
           ref={inputRef}

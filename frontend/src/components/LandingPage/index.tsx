@@ -1,4 +1,5 @@
 import { SignInButton } from '@clerk/clerk-react'
+import { Button } from '../Button'
 import styles from './LandingPage.module.css'
 
 export default function LandingPage() {
@@ -16,7 +17,7 @@ export default function LandingPage() {
             place — ready for your AI assistant to use when you need them most.
           </p>
           <SignInButton mode="modal">
-            <button className={styles.ctaButton}>Sign in to get started</button>
+            <Button variant="primary" size="lg" className={styles.cta}>Sign in to get started</Button>
           </SignInButton>
         </section>
 

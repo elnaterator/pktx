@@ -14,6 +14,8 @@ import { useToast } from '../../components/toast'
 import { ContactPanel } from './ContactPanel'
 import type { ContactCreateInput } from '../../schemas/contact'
 import type { SearchValue } from '../../types'
+import { Button } from '../../components/Button'
+import { TagList } from '../../components/TagList'
 import styles from './ContactListView.module.css'
 
 export default function ContactListView() {
@@ -79,12 +81,12 @@ export default function ContactListView() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h2 className={styles.heading}>Contacts</h2>
-        <button
-          className={styles.newButton}
+        <Button
+          variant="link"
           onClick={() => setShowForm((v) => !v)}
         >
           {showForm ? 'Cancel' : 'New Contact'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
@@ -147,13 +149,7 @@ export default function ContactListView() {
                     )}
                   </div>
                   <div className={styles.itemRight}>
-                    {contact.tags.length > 0 && (
-                      <div className={styles.tagList}>
-                        {contact.tags.map((tag) => (
-                          <span key={tag} className={styles.tagBadge}>{tag}</span>
-                        ))}
-                      </div>
-                    )}
+                    <TagList tags={contact.tags} />
                     <span className={styles.updatedDate}>Updated {new Date(contact.updated_at).toLocaleDateString()}</span>
                   </div>
                 </div>

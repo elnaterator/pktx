@@ -16,41 +16,11 @@
   margin: 0;
 }
 
-.newButton {
-  background: none;
-  color: var(--accent-green);
-  padding: var(--space-3) var(--space-6);
-  font-weight: var(--font-weight-medium);
-  border: none;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-  font-family: var(--font-mono);
-}
-
-.newButton:hover {
-  color: var(--accent-green-dim);
-}
-
 /* Filters */
 .filters {
   display: flex;
   gap: var(--space-4);
   margin-bottom: var(--space-6);
-}
-
-.filterSelect {
-  padding: var(--space-3) var(--space-4);
-  border: 1px solid var(--border-primary);
-  font-size: var(--font-size-5);
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  min-width: 8rem;
-}
-
-.filterSelect:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 /* List */
@@ -87,20 +57,9 @@
   composes: linkCount from '../../components/listRow.module.css';
 }
 
-.tagList {
-  composes: tagList from '../../components/listRow.module.css';
-}
-
-.tagBadge {
-  composes: tagBadge from '../../components/listRow.module.css';
-}
-
 @media (max-width: 640px) {
   .filters {
     flex-direction: column;
   }
 
-  .filterSelect {
-    min-width: unset;
-  }
 }

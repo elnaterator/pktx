@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import NoteDetailView from '../../pages/notes/NoteDetailView'
@@ -49,10 +49,9 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    const tagBadges = document.querySelectorAll('[class*="tagBadge"]')
-    const tagTexts = Array.from(tagBadges).map((el) => el.textContent)
-    expect(tagTexts).toContain('python')
-    expect(tagTexts).toContain('async')
+    const tagsPanel = within(screen.getByTestId('tags-panel'))
+    expect(tagsPanel.getByText('python')).toBeInTheDocument()
+    expect(tagsPanel.getByText('async')).toBeInTheDocument()
   })
 
   it('edit button switches to edit mode with pre-populated fields', async () => {

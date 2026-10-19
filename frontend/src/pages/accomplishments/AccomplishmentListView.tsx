@@ -12,6 +12,8 @@ import { useToast } from '../../components/toast'
 import { AccomplishmentPanel } from './AccomplishmentPanel'
 import type { AccomplishmentCreateInput } from '../../schemas/accomplishment'
 import type { SearchValue } from '../../types'
+import { Button } from '../../components/Button'
+import { TagList } from '../../components/TagList'
 import styles from './AccomplishmentListView.module.css'
 
 export default function AccomplishmentListView() {
@@ -57,12 +59,12 @@ export default function AccomplishmentListView() {
     <div className={styles.container}>
       <div className={styles.header}>
         <h2 className={styles.heading}>Accomplishments</h2>
-        <button
-          className={styles.newButton}
+        <Button
+          variant="link"
           onClick={() => setShowForm((v) => !v)}
         >
           {showForm ? 'Cancel' : 'New Accomplishment'}
-        </button>
+        </Button>
       </div>
 
       {showForm && (
@@ -93,13 +95,7 @@ export default function AccomplishmentListView() {
                 <div className={styles.itemMain}>
                   <span className={styles.itemTitle}>{acc.title}</span>
                 </div>
-                {acc.tags.length > 0 && (
-                  <div className={styles.tagList}>
-                    {acc.tags.map((tag) => (
-                      <span key={tag} className={styles.tagBadge}>{tag}</span>
-                    ))}
-                  </div>
-                )}
+                <TagList tags={acc.tags} />
                 <div className={styles.itemMeta}>
                   {acc.accomplishment_date && (
                     <span>{acc.accomplishment_date}</span>

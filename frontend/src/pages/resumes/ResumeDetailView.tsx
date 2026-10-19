@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Trash2, Pencil, Check, X, Star } from 'lucide-react'
+import { Trash2, Pencil, Star } from 'lucide-react'
 import { ICON_SIZE } from '../../theme'
 import { mapGroupedLinks } from '../../services/api'
 import {
@@ -28,6 +28,9 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LinksPanel } from '../../components/LinksPanel'
 import DetailLayout from '../../components/DetailLayout'
 import { ApiClientError, type ListEntry, type ListSectionKey } from '../../types'
+import { Button } from '../../components/Button'
+import { EditActions } from '../../components/EditActions'
+import { IconButton } from '../../components/IconButton'
 import styles from './ResumeDetailView.module.css'
 
 export default function ResumeDetailView() {
@@ -184,17 +187,16 @@ export default function ResumeDetailView() {
         <div className={styles.topBar}>
           <div className={styles.topBarActions}>
             {!version.is_default && (
-              <button className={styles.setDefaultButton} onClick={handleSetDefault}>
+              <Button size="sm" onClick={handleSetDefault}>
                 Set as Default
-              </button>
+              </Button>
             )}
-            <button
-              className={`${styles.iconBtn} ${styles.deleteButton}`}
+            <IconButton
+              icon={Trash2}
+              label="Delete resume version"
+              tone="danger"
               onClick={() => setConfirmDelete(true)}
-              aria-label="Delete resume version"
-            >
-              <Trash2 size={ICON_SIZE.md} />
-            </button>
+            />
           </div>
         </div>
 
@@ -210,12 +212,14 @@ export default function ResumeDetailView() {
                 }}
                 {...registerLabel('label')}
               />
-              <button className={`${styles.iconBtn} ${styles.saveIcon}`} onClick={handleLabelSave} disabled={labelSubmitting} aria-label="Save label">
-                <Check size={ICON_SIZE.md} />
-              </button>
-              <button className={`${styles.iconBtn} ${styles.cancelIcon}`} onClick={() => setEditingLabel(false)} aria-label="Cancel editing">
-                <X size={ICON_SIZE.md} />
-              </button>
+              <EditActions
+                editing
+                onSave={handleLabelSave}
+                onCancel={() => setEditingLabel(false)}
+                saving={labelSubmitting}
+                saveLabel="Save label"
+                cancelLabel="Cancel editing"
+              />
             </div>
           ) : (
             <div className={styles.labelDisplay}>
@@ -226,9 +230,11 @@ export default function ResumeDetailView() {
                   Default
                 </span>
               )}
-              <button className={styles.iconBtn} onClick={() => { resetLabel({ label: version.label }); setEditingLabel(true) }} aria-label="Edit label">
-                <Pencil size={ICON_SIZE.md} />
-              </button>
+              <IconButton
+                icon={Pencil}
+                label="Edit label"
+                onClick={() => { resetLabel({ label: version.label }); setEditingLabel(true) }}
+              />
             </div>
           )}
         </div>

@@ -31,32 +31,3 @@
   justify-content: flex-end;
   gap: var(--space-4);
 }
-
-.cancelButton,
-.confirmButton {
-  padding: var(--space-3) var(--space-7);
-  border: none;
-  font-size: var(--font-size-5);
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: background-color var(--transition-default);
-}
-
-.cancelButton {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-}
-
-.cancelButton:hover {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-}
-
-.confirmButton {
-  background-color: var(--status-error-bg-hover);
-  color: var(--status-error);
-}
-
-.confirmButton:hover {
-  background-color: var(--status-error-bg-strong);
-}

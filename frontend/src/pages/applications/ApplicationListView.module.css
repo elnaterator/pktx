@@ -16,21 +16,6 @@
   margin: 0;
 }
 
-.newButton {
-  background: none;
-  color: var(--accent-green);
-  padding: var(--space-3) var(--space-6);
-  font-weight: var(--font-weight-medium);
-  border: none;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-  font-family: var(--font-mono);
-}
-
-.newButton:hover {
-  color: var(--accent-green-dim);
-}
-
 /* Filters */
 .filters {
   display: flex;
@@ -129,14 +114,6 @@
 .statusAccepted {
   background-color: var(--status-green-bg-strong);
   color: var(--accent-green);
-}
-
-.tagList {
-  composes: tagList from '../../components/listRow.module.css';
-}
-
-.tagBadge {
-  composes: tagBadge from '../../components/listRow.module.css';
 }
 
 .itemMeta {

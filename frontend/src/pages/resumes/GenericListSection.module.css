@@ -49,10 +49,6 @@
   font-style: italic;
 }
 
-.entryLocation {
-  color: var(--text-muted);
-}
-
 .highlights {
   margin: var(--space-2) 0 0 var(--space-7);
   padding: 0;
@@ -76,36 +72,6 @@
   display: flex;
   gap: var(--space-2);
   flex-shrink: 0;
-}
-
-.editButton {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--transition-fast);
-}
-
-.editButton:hover {
-  color: var(--accent-green);
-}
-
-.deleteButton {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-
-.deleteButton:hover {
-  color: var(--status-error);
 }
 
 .entryLink {

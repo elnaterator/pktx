@@ -9,6 +9,7 @@ import {
   useNoteList,
   useResumeList,
 } from '../hooks/queries'
+import { IconButton } from './IconButton'
 import styles from './LinkPickerModal.module.css'
 
 type TabId = 'all' | ResourceType
@@ -146,9 +147,7 @@ export function LinkPickerModal({
       <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Link picker">
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>Link to resource</h3>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close">
-            <X size={ICON_SIZE.lg} />
-          </button>
+          <IconButton icon={X} iconSize={ICON_SIZE.lg} label="Close" tone="neutral" onClick={onClose} />
         </div>
 
         <div className={styles.toolbar}>

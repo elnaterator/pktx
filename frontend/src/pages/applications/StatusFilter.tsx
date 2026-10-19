@@ -1,6 +1,5 @@
 import { useCallback, useRef, useState, KeyboardEvent } from 'react'
-import { X } from 'lucide-react'
-import { ICON_SIZE } from '../../theme'
+import { Chip } from '../../components/Chip'
 import styles from './StatusFilter.module.css'
 
 export interface StatusFilterProps {
@@ -64,21 +63,14 @@ export function StatusFilter({ value, onChange, options, placeholder = 'Filter b
         onBlur={handleBlur}
       >
         {value.map((status) => (
-          <span key={status} className={styles.chip}>
-            <span className={styles.chipLabel}>{status}</span>
-            <button
-              type="button"
-              className={styles.chipRemove}
-              aria-label={`Remove ${status}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={(e) => {
-                e.stopPropagation()
-                removeStatus(status)
-              }}
-            >
-              <X size={ICON_SIZE.xs} />
-            </button>
-          </span>
+          <Chip
+            key={status}
+            label={status}
+            onRemove={(e) => {
+              e.stopPropagation()
+              removeStatus(status)
+            }}
+          />
         ))}
         {value.length === 0 && <span className={styles.placeholder}>{placeholder}</span>}
       </div>

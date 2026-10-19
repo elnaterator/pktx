@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { Pencil, Check, X } from 'lucide-react'
-import { ICON_SIZE } from '../theme'
 import { TagInput } from './TagInput'
 import { useToast } from './toast'
+import { EditActions } from './EditActions'
+import { TagList } from './TagList'
 import styles from './TagsPanel.module.css'
 
 interface TagsPanelProps {
@@ -38,29 +38,21 @@ export function TagsPanel({ tags, allTags, onSave }: TagsPanelProps) {
     <div className={styles.panel} data-testid="tags-panel">
       <div className={styles.header}>
         <h3 className={styles.title}>Tags</h3>
-        {editing ? (
-          <div className={styles.actions}>
-            <button type="button" className={`${styles.iconBtn} ${styles.save}`} onClick={save} disabled={saving} aria-label="Save tags">
-              <Check size={ICON_SIZE.md} />
-            </button>
-            <button type="button" className={`${styles.iconBtn} ${styles.cancel}`} onClick={() => setEditing(false)} aria-label="Cancel editing tags">
-              <X size={ICON_SIZE.md} />
-            </button>
-          </div>
-        ) : (
-          <button type="button" className={styles.iconBtn} onClick={startEdit} aria-label="Edit tags">
-            <Pencil size={ICON_SIZE.md} />
-          </button>
-        )}
+        <EditActions
+          editing={editing}
+          onEdit={startEdit}
+          onSave={save}
+          onCancel={() => setEditing(false)}
+          saving={saving}
+          editLabel="Edit tags"
+          saveLabel="Save tags"
+          cancelLabel="Cancel editing tags"
+        />
       </div>
       {editing ? (
         <TagInput value={draft} onChange={setDraft} availableTags={allTags} allowCreate placeholder="Add tag..." />
       ) : tags.length > 0 ? (
-        <div className={styles.tagList}>
-          {tags.map((tag) => (
-            <span key={tag} className={styles.tagBadge}>{tag}</span>
-          ))}
-        </div>
+        <TagList tags={tags} />
       ) : (
         <p className={styles.empty}>No tags</p>
       )}

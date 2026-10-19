@@ -8,6 +8,8 @@ import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { InlineCreateForm } from '../../components/InlineCreateForm'
 import { useToast } from '../../components/toast'
 import type { SearchValue } from '../../types'
+import { Button } from '../../components/Button'
+import { TagList } from '../../components/TagList'
 import styles from './ResumeListView.module.css'
 
 export default function ResumeListView() {
@@ -60,9 +62,9 @@ export default function ResumeListView() {
     <div className={styles.container} data-testid="resume-list-view">
       <div className={styles.header}>
         <h2 className={styles.heading}>Resume Versions</h2>
-        <button className={styles.newButton} onClick={() => setCreating(true)}>
+        <Button variant="link" onClick={() => setCreating(true)}>
           New Version
-        </button>
+        </Button>
       </div>
 
       {creating && (
@@ -98,13 +100,7 @@ export default function ResumeListView() {
                     <span className={styles.defaultBadge}>Default</span>
                   )}
                 </div>
-                {resume.tags && resume.tags.length > 0 && (
-                  <div className={styles.tagList}>
-                    {resume.tags.map((tag) => (
-                      <span key={tag} className={styles.tagBadge}>{tag}</span>
-                    ))}
-                  </div>
-                )}
+                <TagList tags={resume.tags ?? []} />
                 <div className={styles.itemMeta}>
                   <span className={styles.metaItem}>
                     {resume.app_count} application{resume.app_count !== 1 ? 's' : ''}

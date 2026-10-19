@@ -18,40 +18,6 @@
   box-shadow: var(--shadow-focus);
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--font-size-4);
-  font-weight: var(--font-weight-medium);
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-  white-space: nowrap;
-}
-
-.chipLabel {
-  line-height: var(--leading-none);
-}
-
-.chipRemove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  color: var(--accent-green);
-  opacity: 0.7;
-  transition: opacity var(--transition-fast);
-  line-height: var(--leading-none);
-}
-
-.chipRemove:hover {
-  opacity: 1;
-}
-
 .input {
   flex: 1;
   min-width: 6rem;
@@ -69,32 +35,15 @@
 }
 
 .dropdown {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  background-color: var(--bg-hover);
-  border: 1px solid var(--border-primary);
-  list-style: none;
-  margin: 0;
-  padding: var(--space-1) 0;
-  z-index: var(--z-dropdown);
-  max-height: 12rem;
-  overflow-y: auto;
+  composes: menu from './menu.module.css';
 }
 
 .dropdownItem {
-  padding: var(--space-2) var(--space-4);
-  font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
+  composes: item from './menu.module.css';
 }
 
-.dropdownItem:hover,
 .dropdownItemActive {
-  background-color: var(--bg-active);
+  composes: itemActive from './menu.module.css';
 }
 
 .createOption {

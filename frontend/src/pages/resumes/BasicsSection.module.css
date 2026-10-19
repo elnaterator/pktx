@@ -86,12 +86,6 @@
   box-shadow: 0 0 0 var(--space-1) var(--status-error-bg);
 }
 
-.errorText {
-  font-size: var(--font-size-4);
-  color: var(--status-error);
-  margin-top: var(--space-1);
-}
-
 .removeProfile {
   background: none;
   color: var(--text-muted);

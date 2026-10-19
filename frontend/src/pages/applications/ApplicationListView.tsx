@@ -16,6 +16,8 @@ import { StatusFilter } from './StatusFilter'
 import type { ApplicationPanelInput } from './ApplicationPanel'
 import type { SearchValue } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
+import { Button } from '../../components/Button'
+import { TagList } from '../../components/TagList'
 import styles from './ApplicationListView.module.css'
 
 const STATUS_COLORS: Record<string, string> = {
@@ -92,12 +94,12 @@ export default function ApplicationListView() {
     <div className={styles.container} data-testid="application-list-view">
       <div className={styles.header}>
         <h2 className={styles.heading}>Job Applications</h2>
-        <button
-          className={styles.newButton}
+        <Button
+          variant="link"
           onClick={() => setShowNewForm((v) => !v)}
         >
           {showNewForm ? 'Cancel' : 'New Application'}
-        </button>
+        </Button>
       </div>
 
       {showNewForm && (
@@ -141,13 +143,7 @@ export default function ApplicationListView() {
                     {app.status}
                   </span>
                 </div>
-                {app.tags && app.tags.length > 0 && (
-                  <div className={styles.tagList}>
-                    {app.tags.map((tag) => (
-                      <span key={tag} className={styles.tagBadge}>{tag}</span>
-                    ))}
-                  </div>
-                )}
+                <TagList tags={app.tags ?? []} />
                 <div className={styles.itemMeta}>
                   <span>Updated {formatDate(app.updated_at)}</span>
                   {!!app.link_count && (

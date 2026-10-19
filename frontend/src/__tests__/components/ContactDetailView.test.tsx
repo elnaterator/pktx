@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import ContactDetailView from '../../pages/contacts/ContactDetailView'
@@ -78,10 +78,9 @@ describe('ContactDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Jane Doe').length).toBeGreaterThan(0)
     })
-    const tagBadges = document.querySelectorAll('[class*="tagBadge"]')
-    const tagTexts = Array.from(tagBadges).map((el) => el.textContent)
-    expect(tagTexts).toContain('hiring')
-    expect(tagTexts).toContain('ml')
+    const tagsPanel = within(screen.getByTestId('tags-panel'))
+    expect(tagsPanel.getByText('hiring')).toBeInTheDocument()
+    expect(tagsPanel.getByText('ml')).toBeInTheDocument()
   })
 
   it('edit button switches to edit mode with pre-populated name', async () => {

@@ -1,6 +1,6 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Pencil, Trash2, Check, X, Mail, Phone, Building2, Briefcase, MapPin, Linkedin, Calendar } from 'lucide-react'
+import { Mail, Phone, Building2, Briefcase, MapPin, Linkedin, Calendar } from 'lucide-react'
 import { ICON_SIZE } from '../../theme'
 import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
 import { TagInput } from '../../components/TagInput'
@@ -10,6 +10,8 @@ import { MarkdownContent } from '../../components/MarkdownContent'
 import { contactCreateSchema, type ContactCreateInput } from '../../schemas/contact'
 import type { Contact } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
+import { PanelHeader } from '../../components/PanelHeader'
+import panelHeaderStyles from '../../components/PanelHeader.module.css'
 import styles from './ContactPanel.module.css'
 
 const RELATIONSHIP_SUGGESTIONS = [
@@ -62,52 +64,26 @@ export function ContactPanel({
 
   return (
     <div className={mode === 'create' ? styles.panelCreate : undefined}>
-      <div className={styles.topBar}>
-        {isEditable ? (
+      <PanelHeader
+        editing={isEditable}
+        entity="contact"
+        title={contact?.name}
+        titleEditor={
           <input
-            className={styles.titleInput}
+            className={panelHeaderStyles.titleInput}
             type="text"
             autoFocus
             placeholder="Full name"
             aria-label="Name"
             {...register('name')}
           />
-        ) : (
-          <h2 className={styles.topBarTitle}>{contact?.name}</h2>
-        )}
-        <div className={styles.topBarActions}>
-          {isEditable ? (
-            <>
-              <button
-                type="button"
-                className={styles.saveIconButton}
-                onClick={handleFormSave}
-                disabled={isSubmitting}
-                aria-label="Save"
-              >
-                <Check size={ICON_SIZE.md} />
-              </button>
-              <button
-                type="button"
-                className={styles.cancelIconButton}
-                onClick={onCancel}
-                aria-label="Cancel"
-              >
-                <X size={ICON_SIZE.md} />
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" className={styles.editButton} onClick={onEdit} aria-label="Edit contact">
-                <Pencil size={ICON_SIZE.md} />
-              </button>
-              <button type="button" className={styles.deleteButton} onClick={onDelete} aria-label="Delete contact">
-                <Trash2 size={ICON_SIZE.md} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+        }
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onSave={handleFormSave}
+        onCancel={onCancel}
+        saving={isSubmitting}
+      />
 
       {errors.name && <p className={styles.formError}>{errors.name.message}</p>}
 

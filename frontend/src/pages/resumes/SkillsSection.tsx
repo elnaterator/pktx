@@ -9,6 +9,7 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkillAdder } from './SkillAdder'
 import SectionHeader from './SectionHeader'
 import SortableList from '../../components/SortableList'
+import { IconButton } from '../../components/IconButton'
 import styles from './SkillsSection.module.css'
 
 interface SkillsSectionProps {
@@ -326,34 +327,23 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
                     {row.handle}
                     {editing ? (
                       <>
-                        <button
-                          className={styles.saveButton}
+                        <IconButton
+                          icon={Check}
+                          label="Save"
                           onClick={() => void saveEdit(group)}
                           disabled={saving}
-                          aria-label="Save"
-                        >
-                          <Check size={ICON_SIZE.md} />
-                        </button>
-                        <button className={styles.cancelButton} onClick={cancelEdit} aria-label="Cancel">
-                          <X size={ICON_SIZE.md} />
-                        </button>
+                        />
+                        <IconButton icon={X} label="Cancel" tone="danger" onClick={cancelEdit} />
                       </>
                     ) : (
                       <>
-                        <button
-                          className={styles.editButton}
-                          onClick={() => startEdit(group)}
-                          aria-label={`Edit ${name} skill`}
-                        >
-                          <Pencil size={ICON_SIZE.md} />
-                        </button>
-                        <button
-                          className={styles.deleteButton}
+                        <IconButton icon={Pencil} label={`Edit ${name} skill`} onClick={() => startEdit(group)} />
+                        <IconButton
+                          icon={Trash2}
+                          label={`Delete ${name} skill`}
+                          tone="danger"
                           onClick={() => setDeletingId(group.id ?? null)}
-                          aria-label={`Delete ${name} skill`}
-                        >
-                          <Trash2 size={ICON_SIZE.md} />
-                        </button>
+                        />
                       </>
                     )}
                   </div>

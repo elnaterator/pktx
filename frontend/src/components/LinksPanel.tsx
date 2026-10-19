@@ -13,6 +13,8 @@ import { ICON_SIZE } from '../theme'
 import type { GroupedLinks, ResourceRef, ResourceType } from '../types'
 import { useLinkMutations } from '../hooks/queries'
 import { LinkPickerModal } from './LinkPickerModal'
+import { Button } from './Button'
+import { IconButton } from './IconButton'
 import styles from './LinksPanel.module.css'
 
 const TYPE_ICON: Record<ResourceType, React.ReactNode> = {
@@ -110,10 +112,10 @@ export function LinksPanel({
     <div className={styles.panel}>
       <div className={styles.header}>
         <h4 className={styles.title}>Links ({count})</h4>
-        <button className={styles.addButton} onClick={() => setShowPicker(true)}>
-          <Plus size={ICON_SIZE.sm} />
+        <Button variant="link" size="sm" onClick={() => setShowPicker(true)}>
+          <Plus size={ICON_SIZE.sm} aria-hidden="true" />
           Link
-        </button>
+        </Button>
       </div>
 
       {nonEmptyTypes.length === 0 ? (
@@ -136,14 +138,15 @@ export function LinksPanel({
                     >
                       {ref.name}
                     </button>
-                    <button
+                    <IconButton
+                      icon={X}
+                      iconSize={ICON_SIZE.sm}
+                      label={`Unlink ${ref.name}`}
+                      tone="danger"
                       className={styles.unlinkButton}
                       onClick={() => handleUnlink(ref)}
                       disabled={unlinking === key}
-                      aria-label={`Unlink ${ref.name}`}
-                    >
-                      <X size={ICON_SIZE.sm} />
-                    </button>
+                    />
                   </li>
                 )
               })}

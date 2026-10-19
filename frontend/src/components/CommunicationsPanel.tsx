@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Pencil, Trash2, Check, X, ChevronDown } from 'lucide-react'
+import { Pencil, Trash2, ChevronDown } from 'lucide-react'
 import { ICON_SIZE } from '../theme'
 import { useForm, Controller, type UseFormRegister, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,6 +22,9 @@ import {
   COMM_STATUSES,
   type CommunicationCreateInput,
 } from '../schemas/communication'
+import { Button } from './Button'
+import { EditActions } from './EditActions'
+import { IconButton } from './IconButton'
 import styles from './CommunicationsPanel.module.css'
 
 const STATUS_CLASS: Record<string, string> = {
@@ -166,29 +169,24 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
       <div className={styles.panelHeader}>
         <h3 className={styles.panelTitle}>Communications</h3>
         {!showAddForm && (
-          <button
-            className={styles.addBtn}
+          <Button
+            size="sm"
             onClick={() => { reset(emptyDefaults()); setShowAddForm(true); setEditTarget(null) }}
           >
             Add Communication
-          </button>
+          </Button>
         )}
       </div>
 
       {showAddForm && (
         <form className={styles.form} onSubmit={onAddSubmit} noValidate>
           <div className={styles.formHeader}>
-            <button type="submit" className={styles.saveIconBtn} disabled={isSubmitting || submitting} aria-label="Save">
-              <Check size={ICON_SIZE.md} />
-            </button>
-            <button
-              type="button"
-              className={styles.cancelIconBtn}
-              onClick={() => { setShowAddForm(false); reset(emptyDefaults()) }}
-              aria-label="Cancel"
-            >
-              <X size={ICON_SIZE.md} />
-            </button>
+            <EditActions
+              editing
+              saveType="submit"
+              saving={isSubmitting || submitting}
+              onCancel={() => { setShowAddForm(false); reset(emptyDefaults()) }}
+            />
           </div>
           <CommFormFields register={register} control={control} allTags={allTags} />
         </form>
@@ -203,17 +201,12 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
               {editTarget?.id === comm.id ? (
                 <form className={styles.form} onSubmit={onEditSubmit} noValidate>
                   <div className={styles.formHeader}>
-                    <button type="submit" className={styles.saveIconBtn} disabled={isSubmitting || submitting} aria-label="Save">
-                      <Check size={ICON_SIZE.md} />
-                    </button>
-                    <button
-                      type="button"
-                      className={styles.cancelIconBtn}
-                      onClick={() => { setEditTarget(null); reset(emptyDefaults()) }}
-                      aria-label="Cancel"
-                    >
-                      <X size={ICON_SIZE.md} />
-                    </button>
+                    <EditActions
+                      editing
+                      saveType="submit"
+                      saving={isSubmitting || submitting}
+                      onCancel={() => { setEditTarget(null); reset(emptyDefaults()) }}
+                    />
                   </div>
                   <CommFormFields register={register} control={control} allTags={allTags} />
                 </form>
@@ -241,16 +234,17 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
                         </div>
                       )}
                       <div className={styles.commActions}>
-                        <button
-                          className={styles.editBtn}
+                        <IconButton
+                          icon={Pencil}
+                          label="Edit communication"
                           onClick={(e) => { e.stopPropagation(); startEdit(comm) }}
-                          aria-label="Edit communication"
-                        ><Pencil size={ICON_SIZE.md} /></button>
-                        <button
-                          className={styles.deleteBtn}
+                        />
+                        <IconButton
+                          icon={Trash2}
+                          label="Delete communication"
+                          tone="danger"
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(comm.id) }}
-                          aria-label="Delete communication"
-                        ><Trash2 size={ICON_SIZE.md} /></button>
+                        />
                       </div>
                       {comm.body && (
                         <ChevronDown

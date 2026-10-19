@@ -51,26 +51,8 @@
   line-height: var(--leading-relaxed);
 }
 
-.ctaButton {
+.cta {
   margin-top: var(--space-3);
-  padding: var(--space-5) var(--space-9);
-  font-size: var(--font-size-6);
-  font-weight: var(--font-weight-semibold);
-  color: var(--bg-primary);
-  background-color: var(--accent-green);
-  border: none;
-  cursor: pointer;
-  font-family: var(--font-mono);
-  transition: background-color var(--transition-fast);
-}
-
-.ctaButton:hover {
-  background-color: var(--accent-green-dim);
-}
-
-.ctaButton:focus {
-  outline: 2px solid var(--accent-green);
-  outline-offset: 2px;
 }
 
 /* Feature cards */

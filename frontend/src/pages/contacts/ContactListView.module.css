@@ -16,21 +16,6 @@
   margin: 0;
 }
 
-.newButton {
-  background: none;
-  color: var(--accent-green);
-  padding: var(--space-3) var(--space-6);
-  font-weight: var(--font-weight-medium);
-  border: none;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-  font-family: var(--font-mono);
-}
-
-.newButton:hover {
-  color: var(--accent-green-dim);
-}
-
 /* Filters */
 .filters {
   display: flex;
@@ -108,14 +93,6 @@
   align-items: center;
   gap: var(--space-4);
   flex-shrink: 0;
-}
-
-.tagList {
-  composes: tagList from '../../components/listRow.module.css';
-}
-
-.tagBadge {
-  composes: tagBadge from '../../components/listRow.module.css';
 }
 
 .updatedDate {
@@ -218,23 +195,6 @@
   font-size: var(--font-size-4);
   color: var(--text-secondary);
   font-family: var(--font-mono);
-}
-
-.parentBadge {
-  font-size: var(--font-size-4);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-}
-
-.parent_application {
-  background-color: var(--accent-blue-bg);
-  color: var(--accent-blue);
-}
-
-.parent_contact {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
 }
 
 .commResultParent {

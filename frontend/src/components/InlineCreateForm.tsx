@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z, ZodTypeAny } from 'zod'
 import { FieldError } from './FieldError'
+import { Button } from './Button'
 import styles from './InlineCreateForm.module.css'
 
 const defaultSchema = z.object({
@@ -71,12 +72,12 @@ export function InlineCreateForm({
         aria-label="Name"
       />
       <div className={styles.buttons}>
-        <button type="submit" className={styles.confirmBtn} disabled={isSubmitting}>
+        <Button type="submit" variant="link" size="sm" disabled={isSubmitting}>
           {isSubmitting ? 'Creating...' : confirmLabel}
-        </button>
-        <button type="button" className={styles.cancelBtn} onClick={onCancel} disabled={isSubmitting}>
+        </Button>
+        <Button type="button" size="sm" onClick={onCancel} disabled={isSubmitting}>
           Cancel
-        </button>
+        </Button>
       </div>
       {errors.name && <FieldError error={errors.name} />}
     </form>
