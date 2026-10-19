@@ -87,20 +87,12 @@
 }
 
 .titleInput {
+  composes: input from '../../components/inlineEdit.module.css';
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
   flex: 1;
-  padding: var(--space-1) var(--space-1);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--accent-green-dim);
-  font-family: inherit;
-  min-width: 0;
-}
-
-.titleInput:focus {
-  outline: none;
+  line-height: 1.2;
 }
 
 .metaEdit {
@@ -126,23 +118,9 @@
 }
 
 .contentTextarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
+  composes: textarea from '../../components/inlineEdit.module.css';
   font-size: 1rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
   color: var(--text-primary);
-  resize: none;
-  overflow: hidden;
-  min-height: 4rem;
-  line-height: 1.5;
-}
-
-.contentTextarea:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 .formError {

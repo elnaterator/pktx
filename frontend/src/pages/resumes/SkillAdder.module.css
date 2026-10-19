@@ -1,15 +1,21 @@
 /* Sized and coloured to sit inline with the skill chips it creates */
 .input {
-  padding: var(--space-1) var(--space-3);
+  padding: var(--space-1) var(--space-2);
   max-width: 100%;
-  background-color: var(--bg-input);
-  border: 1px dashed var(--accent-green-dim);
+  background: var(--edit-tint);
+  border: none;
   border-radius: var(--radius-none);
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 0.875rem;
   line-height: 1.35;
   outline: none;
+}
+
+.input:hover,
+.input:focus {
+  background: var(--edit-tint-strong);
+  box-shadow: none;
 }
 
 .input::placeholder {

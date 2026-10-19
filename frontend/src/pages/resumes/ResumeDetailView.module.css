@@ -120,21 +120,12 @@
 }
 
 .labelInput {
-  font-size: 1.25rem;
-  font-weight: 600;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
+  composes: input from '../../components/inlineEdit.module.css';
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text-primary);
   width: 20rem;
   max-width: 100%;
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-}
-
-.labelInput:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 

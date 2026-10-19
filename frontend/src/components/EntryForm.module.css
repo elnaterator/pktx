@@ -26,26 +26,17 @@
   margin-left: var(--space-1);
 }
 
-.input,
-.textarea {
-  padding: var(--space-1) var(--space-3);
+.input {
+  composes: input from './inlineEdit.module.css';
   font-size: 1rem;
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
   color: var(--text-primary);
 }
 
-.input:focus,
-.textarea:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
-
 .textarea {
-  resize: vertical;
-  min-height: 100px;
+  composes: textarea from './inlineEdit.module.css';
+  font-size: 1rem;
+  color: var(--text-primary);
+  min-height: 4rem;
 }
 
 .error {
@@ -81,29 +72,16 @@
 }
 
 .highlightTextarea {
+  composes: textarea from './inlineEdit.module.css';
   flex: 1;
-  padding: var(--space-1) var(--space-3);
   font-size: 1rem;
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
   color: var(--text-primary);
-  resize: none;
-  overflow: hidden;
-  line-height: 1.5;
-  min-height: 0;
-}
-
-.highlightTextarea:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 .removeButton {
   padding: var(--space-1) var(--space-2);
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
+  background: none;
+  color: var(--text-muted);
   border: none;
   border-radius: var(--radius-none);
   cursor: pointer;
@@ -111,10 +89,11 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  transition: color var(--transition-fast);
 }
 
 .removeButton:hover {
-  background-color: var(--status-error-bg-strong);
+  color: var(--status-error);
 }
 
 .addButton {

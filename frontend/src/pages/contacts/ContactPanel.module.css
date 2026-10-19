@@ -133,93 +133,40 @@
   font-style: italic;
 }
 
-/* Edit layout */
-.editGrid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: var(--space-7);
-  align-items: start;
-}
-
-.editFields {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.fieldGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.fieldLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
 .fieldInput {
-  padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  width: 100%;
-  box-sizing: border-box;
+  composes: input from '../../components/inlineEdit.module.css';
+  font-size: 0.9rem;
+  color: var(--text-secondary);
 }
 
 .fieldInput:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
+  color: var(--text-primary);
 }
 
-.editNotes {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
+.relationshipInput {
+  width: fit-content;
+  min-width: 10rem;
+  font-size: 0.875rem;
+}
+
+.dateLabel {
+  white-space: nowrap;
 }
 
 .notesTextarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: var(--space-3);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
+  composes: textarea from '../../components/inlineEdit.module.css';
   font-size: 1rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
   color: var(--text-primary);
-  resize: none;
-  overflow: hidden;
-  min-height: 8rem;
-  line-height: 1.5;
-}
-
-.notesTextarea:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
+  min-height: 4rem;
 }
 
 .titleInput {
+  composes: input from '../../components/inlineEdit.module.css';
   font-size: 1.25rem;
   font-weight: 700;
   color: var(--text-primary);
   flex: 1;
-  padding: var(--space-1) var(--space-1);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--accent-green-dim);
-  font-family: inherit;
-  min-width: 0;
-}
-
-.titleInput:focus {
-  outline: none;
+  line-height: 1.2;
 }
 
 .formError {
@@ -235,8 +182,7 @@
 }
 
 @media (max-width: 900px) {
-  .viewGrid,
-  .editGrid {
+  .viewGrid {
     grid-template-columns: 1fr;
   }
 }

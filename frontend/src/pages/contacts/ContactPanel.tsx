@@ -111,97 +111,108 @@ export function ContactPanel({
       {errors.name && <p className={styles.formError}>{errors.name.message}</p>}
 
       {isEditable ? (
-        <div className={styles.editGrid}>
-          <div className={styles.editFields}>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Relationship</label>
-              <input
-                className={styles.fieldInput}
-                type="text"
-                list="cp-rel-suggestions"
-                placeholder="e.g. Recruiter"
-                {...register('relationship')}
-              />
-              <datalist id="cp-rel-suggestions">
-                {RELATIONSHIP_SUGGESTIONS.map((r) => <option key={r} value={r} />)}
-              </datalist>
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Email</label>
-              <input
-                className={styles.fieldInput}
-                type="email"
-                placeholder="email@example.com"
-                aria-invalid={!!errors.email}
-                {...register('email')}
-              />
+        <div className={styles.viewGrid}>
+          <div className={styles.viewFields}>
+            <input
+              className={`${styles.fieldInput} ${styles.relationshipInput}`}
+              type="text"
+              list="cp-rel-suggestions"
+              placeholder="Relationship, e.g. Recruiter"
+              aria-label="Relationship"
+              {...register('relationship')}
+            />
+            <datalist id="cp-rel-suggestions">
+              {RELATIONSHIP_SUGGESTIONS.map((r) => <option key={r} value={r} />)}
+            </datalist>
+            <div className={styles.fieldList}>
+              <div className={styles.fieldItem}>
+                <Mail size={14} className={styles.fieldIcon} />
+                <input
+                  className={styles.fieldInput}
+                  type="email"
+                  placeholder="email@example.com"
+                  aria-label="Email"
+                  aria-invalid={!!errors.email}
+                  {...register('email')}
+                />
+              </div>
               <FieldError error={errors.email} />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Phone</label>
-              <input
-                className={styles.fieldInput}
-                type="text"
-                placeholder="+1 555 000 0000"
-                {...register('phone')}
-              />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Company</label>
-              <input
-                className={styles.fieldInput}
-                type="text"
-                placeholder="Company"
-                {...register('company')}
-              />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Title</label>
-              <input
-                className={styles.fieldInput}
-                type="text"
-                placeholder="Job title"
-                {...register('title')}
-              />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Location</label>
-              <input
-                className={styles.fieldInput}
-                type="text"
-                placeholder="City, Country"
-                {...register('location')}
-              />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>LinkedIn URL</label>
-              <input
-                className={styles.fieldInput}
-                type="url"
-                placeholder="https://linkedin.com/in/..."
-                aria-invalid={!!errors.linkedin_url}
-                {...register('linkedin_url')}
-              />
+              <div className={styles.fieldItem}>
+                <Phone size={14} className={styles.fieldIcon} />
+                <input
+                  className={styles.fieldInput}
+                  type="text"
+                  placeholder="Phone"
+                  aria-label="Phone"
+                  {...register('phone')}
+                />
+              </div>
+              <div className={styles.fieldItem}>
+                <Building2 size={14} className={styles.fieldIcon} />
+                <input
+                  className={styles.fieldInput}
+                  type="text"
+                  placeholder="Company"
+                  aria-label="Company"
+                  {...register('company')}
+                />
+              </div>
+              <div className={styles.fieldItem}>
+                <Briefcase size={14} className={styles.fieldIcon} />
+                <input
+                  className={styles.fieldInput}
+                  type="text"
+                  placeholder="Job title"
+                  aria-label="Title"
+                  {...register('title')}
+                />
+              </div>
+              <div className={styles.fieldItem}>
+                <MapPin size={14} className={styles.fieldIcon} />
+                <input
+                  className={styles.fieldInput}
+                  type="text"
+                  placeholder="City, Country"
+                  aria-label="Location"
+                  {...register('location')}
+                />
+              </div>
+              <div className={styles.fieldItem}>
+                <Linkedin size={14} className={styles.fieldIcon} />
+                <input
+                  className={styles.fieldInput}
+                  type="url"
+                  placeholder="https://linkedin.com/in/..."
+                  aria-label="LinkedIn URL"
+                  aria-invalid={!!errors.linkedin_url}
+                  {...register('linkedin_url')}
+                />
+              </div>
               <FieldError error={errors.linkedin_url} />
+              <div className={styles.fieldItem}>
+                <Calendar size={14} className={styles.fieldIcon} />
+                <span className={styles.dateLabel}>Last contacted:</span>
+                <input
+                  className={styles.fieldInput}
+                  type="date"
+                  placeholder=""
+                  aria-label="Last Contacted"
+                  {...register('last_contacted_date')}
+                />
+              </div>
+              <div className={styles.fieldItem}>
+                <Calendar size={14} className={styles.fieldIcon} />
+                <span className={`${styles.dateLabel} ${styles.followupText}`}>Follow up:</span>
+                <input
+                  className={styles.fieldInput}
+                  type="date"
+                  placeholder=""
+                  aria-label="Follow Up Date"
+                  {...register('followup_date')}
+                />
+              </div>
             </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Last Contacted</label>
-              <input
-                className={styles.fieldInput}
-                type="date"
-                {...register('last_contacted_date')}
-              />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Follow Up Date</label>
-              <input
-                className={styles.fieldInput}
-                type="date"
-                {...register('followup_date')}
-              />
-            </div>
-            {mode === 'create' && <div className={styles.fieldGroup}>
-              <label className={styles.fieldLabel}>Tags</label>
+            {mode === 'create' && (
               <Controller
                 control={control}
                 name="tags"
@@ -214,23 +225,23 @@ export function ContactPanel({
                   />
                 )}
               />
-            </div>}
+            )}
           </div>
-          <div className={styles.editNotes}>
-            <label className={styles.fieldLabel}>Notes</label>
+          <SectionCard>
             <Controller
               control={control}
               name="notes"
               render={({ field }) => (
                 <AutoResizeTextarea
                   className={styles.notesTextarea}
+                  aria-label="Notes"
                   value={field.value ?? ''}
                   onChange={field.onChange}
                   placeholder="Notes, comm preferences, interests..."
                 />
               )}
             />
-          </div>
+          </SectionCard>
         </div>
       ) : (
         <div className={styles.viewGrid}>

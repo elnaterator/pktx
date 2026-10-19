@@ -134,9 +134,9 @@
   flex: 1;
   min-width: 0;
   padding: 0;
-  background: none;
+  background: var(--edit-tint);
+  box-shadow: 0 0 0 var(--space-1) var(--edit-tint);
   border: none;
-  border-bottom: 1px dashed var(--accent-green-dim);
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 0.8125rem;
@@ -144,6 +144,12 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   outline: none;
+}
+
+.draftName:hover,
+.draftName:focus {
+  background: var(--edit-tint-strong);
+  box-shadow: 0 0 0 var(--space-1) var(--edit-tint-strong);
 }
 
 .draftName::placeholder {
