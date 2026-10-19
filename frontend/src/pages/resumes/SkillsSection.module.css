@@ -34,49 +34,37 @@
   letter-spacing: 0.06em;
 }
 
-/* Revealed on hover/keyboard focus anywhere in the group */
-.editSkillButton {
+/* Same icon buttons as Education / Experience entries */
+.actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.editButton,
+.deleteButton,
+.saveButton,
+.cancelButton {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
   background: none;
-  color: var(--text-secondary);
-  cursor: pointer;
-  line-height: 1;
-  opacity: 0;
-  transition: opacity var(--transition-fast), color var(--transition-fast);
-}
-
-.skill:hover .editSkillButton,
-.editSkillButton:focus-visible {
-  opacity: 1;
-}
-
-.editSkillButton:hover {
-  color: var(--accent-green);
-}
-
-/* Touch devices have no hover — keep the affordance visible */
-@media (hover: none) {
-  .editSkillButton {
-    opacity: 1;
-  }
-}
-
-.doneButton {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-  background: none;
-  color: var(--accent-green);
+  color: var(--text-muted);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-none);
   cursor: pointer;
   transition: color var(--transition-fast);
 }
 
-.doneButton:hover {
-  color: var(--accent-green-dim);
+.editButton:hover,
+.saveButton:hover {
+  color: var(--accent-green);
+}
+
+.deleteButton:hover,
+.cancelButton:hover {
+  color: var(--status-error);
 }
 
 .keywords {
