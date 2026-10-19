@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { ListEntry, SectionField, SectionMeta } from '../../types'
 import { EntryForm, type FieldConfig } from '../../components/EntryForm'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -265,7 +266,7 @@ export default function GenericListSection({
               </button>
             )}
             <button type="button" onClick={() => setMode('add')}>
-              <Plus size={12} aria-hidden="true" /> Add {title}
+              <Plus size={ICON_SIZE.sm} aria-hidden="true" /> Add {title}
             </button>
           </>
         )}
@@ -318,14 +319,14 @@ export default function GenericListSection({
                       onClick={() => setMode({ type: 'edit', id: entryId })}
                       aria-label={`Edit ${noun}`}
                     >
-                      <Pencil size={13} />
+                      <Pencil size={ICON_SIZE.md} />
                     </button>
                     <button
                       className={styles.deleteButton}
                       onClick={() => setMode({ type: 'delete', id: entryId })}
                       aria-label={`Delete ${noun}`}
                     >
-                      <Trash2 size={13} />
+                      <Trash2 size={ICON_SIZE.md} />
                     </button>
                   </div>
                 </div>

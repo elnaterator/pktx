@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router'
 import { Bot, ChevronLeft, ChevronRight, Maximize2 } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import ConnectContent from './connect/ConnectContent'
 import { CopyButton } from './connect/CopyButton'
 import { getMcpUrl } from './connect/mcpUrl'
@@ -42,9 +43,9 @@ export default function ConnectAssistantPanel() {
               aria-expanded={true}
               aria-label="Collapse AI assistant panel"
             >
-              <Bot size={20} aria-hidden="true" />
+              <Bot size={ICON_SIZE.xl} aria-hidden="true" />
               <span className={styles.collapseLabel}>Connect your AI assistant</span>
-              <ChevronLeft size={16} aria-hidden="true" />
+              <ChevronLeft size={ICON_SIZE.lg} aria-hidden="true" />
             </button>
             <Link
               to="/connect"
@@ -53,7 +54,7 @@ export default function ConnectAssistantPanel() {
               aria-label="Open connect page"
               title="Open full page"
             >
-              <Maximize2 size={16} aria-hidden="true" />
+              <Maximize2 size={ICON_SIZE.lg} aria-hidden="true" />
             </Link>
           </div>
           <div className={styles.body}>
@@ -68,9 +69,9 @@ export default function ConnectAssistantPanel() {
             aria-expanded={false}
             aria-label="Connect your AI assistant"
           >
-            <Bot size={28} aria-hidden="true" />
+            <Bot size={ICON_SIZE['3xl']} aria-hidden="true" />
             <span className={styles.expandLabel}>Connect</span>
-            <ChevronRight size={18} aria-hidden="true" />
+            <ChevronRight size={ICON_SIZE.xl} aria-hidden="true" />
           </button>
           <CopyButton text={getMcpUrl()} label="Copy MCP URL" variant="icon" />
         </div>

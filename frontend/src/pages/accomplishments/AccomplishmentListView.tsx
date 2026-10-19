@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Link } from 'react-router'
 import { Link2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import {
   useAccomplishmentList,
   useAccomplishmentMutations,
@@ -104,7 +105,7 @@ export default function AccomplishmentListView() {
                     <span>{acc.accomplishment_date}</span>
                   )}
                   {!!acc.link_count && (
-                    <span className={styles.linkCount}><Link2 size={11} />{acc.link_count}</span>
+                    <span className={styles.linkCount}><Link2 size={ICON_SIZE.sm} />{acc.link_count}</span>
                   )}
                 </div>
               </Link>

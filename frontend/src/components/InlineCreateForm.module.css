@@ -10,7 +10,7 @@
 .input {
   padding: var(--space-3) var(--space-4);
   border: none;
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   font-family: var(--font-mono);
   color: var(--text-primary);
   background-color: var(--bg-input);
@@ -41,8 +41,7 @@
   background: none;
   color: var(--accent-green);
   border: none;
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   cursor: pointer;
   transition: color var(--transition-fast);
@@ -62,8 +61,7 @@
   background-color: var(--bg-hover);
   color: var(--text-secondary);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   cursor: pointer;
   transition: background-color var(--transition-fast);
@@ -80,7 +78,7 @@
 }
 
 .error {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--status-error);
   margin: 0;
 }

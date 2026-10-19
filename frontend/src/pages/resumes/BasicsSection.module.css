@@ -3,11 +3,11 @@
 }
 
 .nameHeading {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0 0 var(--space-3) 0;
-  line-height: 1.2;
+  line-height: var(--leading-tight);
 }
 
 .contactRow {
@@ -15,7 +15,7 @@
   flex-wrap: wrap;
   gap: 0;
   color: var(--text-secondary);
-  font-size: 0.9rem;
+  font-size: var(--font-size-4);
 }
 
 .contactItem {
@@ -63,21 +63,21 @@
 }
 
 .formLabel {
-  font-weight: 500;
-  font-size: 0.8125rem;
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-3);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-1);
 }
 
 .inputName {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-bold);
 }
 
 .input {
   composes: input from '../../components/inlineEdit.module.css';
-  font-size: 1rem;
+  font-size: var(--font-size-6);
   color: var(--text-primary);
 }
 
@@ -87,7 +87,7 @@
 }
 
 .errorText {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--status-error);
   margin-top: var(--space-1);
 }
@@ -106,7 +106,7 @@
 }
 
 .headline {
-  font-size: 1.1rem;
+  font-size: var(--font-size-7);
   color: var(--text-secondary);
   margin: calc(-1 * var(--space-2)) 0 var(--space-3) 0;
 }
@@ -116,9 +116,9 @@
 }
 
 .sectionLabel {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-4);
   text-transform: uppercase;
   color: var(--text-secondary);
   border-bottom: 1px solid var(--border-primary);
@@ -129,13 +129,13 @@
 .placeholder {
   color: var(--text-muted);
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   margin-top: var(--space-3);
 }
 
 .textarea {
   composes: textarea from '../../components/inlineEdit.module.css';
-  font-size: 1rem;
+  font-size: var(--font-size-6);
   color: var(--text-primary);
   min-height: 4rem;
 }
@@ -155,8 +155,8 @@
   background: none;
   color: var(--accent-green);
   cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-semibold);
   font-family: var(--font-mono);
   padding: 0;
 }
@@ -176,9 +176,9 @@
 }
 
 .subLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  letter-spacing: 0.04em;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: var(--tracking-1);
   text-transform: uppercase;
   color: var(--text-muted);
   margin: 0 0 var(--space-1) 0;

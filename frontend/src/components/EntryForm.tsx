@@ -3,6 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Check, X, Trash2 } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import { AutoResizeTextarea } from './AutoResizeTextarea'
 import { DateInput } from './DateInput'
 import SortableList from './SortableList'
@@ -155,10 +156,10 @@ export function EntryForm({ fields, schema, defaultValues = {}, onSubmit, onCanc
     <form className={styles.form} onSubmit={handleFormSubmit} noValidate>
       <div className={styles.formHeader}>
         <button type="submit" className={styles.saveIconButton} aria-label="Save">
-          <Check size={14} />
+          <Check size={ICON_SIZE.md} />
         </button>
         <button type="button" className={styles.cancelIconButton} onClick={onCancel} aria-label="Cancel">
-          <X size={14} />
+          <X size={ICON_SIZE.md} />
         </button>
       </div>
       {rows.map((row) => {
@@ -203,7 +204,7 @@ export function EntryForm({ fields, schema, defaultValues = {}, onSubmit, onCanc
                           onClick={() => highlightsArray.remove(index)}
                           aria-label="Remove"
                         >
-                          <Trash2 size={14} />
+                          <Trash2 size={ICON_SIZE.md} />
                         </button>
                       </div>
                     )

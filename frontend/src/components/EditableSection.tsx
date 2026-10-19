@@ -1,5 +1,6 @@
 import { ReactNode, useState } from 'react';
 import { Pencil, Check, X } from 'lucide-react';
+import { ICON_SIZE } from '../theme';
 import { useToast } from './toast';
 import styles from './EditableSection.module.css';
 
@@ -45,7 +46,7 @@ export function EditableSection({ children, onSave, title, placeholderContent }:
           className={styles.editIcon}
           aria-label={`Edit ${title}`}
         >
-          <Pencil size={14} />
+          <Pencil size={ICON_SIZE.md} />
         </button>
       )}
 
@@ -58,14 +59,14 @@ export function EditableSection({ children, onSave, title, placeholderContent }:
                 className={`${styles.actionButton} ${styles.saveIcon}`}
                 aria-label={`Save ${title}`}
               >
-                <Check size={14} />
+                <Check size={ICON_SIZE.md} />
               </button>
               <button
                 onClick={handleCancel}
                 className={`${styles.actionButton} ${styles.cancelIcon}`}
                 aria-label={`Cancel editing ${title}`}
               >
-                <X size={14} />
+                <X size={ICON_SIZE.md} />
               </button>
             </>
           )}

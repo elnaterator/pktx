@@ -22,12 +22,11 @@
   gap: var(--space-1);
   background-color: var(--accent-green);
   color: var(--bg-primary, #111);
-  font-size: 0.6875rem;
-  font-weight: 700;
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-bold);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-3);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
 }
 
 .labelRow {
@@ -58,16 +57,15 @@
 }
 
 .tagBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
   background-color: var(--accent-green-bg);
   color: var(--accent-green);
 }
 
 .tagsPlaceholder {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
@@ -78,8 +76,8 @@
 }
 
 .label {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -89,7 +87,6 @@
   cursor: pointer;
   background: none;
   border: none;
-  border-radius: var(--radius-none);
   padding: var(--space-1) var(--space-2);
   display: flex;
   align-items: center;
@@ -99,10 +96,6 @@
 
 .iconBtn:hover {
   color: var(--accent-green);
-}
-
-.iconBtn:focus {
-  outline: none;
 }
 
 .saveIcon:hover {
@@ -121,21 +114,19 @@
 
 .labelInput {
   composes: input from '../../components/inlineEdit.module.css';
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   width: 20rem;
   max-width: 100%;
 }
-
 
 .setDefaultButton {
   background-color: var(--bg-hover);
   color: var(--text-secondary);
   border: none;
   padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   cursor: pointer;
   transition: background-color var(--transition-fast), color var(--transition-fast);
@@ -144,10 +135,6 @@
 .setDefaultButton:hover {
   background-color: var(--bg-active);
   color: var(--accent-green);
-}
-
-.setDefaultButton:focus {
-  outline: none;
 }
 
 .deleteButton:hover {
@@ -190,7 +177,7 @@
   padding: var(--space-2) var(--space-4);
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   cursor: pointer;
   margin-bottom: -1px;
 }

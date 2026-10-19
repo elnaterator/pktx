@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash2, Pencil, Check, X, Star } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import { mapGroupedLinks } from '../../services/api'
 import {
   resumeKeys,
@@ -192,7 +193,7 @@ export default function ResumeDetailView() {
               onClick={() => setConfirmDelete(true)}
               aria-label="Delete resume version"
             >
-              <Trash2 size={14} />
+              <Trash2 size={ICON_SIZE.md} />
             </button>
           </div>
         </div>
@@ -210,10 +211,10 @@ export default function ResumeDetailView() {
                 {...registerLabel('label')}
               />
               <button className={`${styles.iconBtn} ${styles.saveIcon}`} onClick={handleLabelSave} disabled={labelSubmitting} aria-label="Save label">
-                <Check size={14} />
+                <Check size={ICON_SIZE.md} />
               </button>
               <button className={`${styles.iconBtn} ${styles.cancelIcon}`} onClick={() => setEditingLabel(false)} aria-label="Cancel editing">
-                <X size={14} />
+                <X size={ICON_SIZE.md} />
               </button>
             </div>
           ) : (
@@ -221,12 +222,12 @@ export default function ResumeDetailView() {
               <h2 className={styles.label}>{version.label}</h2>
               {version.is_default && (
                 <span className={styles.defaultBadge}>
-                  <Star size={11} fill="currentColor" aria-hidden="true" />
+                  <Star size={ICON_SIZE.sm} fill="currentColor" aria-hidden="true" />
                   Default
                 </span>
               )}
               <button className={styles.iconBtn} onClick={() => { resetLabel({ label: version.label }); setEditingLabel(true) }} aria-label="Edit label">
-                <Pencil size={14} />
+                <Pencil size={ICON_SIZE.md} />
               </button>
             </div>
           )}

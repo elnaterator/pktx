@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useUser } from '@clerk/clerk-react'
 import { Briefcase, FileText, Trophy, StickyNote, Users, Bot } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import {
   useAccomplishmentList,
   useApplicationList,
@@ -127,7 +128,7 @@ function IdeaScroller() {
   return (
     <div className={styles.ideaScroller}>
       <div className={styles.ideaCard} key={index}>
-        <Icon size={24} className={styles.ideaIcon} />
+        <Icon size={ICON_SIZE['2xl']} className={styles.ideaIcon} />
         <span className={styles.ideaTitle}>{title}</span>
         <p className={styles.ideaBody}>{body}</p>
       </div>

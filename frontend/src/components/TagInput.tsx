@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import styles from './TagInput.module.css'
 
 export interface TagInputProps {
@@ -154,7 +155,7 @@ export function TagInput({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => removeTag(tag)}
             >
-              <X size={10} />
+              <X size={ICON_SIZE.xs} />
             </button>
           </span>
         ))}

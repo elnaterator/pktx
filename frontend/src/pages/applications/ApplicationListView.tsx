@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Link2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import {
   useAllTags,
   useApplicationList,
@@ -150,7 +151,7 @@ export default function ApplicationListView() {
                 <div className={styles.itemMeta}>
                   <span>Updated {formatDate(app.updated_at)}</span>
                   {!!app.link_count && (
-                    <span className={styles.linkCount}><Link2 size={11} />{app.link_count}</span>
+                    <span className={styles.linkCount}><Link2 size={ICON_SIZE.sm} />{app.link_count}</span>
                   )}
                 </div>
               </Link>

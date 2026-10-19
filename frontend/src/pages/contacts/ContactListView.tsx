@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Link2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { CommunicationSearchResult } from '../../types'
 import {
   useAllTags,
@@ -169,7 +170,7 @@ export default function ContactListView() {
                       </span>
                     )}
                     {!!contact.link_count && (
-                      <span className={styles.linkCount}><Link2 size={11} />{contact.link_count}</span>
+                      <span className={styles.linkCount}><Link2 size={ICON_SIZE.sm} />{contact.link_count}</span>
                     )}
                   </div>
                 )}

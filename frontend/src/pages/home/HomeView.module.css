@@ -12,7 +12,7 @@
 }
 
 .searchHint {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   margin: 0;
   font-style: italic;
@@ -31,18 +31,18 @@
 }
 
 .searchGroupHeader {
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-3);
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
 .searchGroupCount {
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
   color: var(--text-muted);
 }
 
@@ -72,18 +72,18 @@
 }
 
 .searchResultTitle {
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .searchResultSub {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
 }
 
 .searchResultSnippet {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -100,14 +100,14 @@
 }
 
 .introWelcome {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
 }
 
 .introSlogan {
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   color: var(--text-muted);
   margin: 0;
 }
@@ -154,16 +154,16 @@
 }
 
 .ideaTitle {
-  font-size: 0.9375rem;
-  font-weight: 700;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
 }
 
 .ideaBody {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
   margin: 0;
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   max-width: 36ch;
 }
 
@@ -211,21 +211,21 @@
 }
 
 .statLabel {
-  font-size: 0.8125rem;
+  font-size: var(--font-size-3);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.08em;
+  letter-spacing: var(--tracking-3);
 }
 
 .statValue {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
-  line-height: 1.1;
+  line-height: var(--leading-tight);
 }
 
 .statSub {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--accent-green);
   margin-top: var(--space-1);
 }
@@ -237,7 +237,7 @@
   }
 
   .introWelcome {
-    font-size: 1.25rem;
+    font-size: var(--font-size-8);
   }
 }
 

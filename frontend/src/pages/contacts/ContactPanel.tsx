@@ -1,6 +1,7 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Pencil, Trash2, Check, X, Mail, Phone, Building2, Briefcase, MapPin, Linkedin, Calendar } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
 import { TagInput } from '../../components/TagInput'
 import { FieldError } from '../../components/FieldError'
@@ -84,7 +85,7 @@ export function ContactPanel({
                 disabled={isSubmitting}
                 aria-label="Save"
               >
-                <Check size={14} />
+                <Check size={ICON_SIZE.md} />
               </button>
               <button
                 type="button"
@@ -92,16 +93,16 @@ export function ContactPanel({
                 onClick={onCancel}
                 aria-label="Cancel"
               >
-                <X size={14} />
+                <X size={ICON_SIZE.md} />
               </button>
             </>
           ) : (
             <>
               <button type="button" className={styles.editButton} onClick={onEdit} aria-label="Edit contact">
-                <Pencil size={14} />
+                <Pencil size={ICON_SIZE.md} />
               </button>
               <button type="button" className={styles.deleteButton} onClick={onDelete} aria-label="Delete contact">
-                <Trash2 size={14} />
+                <Trash2 size={ICON_SIZE.md} />
               </button>
             </>
           )}
@@ -126,7 +127,7 @@ export function ContactPanel({
             </datalist>
             <div className={styles.fieldList}>
               <div className={styles.fieldItem}>
-                <Mail size={14} className={styles.fieldIcon} />
+                <Mail size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <input
                   className={styles.fieldInput}
                   type="email"
@@ -138,7 +139,7 @@ export function ContactPanel({
               </div>
               <FieldError error={errors.email} />
               <div className={styles.fieldItem}>
-                <Phone size={14} className={styles.fieldIcon} />
+                <Phone size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <input
                   className={styles.fieldInput}
                   type="text"
@@ -148,7 +149,7 @@ export function ContactPanel({
                 />
               </div>
               <div className={styles.fieldItem}>
-                <Building2 size={14} className={styles.fieldIcon} />
+                <Building2 size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <input
                   className={styles.fieldInput}
                   type="text"
@@ -158,7 +159,7 @@ export function ContactPanel({
                 />
               </div>
               <div className={styles.fieldItem}>
-                <Briefcase size={14} className={styles.fieldIcon} />
+                <Briefcase size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <input
                   className={styles.fieldInput}
                   type="text"
@@ -168,7 +169,7 @@ export function ContactPanel({
                 />
               </div>
               <div className={styles.fieldItem}>
-                <MapPin size={14} className={styles.fieldIcon} />
+                <MapPin size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <input
                   className={styles.fieldInput}
                   type="text"
@@ -178,7 +179,7 @@ export function ContactPanel({
                 />
               </div>
               <div className={styles.fieldItem}>
-                <Linkedin size={14} className={styles.fieldIcon} />
+                <Linkedin size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <input
                   className={styles.fieldInput}
                   type="url"
@@ -190,7 +191,7 @@ export function ContactPanel({
               </div>
               <FieldError error={errors.linkedin_url} />
               <div className={styles.fieldItem}>
-                <Calendar size={14} className={styles.fieldIcon} />
+                <Calendar size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <span className={styles.dateLabel}>Last contacted:</span>
                 <input
                   className={styles.fieldInput}
@@ -201,7 +202,7 @@ export function ContactPanel({
                 />
               </div>
               <div className={styles.fieldItem}>
-                <Calendar size={14} className={styles.fieldIcon} />
+                <Calendar size={ICON_SIZE.md} className={styles.fieldIcon} />
                 <span className={`${styles.dateLabel} ${styles.followupText}`}>Follow up:</span>
                 <input
                   className={styles.fieldInput}
@@ -252,7 +253,7 @@ export function ContactPanel({
             <div className={styles.fieldList}>
               {contact?.email && (
                 <div className={styles.fieldItem}>
-                  <Mail size={14} className={styles.fieldIcon} />
+                  <Mail size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <ExternalLink href={`mailto:${contact.email}`} className={styles.fieldLink} allowMailto>
                     {contact.email}
                   </ExternalLink>
@@ -260,31 +261,31 @@ export function ContactPanel({
               )}
               {contact?.phone && (
                 <div className={styles.fieldItem}>
-                  <Phone size={14} className={styles.fieldIcon} />
+                  <Phone size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <span>{contact.phone}</span>
                 </div>
               )}
               {contact?.company && (
                 <div className={styles.fieldItem}>
-                  <Building2 size={14} className={styles.fieldIcon} />
+                  <Building2 size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <span>{contact.company}</span>
                 </div>
               )}
               {contact?.title && (
                 <div className={styles.fieldItem}>
-                  <Briefcase size={14} className={styles.fieldIcon} />
+                  <Briefcase size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <span>{contact.title}</span>
                 </div>
               )}
               {contact?.location && (
                 <div className={styles.fieldItem}>
-                  <MapPin size={14} className={styles.fieldIcon} />
+                  <MapPin size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <span>{contact.location}</span>
                 </div>
               )}
               {contact?.linkedin_url && (
                 <div className={styles.fieldItem}>
-                  <Linkedin size={14} className={styles.fieldIcon} />
+                  <Linkedin size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <ExternalLink href={contact.linkedin_url} className={styles.fieldLink}>
                     {contact.linkedin_url.replace(/^https?:\/\/(www\.)?linkedin\.com\/in\//, '').replace(/\/$/, '')}
                   </ExternalLink>
@@ -292,13 +293,13 @@ export function ContactPanel({
               )}
               {contact?.last_contacted_date && (
                 <div className={styles.fieldItem}>
-                  <Calendar size={14} className={styles.fieldIcon} />
+                  <Calendar size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <span>Last contacted: {contact.last_contacted_date}</span>
                 </div>
               )}
               {contact?.followup_date && (
                 <div className={styles.fieldItem}>
-                  <Calendar size={14} className={styles.fieldIcon} />
+                  <Calendar size={ICON_SIZE.md} className={styles.fieldIcon} />
                   <span className={styles.followupText}>Follow up: {contact.followup_date}</span>
                 </div>
               )}

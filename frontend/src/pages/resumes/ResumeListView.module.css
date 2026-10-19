@@ -10,8 +10,8 @@
 }
 
 .heading {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -20,8 +20,7 @@
   background: none;
   color: var(--accent-green);
   padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-none);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   border: none;
   cursor: pointer;
   transition: color var(--transition-fast);
@@ -70,8 +69,8 @@
 
 .defaultBadge {
   color: var(--accent-green-dim);
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   padding: var(--space-1) 0;
   white-space: nowrap;
 }

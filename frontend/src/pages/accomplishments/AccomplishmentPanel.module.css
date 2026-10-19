@@ -6,8 +6,8 @@
 }
 
 .topBarTitle {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: var(--font-size-8);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
   flex: 1;
@@ -27,7 +27,6 @@
   color: var(--text-muted);
   border: none;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -55,13 +54,13 @@
   align-items: center;
   gap: var(--space-6);
   margin-bottom: var(--space-6);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
 .accomplishmentDate {
   margin-left: auto;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
@@ -72,10 +71,9 @@
 }
 
 .tagBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
   background-color: var(--accent-green-bg);
   color: var(--accent-green);
 }
@@ -94,11 +92,11 @@
 
 .titleInput {
   composes: input from '../../components/inlineEdit.module.css';
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: var(--font-size-8);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   flex: 1;
-  line-height: 1.2;
+  line-height: var(--leading-tight);
 }
 
 .metaEdit {
@@ -120,27 +118,27 @@
 }
 
 .metaLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-1);
 }
 
 .metaInput {
   composes: input from '../../components/inlineEdit.module.css';
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-primary);
 }
 
 .sectionTextarea {
   composes: textarea from '../../components/inlineEdit.module.css';
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   color: var(--text-primary);
 }
 
 .formError {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--status-error);
   margin: 0 0 var(--space-3);
 }

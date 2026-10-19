@@ -4,11 +4,10 @@
   max-width: 100%;
   background: var(--edit-tint);
   border: none;
-  border-radius: var(--radius-none);
   color: var(--text-primary);
   font-family: var(--font-mono);
-  font-size: 0.875rem;
-  line-height: 1.35;
+  font-size: var(--font-size-4);
+  line-height: var(--leading-snug);
   outline: none;
 }
 

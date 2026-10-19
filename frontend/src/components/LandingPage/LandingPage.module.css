@@ -13,8 +13,8 @@
 }
 
 .logo {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -39,27 +39,26 @@
 }
 
 .headline {
-  font-size: 2.375rem;
-  font-weight: 700;
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
-  line-height: 1.15;
+  line-height: var(--leading-tight);
 }
 
 .subheadline {
-  font-size: 1.125rem;
+  font-size: var(--font-size-7);
   color: var(--text-secondary);
-  line-height: 1.65;
+  line-height: var(--leading-relaxed);
 }
 
 .ctaButton {
   margin-top: var(--space-3);
   padding: var(--space-5) var(--space-9);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--font-size-6);
+  font-weight: var(--font-weight-semibold);
   color: var(--bg-primary);
   background-color: var(--accent-green);
   border: none;
-  border-radius: var(--radius-none);
   cursor: pointer;
   font-family: var(--font-mono);
   transition: background-color var(--transition-fast);
@@ -86,7 +85,6 @@
 .feature {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
   padding: var(--space-9) var(--space-8);
   display: flex;
   flex-direction: column;
@@ -94,21 +92,21 @@
 }
 
 .featureIcon {
-  font-size: 1.75rem;
-  line-height: 1;
+  font-size: var(--font-size-10);
+  line-height: var(--leading-none);
   margin-bottom: var(--space-1);
 }
 
 .feature h3 {
-  font-size: 1.05rem;
-  font-weight: 600;
+  font-size: var(--font-size-6);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 
 .feature p {
-  font-size: 0.9rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
-  line-height: 1.55;
+  line-height: var(--leading-normal);
 }
 
 /* Responsive */
@@ -119,11 +117,11 @@
   }
 
   .headline {
-    font-size: 1.875rem;
+    font-size: var(--font-size-10);
   }
 
   .subheadline {
-    font-size: 1rem;
+    font-size: var(--font-size-6);
   }
 
   .features {

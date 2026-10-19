@@ -6,8 +6,8 @@
 }
 
 .topBarTitle {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: var(--font-size-8);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
   flex: 1;
@@ -27,7 +27,6 @@
   color: var(--text-muted);
   border: none;
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -66,10 +65,9 @@
 
 .relationshipBadge {
   display: inline-block;
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-none);
   background-color: var(--bg-surface);
   color: var(--text-secondary);
   width: fit-content;
@@ -85,7 +83,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  font-size: 0.9rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
 }
 
@@ -114,16 +112,15 @@
 }
 
 .tagBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
   background-color: var(--accent-green-bg);
   color: var(--accent-green);
 }
 
 .updatedDate {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
@@ -135,7 +132,7 @@
 
 .fieldInput {
   composes: input from '../../components/inlineEdit.module.css';
-  font-size: 0.9rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
 }
 
@@ -146,7 +143,7 @@
 .relationshipInput {
   width: fit-content;
   min-width: 10rem;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
 }
 
 .dateLabel {
@@ -155,22 +152,22 @@
 
 .notesTextarea {
   composes: textarea from '../../components/inlineEdit.module.css';
-  font-size: 1rem;
+  font-size: var(--font-size-6);
   color: var(--text-primary);
   min-height: 4rem;
 }
 
 .titleInput {
   composes: input from '../../components/inlineEdit.module.css';
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: var(--font-size-8);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   flex: 1;
-  line-height: 1.2;
+  line-height: var(--leading-tight);
 }
 
 .formError {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--status-error);
   margin: 0 0 var(--space-3);
 }

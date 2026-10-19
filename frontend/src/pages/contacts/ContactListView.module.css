@@ -10,8 +10,8 @@
 }
 
 .heading {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -20,8 +20,7 @@
   background: none;
   color: var(--accent-green);
   padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-none);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   border: none;
   cursor: pointer;
   transition: background-color var(--transition-fast);
@@ -30,10 +29,6 @@
 
 .newButton:hover {
   color: var(--accent-green-dim);
-}
-
-.newButton:focus {
-  outline: none;
 }
 
 /* Filters */
@@ -55,7 +50,6 @@
 
 .item {
   background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
   padding: var(--space-4) var(--space-7);
   cursor: pointer;
   transition: background-color var(--transition-fast);
@@ -91,19 +85,18 @@
 }
 
 .itemName {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: var(--font-size-6);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .relationshipBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
   background-color: var(--bg-surface);
   color: var(--text-secondary);
   white-space: nowrap;
@@ -126,7 +119,7 @@
 }
 
 .updatedDate {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -136,7 +129,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
@@ -160,7 +153,6 @@
 
 .commSearchCard {
   background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
   margin-bottom: var(--space-6);
   overflow: hidden;
 }
@@ -173,15 +165,15 @@
 }
 
 .commSearchHeading {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
   color: var(--text-secondary);
   margin: 0;
 }
 
 .commSearchHint {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   font-style: italic;
   margin: 0;
@@ -198,7 +190,6 @@
 
 .commResultItem {
   background-color: var(--bg-secondary);
-  border-radius: var(--radius-none);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: background-color var(--transition-fast);
@@ -217,20 +208,20 @@
 }
 
 .commResultDate {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
 
 .commResultType,
 .commResultDir {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
   font-family: var(--font-mono);
 }
 
 .parentBadge {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
   font-family: var(--font-mono);
@@ -247,13 +238,13 @@
 }
 
 .commResultParent {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .commResultSubject {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;

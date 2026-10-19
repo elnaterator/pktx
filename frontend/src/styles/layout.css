@@ -1,0 +1,116 @@
+/* App shell: sidebar + header + main column, and print styles. */
+.app {
+  min-height: 100vh;
+  display: flex;
+}
+
+.app-shell {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  background-color: var(--bg-primary);
+  padding: var(--space-5) var(--space-9);
+}
+
+.app-header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+
+.app-header h1.logo {
+  font-size: var(--font-size-12);
+  font-weight: var(--font-weight-black);
+  letter-spacing: var(--tracking-1);
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.app-header h1.logo .logo-p {
+  color: var(--accent-green);
+}
+
+/* max-width is 1300px (matching .app-header-inner) plus this element's
+   own 2 * var(--space-9) padding, since border-box counts padding
+   toward max-width — this keeps main's actual content column the
+   same width as the header's content row, not 64px narrower. */
+main {
+  flex: 1;
+  background-color: var(--bg-primary);
+  max-width: 1364px;
+  width: 100%;
+  margin: 0 auto;
+  padding: var(--space-9);
+}
+
+/* Small mobile: 375px - 640px */
+@media (max-width: 640px) {
+  .app-header {
+    padding: var(--space-4) var(--space-6);
+  }
+
+  .app-header-inner {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .app-header h1.logo {
+    font-size: var(--font-size-9);
+  }
+
+  main {
+    margin: 0;
+    padding: var(--space-6);
+  }
+}
+
+/* Tablet: 641px - 1024px */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .app-header {
+    padding: var(--space-5) var(--space-8);
+  }
+
+  main {
+    margin: 0 auto;
+    padding: var(--space-8);
+  }
+}
+
+/* Desktop: 1025px+ */
+@media (min-width: 1025px) {
+  main {
+    margin: var(--space-9) auto;
+    padding: var(--space-9);
+  }
+}
+
+/* Print styles for resume */
+@media print {
+  body {
+    background-color: #ffffff;
+    color: #000000;
+    font-family: Georgia, 'Times New Roman', serif;
+  }
+
+  .app-header {
+    box-shadow: none;
+    border-bottom: 2px solid #000;
+  }
+
+  main {
+    box-shadow: none;
+    margin: 0;
+    padding: 0;
+  }
+
+  button {
+    display: none;
+  }
+}

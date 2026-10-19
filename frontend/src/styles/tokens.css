@@ -1,0 +1,147 @@
+/*
+ * Design tokens — terminal dark theme. The single source of truth for
+ * colour, type, spacing, radius, elevation, motion and stacking.
+ * Use tokens, not literals, in every CSS module. JS-side values that must
+ * mirror these (Clerk appearance, icon sizes) live in src/theme.ts.
+ *
+ * Breakpoints (CSS variables cannot be used in @media, so these are the
+ * canonical literals — reuse them rather than inventing new ones):
+ *   sm  max-width: 640px   phones (single column, stacked rows)
+ *   md  max-width: 900px   detail sidebar drops below the main column
+ *   lg  max-width: 1024px  tablet padding
+ * Component-specific ones (ConnectAssistantPanel, Toast) are derived from
+ * their own geometry and documented in place.
+ */
+:root {
+  /* Spacing — 11-step scale */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.375rem;
+  --space-3: 0.5rem;
+  --space-4: 0.75rem;
+  --space-5: 0.875rem;
+  --space-6: 1rem;
+  --space-7: 1.25rem;
+  --space-8: 1.5rem;
+  --space-9: 2rem;
+  --space-10: 3rem;
+
+  /* Type — font sizes (px at the default 16px root) */
+  --font-size-1: 0.6875rem;  /* 11 */
+  --font-size-2: 0.75rem;    /* 12 */
+  --font-size-3: 0.8125rem;  /* 13 */
+  --font-size-4: 0.875rem;   /* 14 — default UI text */
+  --font-size-5: 0.9375rem;  /* 15 */
+  --font-size-6: 1rem;       /* 16 — body */
+  --font-size-7: 1.125rem;   /* 18 */
+  --font-size-8: 1.25rem;    /* 20 — panel title */
+  --font-size-9: 1.5rem;     /* 24 — page title */
+  --font-size-10: 1.75rem;   /* 28 */
+  --font-size-11: 2rem;      /* 32 */
+  --font-size-12: 2.5rem;    /* 40 — logo / hero */
+
+  /* Type — weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-black: 900;
+
+  /* Type — letter spacing (uppercase labels, logo) */
+  --tracking-1: 0.04em;
+  --tracking-2: 0.06em;
+  --tracking-3: 0.08em;
+  --tracking-4: 0.1em;
+
+  /* Type — line height */
+  --leading-none: 1;
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', ui-monospace, monospace;
+
+  /* Radii */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-none: none;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-focus: none;
+  --shadow-focus-error: inset 0 -1px 0 var(--status-error);
+
+  /* Focus — keyboard focus ring (applied globally via :focus-visible) */
+  --focus-ring-color: var(--accent-green);
+  --focus-ring: 2px solid var(--focus-ring-color);
+  --focus-ring-offset: 2px;
+
+  /* Stacking */
+  --z-raised: 1;       /* above siblings in the same component */
+  --z-panel: 20;       /* docked side panels */
+  --z-dropdown: 100;   /* menus, popovers, autocomplete lists */
+  --z-modal: 1000;     /* dialogs and their overlay */
+  --z-toast: 9999;     /* always on top */
+
+  /* Colors — Backgrounds. One surface colour today; secondary/surface are
+     aliases so an elevation ladder can be introduced here alone. */
+  --bg-primary: #1a1a1a;
+  --bg-secondary: var(--bg-primary);
+  --bg-surface: var(--bg-primary);
+  --bg-input: #141414;
+  --bg-hover: #222222;
+  --bg-active: #202020;
+  --bg-modal-overlay: rgba(0, 0, 0, 0.7);
+  --bg-spinner-track: rgba(255, 255, 255, 0.08);
+
+  /* Soft fill that marks a value as editable (inline edit mode). */
+  --edit-tint: rgba(255, 255, 255, 0.04);
+  --edit-tint-strong: rgba(255, 255, 255, 0.08);
+
+  /* Colors — Text */
+  /* Contrast against --bg-primary (#1a1a1a): 13.2:1 / 8.4:1 / 5.7:1 —
+     all clear AA for normal text, with a legible three-step hierarchy. */
+  --text-primary: #e0e0e0;
+  --text-secondary: #b3b3b3;
+  --text-muted: #949494;
+
+  /* Colors — Borders (transparent today, but still reserve 1px of layout) */
+  --border-primary: transparent;
+  --border-hover: transparent;
+
+  /* Colors — Accents */
+  --accent-green: #52b788;
+  --accent-green-dim: #40916c;
+  --accent-green-bg: rgba(82, 183, 136, 0.07);
+  --accent-purple: #aa78ff;
+  --accent-purple-bg: rgba(170, 120, 255, 0.08);
+  --accent-blue: #3b82f6;
+  --accent-blue-bg: rgba(59, 130, 246, 0.1);
+
+  /* Colors — Status */
+  --status-success: #52b788;
+  --status-success-bg: rgba(82, 183, 136, 0.1);
+  --status-error: #ff4444;
+  --status-error-bg: rgba(255, 68, 68, 0.08);
+  --status-error-bg-hover: rgba(255, 68, 68, 0.15);
+  --status-error-bg-strong: rgba(255, 68, 68, 0.25);
+  --status-warning: #ffaa00;
+  --status-warning-bg: rgba(255, 170, 0, 0.08);
+  /* Green tint ladder (application status badges) — same hue as --accent-green */
+  --status-green-dim-bg: rgba(82, 183, 136, 0.06);
+  --status-green-bg: rgba(82, 183, 136, 0.1);
+  --status-green-bg-strong: rgba(82, 183, 136, 0.15);
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-default: 200ms ease;
+
+  /* Clerk component theming — matches app dark theme */
+  --clerk-color-primary: var(--accent-green);
+  --clerk-color-foreground: var(--text-primary);
+}

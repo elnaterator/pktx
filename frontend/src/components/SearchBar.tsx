@@ -1,5 +1,6 @@
 import { useState, useRef, useCallback, KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import type { SearchValue } from '../types'
 import styles from './SearchBar.module.css'
 
@@ -113,7 +114,7 @@ export function SearchBar({
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => removeTag(tag)}
             >
-              <X size={10} />
+              <X size={ICON_SIZE.xs} />
             </button>
           </span>
         ))}

@@ -6,8 +6,8 @@
 }
 
 .heading {
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   margin-bottom: var(--space-4);
 }
@@ -15,7 +15,7 @@
 .message {
   color: var(--text-secondary);
   margin-bottom: var(--space-8);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
 }
 
 .backLink {
@@ -24,7 +24,7 @@
   background: none;
   color: var(--accent-green);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
   transition: color var(--transition-fast);
 }

@@ -1,5 +1,6 @@
 import { useId, useMemo } from 'react'
 import { ArrowUpRight, Download, Sparkles } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import { useStoredState } from '../../hooks/useStoredState'
 import { buildAssistants, EXAMPLE_PROMPTS } from './connectAssistants'
 import { AssistantPicker } from './AssistantPicker'
@@ -44,7 +45,7 @@ export default function ConnectContent() {
 
       <section className={styles.pitch} aria-labelledby={`${uid}-prompts`}>
         <h3 className={styles.sectionTitle} id={`${uid}-prompts`}>
-          <Sparkles size={16} aria-hidden="true" />
+          <Sparkles size={ICON_SIZE.lg} aria-hidden="true" />
           Then just ask
         </h3>
         <ul className={styles.prompts}>
@@ -86,7 +87,7 @@ export default function ConnectContent() {
 
           {assistant.install && (
             <a className={styles.installBtn} href={assistant.install.url}>
-              <Download size={16} aria-hidden="true" />
+              <Download size={ICON_SIZE.lg} aria-hidden="true" />
               {assistant.install.label}
             </a>
           )}
@@ -113,7 +114,7 @@ export default function ConnectContent() {
             Verified {verifiedFormat.format(new Date(`${assistant.lastVerified}T00:00:00Z`))} ·{' '}
             <a href={assistant.docsUrl} target="_blank" rel="noopener noreferrer">
               {assistant.name} docs
-              <ArrowUpRight size={12} aria-hidden="true" />
+              <ArrowUpRight size={ICON_SIZE.sm} aria-hidden="true" />
             </a>
           </p>
         </div>

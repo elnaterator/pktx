@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Pencil, Trash2, Check, X, ChevronDown } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import { useForm, Controller, type UseFormRegister, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import type { Communication } from '../types'
@@ -178,7 +179,7 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
         <form className={styles.form} onSubmit={onAddSubmit} noValidate>
           <div className={styles.formHeader}>
             <button type="submit" className={styles.saveIconBtn} disabled={isSubmitting || submitting} aria-label="Save">
-              <Check size={14} />
+              <Check size={ICON_SIZE.md} />
             </button>
             <button
               type="button"
@@ -186,7 +187,7 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
               onClick={() => { setShowAddForm(false); reset(emptyDefaults()) }}
               aria-label="Cancel"
             >
-              <X size={14} />
+              <X size={ICON_SIZE.md} />
             </button>
           </div>
           <CommFormFields register={register} control={control} allTags={allTags} />
@@ -203,7 +204,7 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
                 <form className={styles.form} onSubmit={onEditSubmit} noValidate>
                   <div className={styles.formHeader}>
                     <button type="submit" className={styles.saveIconBtn} disabled={isSubmitting || submitting} aria-label="Save">
-                      <Check size={14} />
+                      <Check size={ICON_SIZE.md} />
                     </button>
                     <button
                       type="button"
@@ -211,7 +212,7 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
                       onClick={() => { setEditTarget(null); reset(emptyDefaults()) }}
                       aria-label="Cancel"
                     >
-                      <X size={14} />
+                      <X size={ICON_SIZE.md} />
                     </button>
                   </div>
                   <CommFormFields register={register} control={control} allTags={allTags} />
@@ -244,16 +245,16 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
                           className={styles.editBtn}
                           onClick={(e) => { e.stopPropagation(); startEdit(comm) }}
                           aria-label="Edit communication"
-                        ><Pencil size={13} /></button>
+                        ><Pencil size={ICON_SIZE.md} /></button>
                         <button
                           className={styles.deleteBtn}
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(comm.id) }}
                           aria-label="Delete communication"
-                        ><Trash2 size={13} /></button>
+                        ><Trash2 size={ICON_SIZE.md} /></button>
                       </div>
                       {comm.body && (
                         <ChevronDown
-                          size={14}
+                          size={ICON_SIZE.md}
                           className={expandedIds.has(comm.id) ? styles.chevronOpen : styles.chevron}
                         />
                       )}

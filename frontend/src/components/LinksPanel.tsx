@@ -9,17 +9,18 @@ import {
   Plus,
   X,
 } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import type { GroupedLinks, ResourceRef, ResourceType } from '../types'
 import { useLinkMutations } from '../hooks/queries'
 import { LinkPickerModal } from './LinkPickerModal'
 import styles from './LinksPanel.module.css'
 
 const TYPE_ICON: Record<ResourceType, React.ReactNode> = {
-  application: <Briefcase size={12} />,
-  accomplishment: <Trophy size={12} />,
-  resume: <FileText size={12} />,
-  note: <StickyNote size={12} />,
-  contact: <User size={12} />,
+  application: <Briefcase size={ICON_SIZE.sm} />,
+  accomplishment: <Trophy size={ICON_SIZE.sm} />,
+  resume: <FileText size={ICON_SIZE.sm} />,
+  note: <StickyNote size={ICON_SIZE.sm} />,
+  contact: <User size={ICON_SIZE.sm} />,
 }
 
 const TYPE_LABEL: Record<ResourceType, string> = {
@@ -110,7 +111,7 @@ export function LinksPanel({
       <div className={styles.header}>
         <h4 className={styles.title}>Links ({count})</h4>
         <button className={styles.addButton} onClick={() => setShowPicker(true)}>
-          <Plus size={12} />
+          <Plus size={ICON_SIZE.sm} />
           Link
         </button>
       </div>
@@ -141,7 +142,7 @@ export function LinksPanel({
                       disabled={unlinking === key}
                       aria-label={`Unlink ${ref.name}`}
                     >
-                      <X size={12} />
+                      <X size={ICON_SIZE.sm} />
                     </button>
                   </li>
                 )

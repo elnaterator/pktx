@@ -1,6 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { Skill } from '../../types'
 import { useToast } from '../../components/toast'
 import { addEntry, removeEntry, reorderEntries, updateEntry } from '../../services/api'
@@ -271,7 +272,7 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
                   onClick={() => setDraft(null)}
                   aria-label="Discard new skill"
                 >
-                  <X size={12} />
+                  <X size={ICON_SIZE.sm} />
                 </button>
               </div>
               <div className={styles.keywords}>
@@ -331,10 +332,10 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
                           disabled={saving}
                           aria-label="Save"
                         >
-                          <Check size={13} />
+                          <Check size={ICON_SIZE.md} />
                         </button>
                         <button className={styles.cancelButton} onClick={cancelEdit} aria-label="Cancel">
-                          <X size={13} />
+                          <X size={ICON_SIZE.md} />
                         </button>
                       </>
                     ) : (
@@ -344,14 +345,14 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
                           onClick={() => startEdit(group)}
                           aria-label={`Edit ${name} skill`}
                         >
-                          <Pencil size={13} />
+                          <Pencil size={ICON_SIZE.md} />
                         </button>
                         <button
                           className={styles.deleteButton}
                           onClick={() => setDeletingId(group.id ?? null)}
                           aria-label={`Delete ${name} skill`}
                         >
-                          <Trash2 size={13} />
+                          <Trash2 size={ICON_SIZE.md} />
                         </button>
                       </>
                     )}
@@ -372,7 +373,7 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
                           }
                           aria-label={`Remove ${keyword}`}
                         >
-                          <X size={10} />
+                          <X size={ICON_SIZE.xs} />
                         </button>
                       )}
                     </div>

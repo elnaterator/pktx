@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import { useToast } from '../toast'
 import styles from './Connect.module.css'
 
@@ -41,7 +42,7 @@ export function CopyButton({ text, label, variant = 'text', className }: CopyBut
       title={label}
       onClick={handleClick}
     >
-      <Icon size={variant === 'icon' ? 16 : 14} aria-hidden="true" />
+      <Icon size={variant === 'icon' ? ICON_SIZE.lg : ICON_SIZE.md} aria-hidden="true" />
       {variant === 'text' && <span>{copied ? 'Copied' : 'Copy'}</span>}
       <span className={styles.srOnly} aria-live="polite">
         {copied ? 'Copied to clipboard' : ''}

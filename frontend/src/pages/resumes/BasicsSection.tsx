@@ -2,6 +2,7 @@ import { useEffect } from 'react'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { Basics } from '../../types'
 import { EditableSection } from '../../components/EditableSection'
 import SortableList from '../../components/SortableList'
@@ -330,7 +331,7 @@ export default function BasicsSection({ basics, versionId, onUpdate }: BasicsSec
                       onClick={() => profiles.remove(index)}
                       aria-label={`Remove profile ${index + 1}`}
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={ICON_SIZE.md} />
                     </button>
                   </div>
                 )

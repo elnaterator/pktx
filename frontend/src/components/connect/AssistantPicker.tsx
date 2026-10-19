@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react'
 import { ChevronDown } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { Assistant } from './connectAssistants'
 import { AssistantIcon } from './AssistantIcon'
 import styles from './Connect.module.css'
@@ -131,7 +132,7 @@ export function AssistantPicker({ assistants, value, onChange, label }: Assistan
           {selected.name}
         </span>
         <ChevronDown
-          size={16}
+          size={ICON_SIZE.lg}
           aria-hidden="true"
           className={`${styles.pickerChevron} ${open ? styles.pickerChevronOpen : ''}`}
         />

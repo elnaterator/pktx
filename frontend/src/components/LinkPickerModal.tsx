@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { X } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import type { ResourceRef, ResourceType } from '../types'
 import {
   useAccomplishmentList,
@@ -146,7 +147,7 @@ export function LinkPickerModal({
         <div className={styles.modalHeader}>
           <h3 className={styles.modalTitle}>Link to resource</h3>
           <button className={styles.closeButton} onClick={onClose} aria-label="Close">
-            <X size={16} />
+            <X size={ICON_SIZE.lg} />
           </button>
         </div>
 

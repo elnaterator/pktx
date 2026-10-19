@@ -8,7 +8,7 @@
   border-right: 1px solid var(--bg-hover);
   overflow-y: auto;
   transition: width var(--transition-default);
-  z-index: 20;
+  z-index: var(--z-panel);
 }
 
 .panelClosed {
@@ -85,9 +85,9 @@
 
 .expandLabel {
   writing-mode: vertical-rl;
-  font-size: 0.875rem;
-  font-weight: 600;
-  letter-spacing: 0.04em;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-1);
 }
 
 /* Expanded panel */
@@ -111,8 +111,8 @@
   background: none;
   border: none;
   padding: var(--space-5) var(--space-6);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
   cursor: pointer;
   font-family: var(--font-mono);

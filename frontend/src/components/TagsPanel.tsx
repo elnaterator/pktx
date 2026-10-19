@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Pencil, Check, X } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import { TagInput } from './TagInput'
 import { useToast } from './toast'
 import styles from './TagsPanel.module.css'
@@ -40,15 +41,15 @@ export function TagsPanel({ tags, allTags, onSave }: TagsPanelProps) {
         {editing ? (
           <div className={styles.actions}>
             <button type="button" className={`${styles.iconBtn} ${styles.save}`} onClick={save} disabled={saving} aria-label="Save tags">
-              <Check size={14} />
+              <Check size={ICON_SIZE.md} />
             </button>
             <button type="button" className={`${styles.iconBtn} ${styles.cancel}`} onClick={() => setEditing(false)} aria-label="Cancel editing tags">
-              <X size={14} />
+              <X size={ICON_SIZE.md} />
             </button>
           </div>
         ) : (
           <button type="button" className={styles.iconBtn} onClick={startEdit} aria-label="Edit tags">
-            <Pencil size={14} />
+            <Pencil size={ICON_SIZE.md} />
           </button>
         )}
       </div>

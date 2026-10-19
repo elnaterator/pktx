@@ -1,5 +1,6 @@
 import { useCallback, useRef, useState, KeyboardEvent } from 'react'
 import { X } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import styles from './StatusFilter.module.css'
 
 export interface StatusFilterProps {
@@ -75,7 +76,7 @@ export function StatusFilter({ value, onChange, options, placeholder = 'Filter b
                 removeStatus(status)
               }}
             >
-              <X size={10} />
+              <X size={ICON_SIZE.xs} />
             </button>
           </span>
         ))}

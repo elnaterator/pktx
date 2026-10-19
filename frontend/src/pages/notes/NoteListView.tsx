@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react'
 import { Link } from 'react-router'
 import { Link2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import { useAllTags, useNoteList, useNoteMutations } from '../../hooks/queries'
 import { SearchBar } from '../../components/SearchBar'
 import { useToast } from '../../components/toast'
@@ -94,7 +95,7 @@ export default function NoteListView() {
                 <div className={styles.itemMeta}>
                   <span>{new Date(note.updated_at).toLocaleDateString()}</span>
                   {!!note.link_count && (
-                    <span className={styles.linkCount}><Link2 size={11} />{note.link_count}</span>
+                    <span className={styles.linkCount}><Link2 size={ICON_SIZE.sm} />{note.link_count}</span>
                   )}
                 </div>
               </Link>

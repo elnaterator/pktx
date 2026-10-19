@@ -9,9 +9,9 @@
 }
 
 .title {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-4);
   text-transform: uppercase;
   color: var(--text-secondary);
   margin: 0;
@@ -27,8 +27,8 @@
   background: none;
   color: var(--accent-green);
   cursor: pointer;
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-semibold);
   font-family: var(--font-mono);
   padding: 0;
 }
@@ -40,7 +40,7 @@
 /* The quieter secondary action (e.g. removing an empty section). */
 .actions button[data-quiet] {
   color: var(--text-muted);
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
 }
 
 .actions button[data-quiet]:hover {

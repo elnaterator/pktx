@@ -1,6 +1,5 @@
 .section {
   background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
   padding: var(--space-6) var(--space-7);
 }
 
@@ -12,10 +11,10 @@
 }
 
 .label {
-  font-size: 0.8125rem;
-  font-weight: 600;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.06em;
+  letter-spacing: var(--tracking-2);
   margin: 0;
 }

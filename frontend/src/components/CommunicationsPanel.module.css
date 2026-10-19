@@ -1,6 +1,5 @@
 .container {
   background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
   padding: var(--space-6) var(--space-7);
 }
 
@@ -12,8 +11,8 @@
 }
 
 .panelTitle {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: var(--font-size-6);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   margin: 0;
 }
@@ -22,8 +21,7 @@
   background-color: var(--bg-hover);
   color: var(--text-secondary);
   padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   cursor: pointer;
   transition: background-color var(--transition-fast);
@@ -34,19 +32,14 @@
   color: var(--accent-green);
 }
 
-.addBtn:focus {
-  outline: none;
-}
-
 .empty {
   color: var(--text-muted);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   font-style: italic;
 }
 
 .form {
   background-color: var(--bg-secondary);
-  border-radius: var(--radius-none);
   padding: var(--space-5);
   margin-bottom: var(--space-5);
 }
@@ -62,7 +55,6 @@
 .cancelIconBtn {
   background-color: var(--bg-input);
   border: none;
-  border-radius: var(--radius-none);
   padding: var(--space-1) var(--space-2);
   cursor: pointer;
   display: flex;
@@ -88,9 +80,6 @@
 }
 
 .saveIconBtn:focus,
-.cancelIconBtn:focus {
-  outline: none;
-}
 
 .formGrid {
   display: grid;
@@ -109,17 +98,16 @@
 }
 
 .label {
-  font-size: 0.8125rem;
-  font-weight: 500;
+  font-size: var(--font-size-3);
+  font-weight: var(--font-weight-medium);
   color: var(--text-muted);
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: var(--tracking-1);
 }
 
 .input {
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
-  font-size: 0.9rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   background-color: var(--bg-input);
   color: var(--text-primary);
@@ -132,8 +120,7 @@
 
 .select {
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
-  font-size: 0.9rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   background-color: var(--bg-input);
   color: var(--text-primary);
@@ -146,8 +133,7 @@
 
 .textarea {
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
-  font-size: 0.9rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   background-color: var(--bg-input);
   color: var(--text-primary);
@@ -160,7 +146,6 @@
   box-shadow: var(--shadow-focus);
 }
 
-
 /* Timeline */
 .timeline {
   list-style: none;
@@ -172,7 +157,6 @@
 }
 
 .timelineItem {
-  border-radius: var(--radius-none);
   background-color: var(--bg-secondary);
   transition: background-color var(--transition-fast);
   scroll-margin-top: calc(var(--header-h, 64px) + var(--space-6));
@@ -204,35 +188,32 @@
 }
 
 .commDate {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   white-space: nowrap;
 }
 
 .commType {
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   background-color: var(--bg-hover);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
   white-space: nowrap;
 }
 
 .commDirection {
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   background-color: var(--bg-hover);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
   white-space: nowrap;
 }
 
 .statusBadge {
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-semibold);
   padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
   white-space: nowrap;
 }
 
@@ -274,7 +255,6 @@
   background: none;
   color: var(--text-muted);
   padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-none);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -291,7 +271,6 @@
   background: none;
   color: var(--text-muted);
   padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-none);
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -323,12 +302,12 @@
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   padding-right: var(--space-9); /* ensure ellipsis has room */
 }
 
 .commSubject {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
 
@@ -342,15 +321,15 @@
 
 /* Expanded state */
 .commSubjectExpanded {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   margin: 0 0 var(--space-2);
 }
 
 .commBodyFull {
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   margin: 0;
   white-space: pre-wrap;
   border-left: 2px solid var(--border-primary);
@@ -368,7 +347,7 @@
   align-items: center;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-pill);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   background-color: var(--bg-active);
   color: var(--accent-green);
