@@ -1,20 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import type { ContactInfo } from '../../types'
+import type { Basics, Resume } from '../../types'
 import {
-  addVersionEntry,
+  addEntry,
   createResume,
   deleteResume,
+  getResumeSchema,
   getResumeVersion,
-  listResumeContactKeys,
-  listResumeSections,
   listResumes,
-  removeVersionEntry,
-  setDefaultResume,
-  updateResumeLabel,
-  updateVersionContact,
-  updateVersionEntry,
-  setVersionSectionEnabled,
-  updateVersionSummary,
+  removeEntry,
+  reorderEntries,
+  replaceResumeData,
+  updateBasics,
+  updateEntry,
+  updateResume,
 } from '../../services/api'
 
 export interface ResumeFilters {
@@ -49,20 +47,11 @@ export function useResumeDetail(id: number | undefined) {
   })
 }
 
-/** Section registry: static per deploy, so cache for the session. */
-export function useResumeSections() {
+/** Section schemas: static per deploy, so cache for the session. */
+export function useResumeSchema() {
   return useQuery({
-    queryKey: [...resumeKeys.all, 'sections'] as const,
-    queryFn: listResumeSections,
-    staleTime: Infinity,
-  })
-}
-
-/** Preset contact keys: static per deploy, so cache for the session. */
-export function useResumeContactKeys() {
-  return useQuery({
-    queryKey: [...resumeKeys.all, 'contact-keys'] as const,
-    queryFn: listResumeContactKeys,
+    queryKey: [...resumeKeys.all, 'schema'] as const,
+    queryFn: getResumeSchema,
     staleTime: Infinity,
   })
 }
@@ -86,75 +75,61 @@ export function useResumeMutations() {
     },
   })
   const setDefault = useMutation({
-    mutationFn: (id: number) => setDefaultResume(id),
+    mutationFn: (id: number) => updateResume(id, { is_default: true }),
     onSuccess: () => qc.invalidateQueries({ queryKey: resumeKeys.all }),
   })
   const updateLabelOrTags = useMutation({
-    mutationFn: ({ id, label, tags }: { id: number; label: string; tags?: string[] }) =>
-      updateResumeLabel(id, label, tags),
+    mutationFn: ({ id, label, tags }: { id: number; label?: string; tags?: string[] }) =>
+      updateResume(id, { label, tags }),
     onSuccess: (_d, { id }) => {
       invalidateResume(id)
       qc.invalidateQueries({ queryKey: ['tags'] })
     },
   })
-  const updateContactSection = useMutation({
-    mutationFn: ({ id, data }: { id: number; data: Partial<ContactInfo> }) =>
-      updateVersionContact(id, data),
+  const replaceData = useMutation({
+    mutationFn: ({ id, data }: { id: number; data: Resume }) => replaceResumeData(id, data),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
-  const updateSummarySection = useMutation({
-    mutationFn: ({ id, text }: { id: number; text: string }) =>
-      updateVersionSummary(id, text),
+  const updateBasicsSection = useMutation({
+    mutationFn: ({ id, patch }: { id: number; patch: Basics }) => updateBasics(id, patch),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
-  const addEntry = useMutation({
+  const addEntryMutation = useMutation({
     mutationFn: ({
       id,
       section,
       data,
+      position,
     }: {
       id: number
       section: string
       data: Record<string, unknown>
-    }) => addVersionEntry(id, section, data),
+      position?: number
+    }) => addEntry(id, section, data, position),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
-  const updateEntry = useMutation({
+  const updateEntryMutation = useMutation({
     mutationFn: ({
       id,
       section,
-      entryRef,
+      entryId,
       data,
     }: {
       id: number
       section: string
-      entryRef: string | number
+      entryId: string
       data: Record<string, unknown>
-    }) => updateVersionEntry(id, section, entryRef, data),
+    }) => updateEntry(id, section, entryId, data),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
-  const removeEntry = useMutation({
-    mutationFn: ({
-      id,
-      section,
-      entryRef,
-    }: {
-      id: number
-      section: string
-      entryRef: string | number
-    }) => removeVersionEntry(id, section, entryRef),
+  const removeEntryMutation = useMutation({
+    mutationFn: ({ id, section, entryId }: { id: number; section: string; entryId: string }) =>
+      removeEntry(id, section, entryId),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
-  const setSectionEnabled = useMutation({
-    mutationFn: ({
-      id,
-      section,
-      enabled,
-    }: {
-      id: number
-      section: string
-      enabled: boolean
-    }) => setVersionSectionEnabled(id, section, enabled),
+  const reorder = useMutation({
+    mutationFn: ({ id, section, ids }: { id: number; section: string; ids: string[] }) =>
+      reorderEntries(id, section, ids),
     onSuccess: (_d, { id }) => invalidateResume(id),
   })
 
@@ -163,11 +138,11 @@ export function useResumeMutations() {
     remove,
     setDefault,
     updateLabelOrTags,
-    updateContactSection,
-    updateSummarySection,
-    addEntry,
-    updateEntry,
-    removeEntry,
-    setSectionEnabled,
+    replaceData,
+    updateBasicsSection,
+    addEntry: addEntryMutation,
+    updateEntry: updateEntryMutation,
+    removeEntry: removeEntryMutation,
+    reorder,
   }
 }

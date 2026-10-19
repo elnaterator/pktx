@@ -1,134 +1,67 @@
-"""Section registry: one definition per resume section.
+"""Section registry: one definition per JSON Resume list section.
 
 The service, MCP tools, REST routes and the frontend (via
-``GET /api/resume-sections``) all derive from ``SECTIONS``. Adding a section
-means adding a model in ``models.py``, a ``Resume`` field, a ``LIST_ORDER``
-entry in ``resume_order`` and one ``SectionDef`` here.
+``GET /api/resumes/schema``) all derive from ``SECTIONS``; dict order is the
+display order. Adding a section means adding an ``Entry`` model in
+``json_resume``, a ``Resume`` field and one ``SectionDef`` here.
 """
 
-from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Literal
+from typing import Any
 
-from pydantic import BaseModel
-
-from pktx.contact_keys import CONTACT_KEYS
-from pktx.models import (
+from pktx.json_resume import (
     Award,
-    Certification,
+    Basics,
+    Certificate,
     Education,
+    Entry,
+    Interest,
     Language,
     Project,
     Publication,
+    Reference,
     Resume,
     Skill,
     Volunteer,
-    WorkExperience,
+    Work,
 )
-from pktx.resume_order import CORE, LIST_ORDER
 
 
 @dataclass(frozen=True)
 class SectionDef:
     key: str
     label: str
-    model: type[BaseModel]
-    summary: Callable[[Any], str]
-    # New entries go first (dated sections, newest first) or last.
-    insert: Literal["prepend", "append"] = "prepend"
-    # Case-insensitive uniqueness on this field (e.g. skill name).
-    unique_field: str | None = None
-    # Hint for generic UI: how to label an entry in lists.
-    primary_field: str | None = None
-
-
-def _join(a: str, sep: str, b: str | None) -> str:
-    return f"{a}{sep}{b}" if b else a
+    model: type[Entry]
+    # Field that titles an entry in lists (the UI falls back to the next filled one).
+    primary_field: str
 
 
 SECTIONS: dict[str, SectionDef] = {
     d.key: d
     for d in (
-        SectionDef(
-            "experience",
-            "Experience",
-            WorkExperience,
-            lambda e: f"{e.title} at {e.company}",
-            primary_field="title",
-        ),
-        SectionDef(
-            "education",
-            "Education",
-            Education,
-            lambda e: f"{e.degree} from {e.institution}",
-            primary_field="institution",
-        ),
-        SectionDef(
-            "skills",
-            "Skills",
-            Skill,
-            lambda e: f"{e.name} ({e.category})",
-            insert="append",
-            unique_field="name",
-            primary_field="name",
-        ),
-        SectionDef(
-            "projects",
-            "Projects",
-            Project,
-            lambda e: e.name,
-            primary_field="name",
-        ),
-        SectionDef(
-            "certifications",
-            "Certifications & Licenses",
-            Certification,
-            lambda e: _join(e.name, " from ", e.issuer),
-            primary_field="name",
-        ),
-        SectionDef(
-            "awards",
-            "Awards",
-            Award,
-            lambda e: e.title,
-            primary_field="title",
-        ),
-        SectionDef(
-            "publications",
-            "Publications & Talks",
-            Publication,
-            lambda e: e.title,
-            primary_field="title",
-        ),
-        SectionDef(
-            "volunteer",
-            "Volunteer",
-            Volunteer,
-            lambda e: f"{e.role} at {e.organization}",
-            primary_field="role",
-        ),
-        SectionDef(
-            "languages",
-            "Languages",
-            Language,
-            lambda e: _join(e.language, " — ", e.proficiency),
-            insert="append",
-            unique_field="language",
-            primary_field="language",
-        ),
+        SectionDef("work", "Experience", Work, "position"),
+        SectionDef("education", "Education", Education, "institution"),
+        SectionDef("skills", "Skills", Skill, "name"),
+        SectionDef("projects", "Projects", Project, "name"),
+        SectionDef("certificates", "Certifications & Licenses", Certificate, "name"),
+        SectionDef("awards", "Awards", Award, "title"),
+        SectionDef("publications", "Publications & Talks", Publication, "name"),
+        SectionDef("volunteer", "Volunteer", Volunteer, "position"),
+        SectionDef("languages", "Languages", Language, "language"),
+        SectionDef("interests", "Interests", Interest, "name"),
+        SectionDef("references", "References", Reference, "name"),
     )
 }
 
 LIST_SECTIONS: tuple[str, ...] = tuple(SECTIONS)
-# Singleton sections are edited in place rather than as entry lists.
-SECTION_UPDATE: tuple[str, ...] = ("contact", "summary")
-ALL_SECTIONS: tuple[str, ...] = (*SECTION_UPDATE, *LIST_SECTIONS)
+# Readable through get_resume(section=...): every list section plus these objects.
+OBJECT_SECTIONS: tuple[str, ...] = ("basics", "meta")
+ALL_SECTIONS: tuple[str, ...] = (*OBJECT_SECTIONS, *LIST_SECTIONS)
 
-# Fail at import if the registry drifts from the model / layout order.
-if LIST_SECTIONS != LIST_ORDER:
-    raise RuntimeError("resume_order.LIST_ORDER is out of sync with SECTIONS")
-if not all(k in Resume.model_fields for k in ALL_SECTIONS):
-    raise RuntimeError("Resume model is missing a registered section field")
+# Fail at import if the registry drifts from the document model.
+_doc_fields = {f.alias or n for n, f in Resume.model_fields.items()}
+if not set(ALL_SECTIONS) == _doc_fields:
+    raise RuntimeError("SECTIONS is out of sync with the Resume model")
 
 
 def section_def(section: str) -> SectionDef:
@@ -141,74 +74,58 @@ def section_def(section: str) -> SectionDef:
     return d
 
 
-# --- Field descriptors for generic UIs ---------------------------------------
-
-_TEXTAREA = {"description", "body"}
-
-
-@dataclass(frozen=True)
-class FieldDef:
-    name: str
-    label: str
-    widget: str  # text | textarea | url | bullets | tags
-    required: bool
-
-
-def _widget(name: str) -> str:
-    if name == "highlights":
-        return "bullets"
-    if name == "tech":
-        return "tags"
-    if name == "url":
-        return "url"
-    if name in _TEXTAREA:
-        return "textarea"
-    return "text"
-
-
-def fields_for(model: type[BaseModel]) -> list[FieldDef]:
-    return [
-        FieldDef(
-            name=name,
-            label=name.replace("_", " ").capitalize(),
-            widget=_widget(name),
-            required=info.is_required(),
+def section_data(doc: dict[str, Any], section: str) -> Any:
+    """One part of a resume document: a list section, ``basics`` or ``meta``."""
+    if section not in ALL_SECTIONS:
+        raise ValueError(
+            f"Invalid section: '{section}'. Must be one of: {', '.join(ALL_SECTIONS)}"
         )
-        for name, info in model.model_fields.items()
-        if name != "id"
-    ]
+    return doc.get(section, {} if section in OBJECT_SECTIONS else [])
 
 
 def describe_sections() -> list[dict[str, Any]]:
-    """Registry metadata served to the frontend."""
-    out: list[dict[str, Any]] = []
-    for d in (SECTIONS[k] for k in LIST_SECTIONS):
-        out.append(
-            {
-                "key": d.key,
-                "label": d.label,
-                "optional": d.key not in CORE,
-                "primary_field": d.primary_field,
-                "unique_field": d.unique_field,
-                "insert": d.insert,
-                "fields": [f.__dict__ for f in fields_for(d.model)],
-            }
-        )
+    """Registry metadata and JSON Schemas served to the frontend."""
+    out: list[dict[str, Any]] = [
+        {
+            "key": "basics",
+            "label": "Basics",
+            "kind": "object",
+            "primaryField": "name",
+            "schema": Basics.model_json_schema(by_alias=True),
+        }
+    ]
+    out.extend(
+        {
+            "key": d.key,
+            "label": d.label,
+            "kind": "list",
+            "primaryField": d.primary_field,
+            "schema": d.model.model_json_schema(by_alias=True),
+        }
+        for d in SECTIONS.values()
+    )
     return out
 
 
-def describe_contact_keys() -> list[dict[str, str]]:
-    """Preset contact keys (most common first) with their value kind."""
-    return [{"key": c.key, "kind": c.kind} for c in CONTACT_KEYS]
+def entry_fields(model: type[Entry]) -> str:
+    """Field list for tool docs, e.g. ``name, startDate, highlights[]``."""
+    parts = []
+    for name, info in model.model_fields.items():
+        if name == "id":
+            continue
+        is_list = "list" in str(info.annotation).lower()
+        parts.append(f"{info.alias or name}{'[]' if is_list else ''}")
+    return ", ".join(parts)
 
 
 __all__ = [
     "ALL_SECTIONS",
     "LIST_SECTIONS",
+    "OBJECT_SECTIONS",
     "SECTIONS",
-    "SECTION_UPDATE",
     "SectionDef",
-    "describe_contact_keys",
     "describe_sections",
+    "entry_fields",
+    "section_data",
     "section_def",
 ]

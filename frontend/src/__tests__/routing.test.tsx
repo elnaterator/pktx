@@ -20,13 +20,9 @@ const mockResume = {
   is_default: true,
   created_at: '2024-01-01T00:00:00Z',
   updated_at: '2024-01-01T00:00:00Z',
-  resume_data: {
-    contact: { name: '', email: '', phone: '', location: '', linkedin: '', github: '', website: '' },
-    summary: '',
-    experience: [],
-    education: [],
-    skills: [],
-  },
+  tags: [],
+  links: {},
+  data: {},
 }
 
 describe('Route: /', () => {

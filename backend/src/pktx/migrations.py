@@ -2,8 +2,14 @@
 
 import json
 import logging
+import re
+import uuid
+from collections.abc import Callable
+from datetime import date
+from typing import Any
 
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 
 logger = logging.getLogger("pktx")
 
@@ -849,6 +855,321 @@ def migrate_v15_to_v16(conn) -> None:
     conn.commit()
 
 
+_MONTHS = {
+    m: i
+    for i, names in enumerate(
+        (
+            ("jan", "january"),
+            ("feb", "february"),
+            ("mar", "march"),
+            ("apr", "april"),
+            ("may",),
+            ("jun", "june"),
+            ("jul", "july"),
+            ("aug", "august"),
+            ("sep", "sept", "september"),
+            ("oct", "october"),
+            ("nov", "november"),
+            ("dec", "december"),
+        ),
+        start=1,
+    )
+    for m in names
+}
+_ONGOING = {"present", "current", "now", "ongoing", "today"}
+
+
+def _normalize_date(raw: object) -> str | None:
+    """Free-text date -> partial ISO (``YYYY``, ``YYYY-MM``, ``YYYY-MM-DD``).
+
+    Returns ``None`` for blank, "Present"-style or unparseable values; the
+    caller logs the unparseable ones (see ``_is_unparseable_date``).
+    """
+    if not isinstance(raw, str):
+        return None
+    text = raw.strip()
+    if not text or text.lower() in _ONGOING:
+        return None
+    if re.fullmatch(r"\d{4}", text):
+        return text
+    m = re.fullmatch(r"(\d{4})[-/](\d{1,2})(?:[-/](\d{1,2}))?", text)
+    if m:
+        year, month, day = m.group(1), int(m.group(2)), m.group(3)
+        if not 1 <= month <= 12:
+            return None
+        if day is None:
+            return f"{year}-{month:02d}"
+        try:
+            return date(int(year), month, int(day)).isoformat()
+        except ValueError:
+            return None
+    m = re.fullmatch(r"(\d{1,2})/(\d{4})", text)
+    if m and 1 <= int(m.group(1)) <= 12:
+        return f"{m.group(2)}-{int(m.group(1)):02d}"
+    m = re.fullmatch(r"([A-Za-z]+)\.?,?\s+(\d{4})", text)
+    if m and m.group(1).lower() in _MONTHS:
+        return f"{m.group(2)}-{_MONTHS[m.group(1).lower()]:02d}"
+    return None
+
+
+def _is_unparseable_date(raw: object) -> bool:
+    return (
+        isinstance(raw, str)
+        and bool(raw.strip())
+        and raw.strip().lower() not in _ONGOING
+        and _normalize_date(raw) is None
+    )
+
+
+# v16 list sections -> v17 key and per-entry field renames (old -> JSON Resume).
+# Fields not listed (honors, expires, credential_id, ...) have no clean spec
+# equivalent and are dropped. Keys in _V17_DATE_FIELDS are normalised.
+_V17_SECTIONS: dict[str, tuple[str, dict[str, str]]] = {
+    "experience": (
+        "work",
+        {
+            "company": "name",
+            "title": "position",
+            "location": "location",
+            "start_date": "startDate",
+            "end_date": "endDate",
+            "highlights": "highlights",
+        },
+    ),
+    "education": (
+        "education",
+        {
+            "institution": "institution",
+            "degree": "studyType",
+            "field": "area",
+            "start_date": "startDate",
+            "end_date": "endDate",
+        },
+    ),
+    "projects": (
+        "projects",
+        {
+            "name": "name",
+            "description": "description",
+            "url": "url",
+            "tech": "keywords",
+            "start_date": "startDate",
+            "end_date": "endDate",
+            "highlights": "highlights",
+        },
+    ),
+    "certifications": (
+        "certificates",
+        {"name": "name", "issuer": "issuer", "issued": "date", "url": "url"},
+    ),
+    "awards": (
+        "awards",
+        {
+            "title": "title",
+            "issuer": "awarder",
+            "date": "date",
+            "description": "summary",
+        },
+    ),
+    "publications": (
+        "publications",
+        {
+            "title": "name",
+            "venue": "publisher",
+            "date": "releaseDate",
+            "url": "url",
+            "description": "summary",
+        },
+    ),
+    "volunteer": (
+        "volunteer",
+        {
+            "organization": "organization",
+            "role": "position",
+            "start_date": "startDate",
+            "end_date": "endDate",
+            "highlights": "highlights",
+        },
+    ),
+    "languages": (
+        "languages",
+        {"language": "language", "proficiency": "fluency"},
+    ),
+}
+_V17_DATE_FIELDS = {"startDate", "endDate", "date", "releaseDate"}
+# Sections the v16 UI showed newest-first (it sorted them on display); in v17
+# the array order is the display order, so sort them once here.
+_V17_PERIOD_SECTIONS = ("work", "education", "projects", "volunteer")
+
+
+def _newest_first(entries: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Ongoing entries first, then by end date, then start date, newest first.
+
+    Stable, so entries that tie keep their stored order.
+    """
+
+    def key(entry: dict[str, Any]) -> tuple[bool, str, str]:
+        end = entry.get("endDate")
+        return (end is None, end or "", entry.get("startDate") or "")
+
+    return sorted(entries, key=key, reverse=True)
+
+
+_V16_ONLY_KEYS = {"contact", "summary", "enabled_sections"}
+
+
+def _v16_basics(data: dict[str, Any]) -> dict[str, Any]:
+    raw_contact = data.get("contact")
+    contact: dict[str, Any] = raw_contact if isinstance(raw_contact, dict) else {}
+    basics: dict[str, Any] = {}
+    if isinstance(data.get("basics"), dict):
+        basics.update(data["basics"])
+    for key in ("name", "phone"):
+        if contact.get(key):
+            basics[key] = contact[key]
+    summary = data.get("summary")
+    if isinstance(summary, str) and summary.strip():
+        basics["summary"] = summary
+    location = contact.get("location")
+    if isinstance(location, str) and location.strip():
+        city, sep, region = location.strip().rpartition(",")
+        basics["location"] = (
+            {"city": city.strip(), "region": region.strip()}
+            if sep and city.strip() and region.strip()
+            else {"city": location.strip()}
+        )
+    profiles: list[dict[str, Any]] = list(basics.get("profiles") or [])
+    for field in contact.get("fields") or []:
+        if not isinstance(field, dict):
+            continue
+        key = str(field.get("key", "")).strip()
+        value = str(field.get("value", "")).strip()
+        if not key or not value:
+            continue
+        if key.lower() == "email":
+            basics.setdefault("email", value)
+        elif key.lower() == "website":
+            basics.setdefault("url", value)
+        elif re.match(r"https?://", value, re.IGNORECASE):
+            profiles.append({"id": uuid.uuid4().hex, "network": key, "url": value})
+    if profiles:
+        basics["profiles"] = profiles
+    return basics
+
+
+def _v16_skill_groups(skills: list[Any]) -> list[dict[str, Any]]:
+    groups: dict[str, dict[str, Any]] = {}
+    out: list[dict[str, Any]] = []
+    for skill in skills:
+        if not isinstance(skill, dict):
+            continue
+        if "keywords" in skill:  # already a v17 group
+            out.append(skill)
+            continue
+        name = str(skill.get("name", "")).strip()
+        if not name:
+            continue
+        category = str(skill.get("category") or "Other").strip() or "Other"
+        group = groups.get(category.lower())
+        if group is None:
+            group = {"id": uuid.uuid4().hex, "name": category, "keywords": []}
+            groups[category.lower()] = group
+            out.append(group)
+        group["keywords"].append(name)
+    return out
+
+
+def _v16_to_v17(
+    data: dict[str, Any], warn: Callable[[str], None] = lambda _msg: None
+) -> dict[str, Any]:
+    """Reshape a v16 resume blob into a JSON Resume document (+ entry ids).
+
+    Pure and idempotent: v16-only keys are consumed, anything already in the new
+    shape passes through. ``warn`` is called for each date that cannot be
+    normalised (the date is dropped).
+    """
+    out = {k: v for k, v in data.items() if k not in _V16_ONLY_KEYS}
+    if "contact" in data or "summary" in data or "basics" in data:
+        basics = _v16_basics(data)
+        if basics:
+            out["basics"] = basics
+    for old, (new, renames) in _V17_SECTIONS.items():
+        if old not in data:
+            continue
+        entries = out.pop(old) if old != new else out.get(new)
+        # Keys only v16 entries carry; an entry without any is already v17.
+        legacy_keys = set(renames) - set(renames.values())
+        converted = []
+        for entry in entries or []:
+            if not isinstance(entry, dict):
+                continue
+            if old == new and not entry.keys() & legacy_keys:
+                converted.append({"id": uuid.uuid4().hex, **entry})
+                continue
+            item: dict[str, Any] = {"id": entry.get("id") or uuid.uuid4().hex}
+            for src, dst in renames.items():
+                value = entry.get(src)
+                if dst in _V17_DATE_FIELDS:
+                    if _is_unparseable_date(value):
+                        warn(f"dropped unparseable date {value!r} in {old}")
+                    value = _normalize_date(value)
+                if value in (None, "", []):
+                    continue
+                item[dst] = value
+            converted.append(item)
+        if converted:
+            out[new] = (
+                _newest_first(converted) if new in _V17_PERIOD_SECTIONS else converted
+            )
+        else:
+            out.pop(new, None)
+    if "skills" in data:
+        groups = _v16_skill_groups(data["skills"] or [])
+        if groups:
+            out["skills"] = groups
+        else:
+            out.pop("skills", None)
+    return out
+
+
+def migrate_v16_to_v17(conn) -> None:
+    """Store each resume as a JSON Resume document in a JSONB column.
+
+    The column becomes ``jsonb`` and every blob is reshaped by ``_v16_to_v17``
+    (contact + summary -> basics, experience -> work, certifications ->
+    certificates, skills -> keyword groups, dates -> partial ISO, enabled
+    sections dropped). Fields with no JSON Resume equivalent are dropped.
+    """
+    conn.execute("ALTER TABLE resume_version ALTER COLUMN resume_data DROP DEFAULT")
+    conn.execute(
+        "ALTER TABLE resume_version "
+        "ALTER COLUMN resume_data TYPE jsonb USING resume_data::jsonb"
+    )
+    conn.execute(
+        "ALTER TABLE resume_version ALTER COLUMN resume_data SET DEFAULT '{}'::jsonb"
+    )
+    # Explicit dict rows: the migration connection may use the default factory.
+    cur = conn.cursor(row_factory=dict_row)
+    rows = cur.execute("SELECT id, resume_data FROM resume_version").fetchall()
+    for row in rows:
+        data = row["resume_data"]
+        if not isinstance(data, dict):
+            continue
+        version_id = row["id"]
+
+        def warn(msg: str, version_id: int = version_id) -> None:
+            logger.warning("migration 17: resume_version %s: %s", version_id, msg)
+
+        converted = _v16_to_v17(data, warn)
+        conn.execute(
+            "UPDATE resume_version SET resume_data = %s WHERE id = %s",
+            (Jsonb(converted), version_id),
+        )
+
+    conn.execute("UPDATE schema_version SET version = %s", (17,))
+    conn.commit()
+
+
 MIGRATIONS: list = [
     migrate_v0_to_v1,
     migrate_v1_to_v2,
@@ -866,6 +1187,7 @@ MIGRATIONS: list = [
     migrate_v13_to_v14,
     migrate_v14_to_v15,
     migrate_v15_to_v16,
+    migrate_v16_to_v17,
 ]
 
 SCHEMA_VERSION: int = len(MIGRATIONS)

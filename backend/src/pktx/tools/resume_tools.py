@@ -1,209 +1,249 @@
-"""MCP tool handlers for resume version management."""
+"""MCP tool handlers for resume versions and their JSON Resume documents."""
 
-from typing import Any
+from typing import Annotated, Any, Literal, get_args
 
 from fastmcp import FastMCP
+from pydantic import Field
 
 from pktx.auth import require_user_id
-from pktx.models import Resume
-from pktx.resume_sections import ALL_SECTIONS
+from pktx.json_resume import Basics, Resume, dump
+from pktx.resume_sections import LIST_SECTIONS, SECTIONS, entry_fields, section_data
 from pktx.resume_service import ResumeService
+from pktx.tools.errors import raises_tool_error
+
+ListSection = Literal[
+    "work",
+    "education",
+    "skills",
+    "projects",
+    "certificates",
+    "awards",
+    "publications",
+    "volunteer",
+    "languages",
+    "interests",
+    "references",
+]
+if get_args(ListSection) != LIST_SECTIONS:
+    raise RuntimeError("ListSection is out of sync with the section registry")
+
+_ENTRY_HELP = (
+    "A JSON Resume entry (camelCase keys, partial for updates). Fields by section: "
+    + "; ".join(f"{k}: {entry_fields(d.model)}" for k, d in SECTIONS.items())
+    + ". Dates are YYYY, YYYY-MM or YYYY-MM-DD; omit endDate for a current role. "
+    "A blank value clears a field on update."
+)
+EntryArg = Annotated[dict[str, Any], Field(description=_ENTRY_HELP)]
 
 
 def register_resume_tools(mcp: FastMCP, get_service: Any) -> None:
     """Register resume version MCP tools on the given FastMCP instance."""
 
     @mcp.tool()
+    @raises_tool_error
     def list_resumes() -> list[dict[str, Any]]:
         """List all resume versions with metadata.
 
-        Returns a list of resume version summaries (id, label, is_default,
-        app_count, timestamps). Does not include resume content.
+        Returns summaries (id, label, is_default, tags, app_count, link_count,
+        timestamps) without resume content.
         """
-        user_id = require_user_id()
         service: ResumeService = get_service()
-        return service.list_resumes(user_id=user_id)
+        return service.list_resumes(user_id=require_user_id())
 
     @mcp.tool()
-    def get_resume(id: int | None = None) -> dict[str, Any]:
-        """Get a resume version with full resume data.
+    @raises_tool_error
+    def get_resume(
+        id: int | None = None,
+        section: Annotated[
+            Literal["basics", "meta", *get_args(ListSection)] | None,  # type: ignore[valid-type]
+            Field(description="Return only this part of the document."),
+        ] = None,
+    ) -> dict[str, Any]:
+        """Get a resume version, or one section of its document.
+
+        The resume is `{id, label, tags, is_default, timestamps, links, data}`
+        where `data` is a JSON Resume document (basics, work, education, ...).
+        Every entry and profile has a stable `id`. Empty sections are omitted.
 
         Args:
-            id: Resume version ID. If omitted, returns the default version.
-
-        Returns the full resume version: contact, summary, every list section
-        (each entry has a stable `id`) and `enabled_sections` (the optional
-        sections shown for this version).
+            id: Resume version ID. If omitted, uses the default version.
+            section: With a section, returns `{id, section, data}` holding just
+                that part: `basics` and `meta` are objects, the rest are lists
+                of entries (empty if the resume has none).
         """
-        user_id = require_user_id()
         service: ResumeService = get_service()
-        version = service.get_resume(id, user_id=user_id)
-        # Normalize through Resume model
-        resume = Resume(**version["resume_data"])
-        result = {
+        version = service.get_resume(id, user_id=require_user_id())
+        if section is None:
+            return version
+        return {
             "id": version["id"],
-            "label": version["label"],
-            "is_default": version["is_default"],
-            "resume_data": resume.model_dump(),
-            "created_at": version["created_at"],
-            "updated_at": version["updated_at"],
+            "section": section,
+            "data": section_data(version["data"], section),
         }
-        return result
 
     @mcp.tool()
-    def get_resume_section(section: str, id: int | None = None) -> Any:
-        """Get a specific section from a resume version.
-
-        Args:
-            section: One of: contact, summary, experience, education, skills,
-                projects, certifications, awards, publications, volunteer,
-                languages.
-            id: Resume version ID. If omitted, uses default.
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        version = service.get_resume(id, user_id=user_id)
-        resume = Resume(**version["resume_data"])
-        data = resume.model_dump()
-        if section not in ALL_SECTIONS:
-            raise ValueError(
-                f"Invalid section: '{section}'. "
-                f"Must be one of: {', '.join(ALL_SECTIONS)}"
-            )
-        return data[section]
-
-    @mcp.tool()
-    def update_resume_section(id: int, section: str, data: dict[str, Any]) -> str:
-        """Update a non-list section (contact or summary) on a resume version.
-
-        Args:
-            id: Resume version ID.
-            section: One of: contact, summary.
-            data: Fields to update. For contact: name, phone, location and
-                  `fields`, the full list of {"key", "value"} details. Common
-                  keys: Email, Website, LinkedIn, GitHub, GitLab, Portfolio, X,
-                  Bluesky; any other key is allowed. Shortcut: email, website,
-                  linkedin and github are upserted into `fields`.
-                  For summary: {"text": "new summary"}.
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        return service.update_section(section, data, id, user_id=user_id)
-
-    @mcp.tool()
-    def add_resume_entry(id: int, section: str, data: dict[str, Any]) -> str:
-        """Add an entry to a list section of a resume version.
-
-        Args:
-            id: Resume version ID.
-            section: One of: experience, education, skills, projects,
-                certifications, awards, publications, volunteer, languages.
-            data: Entry fields. Required fields vary by section
-                  (see the `fields` of `GET /api/resume-sections`).
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        return service.add_entry(section, data, id, user_id=user_id)
-
-    @mcp.tool()
-    def update_resume_entry(
-        id: int, section: str, entry_id: str, data: dict[str, Any]
-    ) -> str:
-        """Update an entry in a list section of a resume version.
-
-        Args:
-            id: Resume version ID.
-            section: One of: experience, education, skills, projects,
-                certifications, awards, publications, volunteer, languages.
-            entry_id: Stable `id` of the entry (a 0-based index is also accepted).
-            data: Fields to update (partial update).
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        return service.update_entry(section, entry_id, data, id, user_id=user_id)
-
-    @mcp.tool()
-    def remove_resume_entry(id: int, section: str, entry_id: str) -> str:
-        """Remove an entry from a list section of a resume version.
-
-        Args:
-            id: Resume version ID.
-            section: One of: experience, education, skills, projects,
-                certifications, awards, publications, volunteer, languages.
-            entry_id: Stable `id` of the entry (a 0-based index is also accepted).
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        return service.remove_entry(section, entry_id, id, user_id=user_id)
-
-    @mcp.tool()
-    def set_resume_section_enabled(id: int, section: str, enabled: bool = True) -> str:
-        """Add or remove an optional section on a resume version.
-
-        Sections are shown in a fixed order. experience, education and skills
-        are always shown; the optional ones are projects, certifications,
-        awards, publications, volunteer and languages. Adding an entry to an
-        optional section shows it automatically.
-
-        Args:
-            id: Resume version ID.
-            section: An optional section key.
-            enabled: True to add the section, False to remove it (only
-                allowed while it has no entries).
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        return service.set_section_enabled(section, enabled, id, user_id=user_id)
-
-    @mcp.tool()
-    def create_resume(label: str, tags: list[str] | None = None) -> str:
-        """Create a new resume version, initialized as a copy of the default.
+    @raises_tool_error
+    def create_resume(
+        label: str,
+        tags: list[str] | None = None,
+        data: Resume | None = None,
+    ) -> dict[str, Any]:
+        """Create a resume version.
 
         Args:
             label: Label for the new version.
             tags: Tags for categorizing the version (e.g. "backend", "leadership").
+            data: A whole JSON Resume document to start from. If omitted, the
+                new version is a copy of the default.
         """
-        user_id = require_user_id()
         service: ResumeService = get_service()
-        version = service.create_resume(label, user_id=user_id, tags=tags)
-        return f"Created resume version '{label}' (id={version['id']})"
+        return service.create_resume(
+            label,
+            user_id=require_user_id(),
+            tags=tags,
+            data=dump(data) if data is not None else None,
+        )
 
     @mcp.tool()
-    def update_resume_metadata(
-        id: int, label: str | None = None, tags: list[str] | None = None
-    ) -> str:
-        """Update label and/or tags for a resume version.
+    @raises_tool_error
+    def update_resume(
+        id: int,
+        label: str | None = None,
+        tags: list[str] | None = None,
+        is_default: bool | None = None,
+        data: Resume | None = None,
+    ) -> dict[str, Any]:
+        """Update a resume version. Omitted arguments are left unchanged.
 
         Args:
             id: Resume version ID.
-            label: New label for the version.
-            tags: Tags for categorizing the resume version.
+            label: New label.
+            tags: New tag list (replaces the existing tags).
+            is_default: True makes this the default resume. The default cannot
+                be unset; make another resume the default instead.
+            data: A whole JSON Resume document. REPLACES the entire document;
+                use the entry tools for small edits.
         """
-        user_id = require_user_id()
         service: ResumeService = get_service()
-        version = service.get_resume(id, user_id=user_id)
-        new_label = label or version["label"]
-        service.update_metadata(id, new_label, user_id=user_id, tags=tags)
-        return f"Updated resume version {id}"
+        return service.update_resume(
+            id,
+            user_id=require_user_id(),
+            label=label,
+            tags=tags,
+            is_default=is_default,
+            data=dump(data) if data is not None else None,
+        )
 
     @mcp.tool()
-    def set_default_resume(id: int) -> str:
-        """Set a resume version as the default.
-
-        Args:
-            id: Resume version ID.
-        """
-        user_id = require_user_id()
-        service: ResumeService = get_service()
-        return service.set_default(id, user_id=user_id)
-
-    @mcp.tool()
-    def delete_resume(id: int) -> str:
+    @raises_tool_error
+    def delete_resume(id: int) -> dict[str, Any]:
         """Delete a resume version.
 
         Args:
             id: Resume version ID. Cannot delete the last remaining version.
+
+        Returns the deleted `{id, label}`.
         """
-        user_id = require_user_id()
         service: ResumeService = get_service()
-        return service.delete_resume(id, user_id=user_id)
+        return service.delete_resume(id, user_id=require_user_id())
+
+    @mcp.tool()
+    @raises_tool_error
+    def update_resume_basics(id: int, basics: Basics) -> dict[str, Any]:
+        """Update the `basics` of a resume (name, label, email, summary, ...).
+
+        Only the fields you pass change; a blank value clears one. `location`
+        and `profiles` are replaced as a whole when passed.
+
+        Args:
+            id: Resume version ID.
+            basics: Fields to change.
+
+        Returns the updated basics.
+        """
+        service: ResumeService = get_service()
+        patch = basics.model_dump(mode="json", by_alias=True, exclude_unset=True)
+        return service.update_basics(id, patch, user_id=require_user_id())
+
+    @mcp.tool()
+    @raises_tool_error
+    def add_resume_entry(
+        id: int,
+        section: ListSection,
+        entry: EntryArg,
+        position: Annotated[
+            int | None,
+            Field(ge=0, description="0-based index; omit to append."),
+        ] = None,
+    ) -> dict[str, Any]:
+        """Add an entry to a list section of a resume.
+
+        Args:
+            id: Resume version ID.
+            section: The JSON Resume section, e.g. `work` or `skills`.
+            entry: The new entry.
+            position: Where to insert it, e.g. 0 to put a new job first.
+
+        Returns the new entry, including its generated `id`.
+        """
+        service: ResumeService = get_service()
+        return service.add_entry(
+            id, section, entry, user_id=require_user_id(), position=position
+        )
+
+    @mcp.tool()
+    @raises_tool_error
+    def update_resume_entry(
+        id: int, section: ListSection, entry_id: str, entry: EntryArg
+    ) -> dict[str, Any]:
+        """Update an entry of a resume. Only the fields you pass change.
+
+        Args:
+            id: Resume version ID.
+            section: The JSON Resume section.
+            entry_id: The entry's `id`.
+            entry: Fields to change.
+
+        Returns the updated entry.
+        """
+        service: ResumeService = get_service()
+        return service.update_entry(
+            id, section, entry_id, entry, user_id=require_user_id()
+        )
+
+    @mcp.tool()
+    @raises_tool_error
+    def remove_resume_entry(
+        id: int, section: ListSection, entry_id: str
+    ) -> dict[str, Any]:
+        """Remove an entry from a resume.
+
+        Args:
+            id: Resume version ID.
+            section: The JSON Resume section.
+            entry_id: The entry's `id`.
+
+        Returns the removed entry.
+        """
+        service: ResumeService = get_service()
+        return service.remove_entry(id, section, entry_id, user_id=require_user_id())
+
+    @mcp.tool()
+    @raises_tool_error
+    def reorder_resume_entries(
+        id: int, section: ListSection, entry_ids: list[str]
+    ) -> list[dict[str, Any]]:
+        """Reorder the entries of a section; the list order is the display order.
+
+        Args:
+            id: Resume version ID.
+            section: The JSON Resume section.
+            entry_ids: Every entry `id` of the section, exactly once, in the
+                new order.
+
+        Returns the reordered entries.
+        """
+        service: ResumeService = get_service()
+        return service.reorder_entries(
+            id, section, entry_ids, user_id=require_user_id()
+        )

@@ -10,15 +10,15 @@ import {
   useAllTags,
   useResumeDetail,
   useResumeMutations,
-  useResumeSections,
+  useResumeSchema,
 } from '../../hooks/queries'
 import { TagInput } from '../../components/TagInput'
 import { resumeUpdateSchema } from '../../schemas/resume'
-import ContactSection from './ContactSection'
-import SummarySection from './SummarySection'
+import BasicsSection from './BasicsSection'
 import SkillsSection from './SkillsSection'
 import GenericListSection from './GenericListSection'
 import AddSectionBar from './AddSectionBar'
+import ResumeJsonView from './ResumeJsonView'
 import Breadcrumb from '../../components/Breadcrumb'
 import NotFound from '../../components/NotFound'
 import { LoadingSpinner } from '../../components/LoadingSpinner'
@@ -26,7 +26,7 @@ import { useToast } from '../../components/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LinksPanel } from '../../components/LinksPanel'
 import DetailLayout from '../../components/DetailLayout'
-import { ApiClientError, type ListEntry } from '../../types'
+import { ApiClientError, type ListEntry, type ListSectionKey } from '../../types'
 import styles from './ResumeDetailView.module.css'
 
 export default function ResumeDetailView() {
@@ -41,6 +41,11 @@ export default function ResumeDetailView() {
   const [tagsForm, setTagsForm] = useState<string[]>([])
   const [editingLabel, setEditingLabel] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
+  /** Sections opened from "Add section" but not yet holding an entry. */
+  const [opened, setOpened] = useState<string[]>([])
+  const [view, setView] = useState<'resume' | 'json'>('resume')
+  /** Unsaved JSON text, kept while switching views. */
+  const [jsonDraft, setJsonDraft] = useState<string | null>(null)
 
   const {
     register: registerLabel,
@@ -60,8 +65,8 @@ export default function ResumeDetailView() {
 
   const detailQuery = useResumeDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
-  const sectionsQuery = useResumeSections()
-  const { remove, setDefault, updateLabelOrTags, setSectionEnabled } = useResumeMutations()
+  const schemaQuery = useResumeSchema()
+  const { remove, setDefault, updateLabelOrTags } = useResumeMutations()
 
   const version = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
@@ -133,43 +138,40 @@ export default function ResumeDetailView() {
   if (forbidden) return <NotFound entityName="Resume" backTo="/resumes" backLabel="Back to Resumes" heading="This resume isn't yours" message="This resume belongs to another account and cannot be accessed." />
   if (!version) return null
 
-  const resume = version.resume_data
-  const sections = sectionsQuery.data ?? []
-  const enabled = resume.enabled_sections ?? []
-  // Fixed order from the registry; optional sections only once added.
-  const shown = sections.filter((m) => !m.optional || enabled.includes(m.key))
-  const available = sections.filter((m) => m.optional && !enabled.includes(m.key))
-
-  const setSection = async (section: string, on: boolean) => {
-    try {
-      await setSectionEnabled.mutateAsync({ id: numericId, section, enabled: on })
-    } catch {
-      error(on ? 'Failed to add section' : 'Failed to remove section')
-    }
-  }
+  const resume = version.data
+  const sections = (schemaQuery.data ?? []).filter((m) => m.kind === 'list')
+  const entriesOf = (key: string) =>
+    (resume[key as ListSectionKey] ?? []) as unknown as ListEntry[]
+  // A section is shown once it has entries; an empty one only while the user is
+  // filling in its first entry. Order is fixed by the backend registry.
+  const isShown = (key: string) => entriesOf(key).length > 0 || opened.includes(key)
+  const shown = sections.filter((m) => isShown(m.key))
+  const available = sections.filter((m) => !isShown(m.key))
+  const close = (key: string) => setOpened((keys) => keys.filter((k) => k !== key))
 
   const renderSection = (meta: (typeof sections)[number]) => {
+    const entries = entriesOf(meta.key)
+    const startAdding = entries.length === 0 && opened.includes(meta.key)
     if (meta.key === 'skills') {
       return (
         <SkillsSection
           key={meta.key}
-          skills={resume.skills}
-          onUpdate={reloadResume}
+          skills={resume.skills ?? []}
           versionId={numericId}
+          onUpdate={reloadResume}
+          onClose={() => close(meta.key)}
         />
       )
     }
-    const entries = (resume as unknown as Record<string, ListEntry[]>)[meta.key] ?? []
     return (
       <GenericListSection
         key={meta.key}
         meta={meta}
-        sectionKey={meta.key}
-        title={meta.label}
         entries={entries}
         versionId={numericId}
         onUpdate={reloadResume}
-        onRemoveSection={meta.optional ? () => setSection(meta.key, false) : undefined}
+        startAdding={startAdding}
+        onClose={() => close(meta.key)}
       />
     )
   }
@@ -277,21 +279,46 @@ export default function ResumeDetailView() {
           )}
         </div>
 
-        <div className={styles.document}>
-          <ContactSection
-            contact={resume.contact}
-            onUpdate={reloadResume}
-            versionId={numericId}
-          />
-          <SummarySection
-            summary={resume.summary}
-            onUpdate={reloadResume}
-            versionId={numericId}
-          />
-          {shown.map(renderSection)}
+        <div className={styles.viewSwitch} role="tablist" aria-label="Resume view">
+          {(['resume', 'json'] as const).map((v) => (
+            <button
+              key={v}
+              type="button"
+              role="tab"
+              aria-selected={view === v}
+              className={`${styles.viewTab} ${view === v ? styles.viewTabActive : ''}`}
+              onClick={() => setView(v)}
+            >
+              {v === 'resume' ? 'Resume' : 'JSON'}
+              {v === 'json' && jsonDraft !== null && <span aria-label="unsaved changes"> •</span>}
+            </button>
+          ))}
         </div>
 
-        <AddSectionBar available={available} onAdd={(key) => setSection(key, true)} />
+        {view === 'json' ? (
+          <ResumeJsonView
+            versionId={numericId}
+            data={resume}
+            draft={jsonDraft}
+            onDraftChange={setJsonDraft}
+          />
+        ) : (
+          <>
+            <div className={styles.document}>
+              <BasicsSection
+                basics={resume.basics ?? {}}
+                onUpdate={reloadResume}
+                versionId={numericId}
+              />
+              {shown.map(renderSection)}
+            </div>
+
+            <AddSectionBar
+              available={available}
+              onAdd={(key) => setOpened((keys) => [...keys, key])}
+            />
+          </>
+        )}
       </DetailLayout>
 
       {confirmDelete && (

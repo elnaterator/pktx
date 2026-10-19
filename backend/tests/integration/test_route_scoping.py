@@ -30,8 +30,7 @@ _EXEMPT: set[tuple[str, str]] = {
     ("POST", "/api/notes"),
     ("POST", "/api/contacts"),
     # Static registry metadata, no user data.
-    ("GET", "/api/resume-sections"),
-    ("GET", "/api/resume-contact-keys"),
+    ("GET", "/api/resumes/schema"),
     # Catch-all: unknown /api paths always 404, never touch data.
     ("GET", "/api/{path:path}"),
     ("POST", "/api/{path:path}"),
@@ -44,7 +43,6 @@ _EXEMPT: set[tuple[str, str]] = {
 _LEAK_CHECK: set[tuple[str, str]] = {
     ("GET", "/api/resumes"),
     ("GET", "/api/resumes/tags"),
-    ("GET", "/api/resumes/default"),
     ("GET", "/api/applications"),
     ("GET", "/api/applications/tags"),
     ("GET", "/api/accomplishments"),
@@ -67,44 +65,36 @@ def _cases(ids: dict[str, Any]) -> dict[tuple[str, str], tuple[str, Any]]:
     """
     r, a, c = ids["resume_id"], ids["app_id"], ids["acc_id"]
     n, ct, cm = ids["note_id"], ids["contact_id"], ids["comm_id"]
-    exp = {"title": "x", "company": "y"}
+    exp = {"position": "x", "name": "y"}
     comm = {"type": "email", "direction": "sent", "body": "b", "date": "2024-01-01"}
     link = {"a_type": "note", "a_id": n, "b_type": "contact", "b_id": ct}
     return {
         ("GET", "/api/resumes/{version_id}"): (f"/api/resumes/{r}", None),
         ("PATCH", "/api/resumes/{version_id}"): (f"/api/resumes/{r}", {"label": "x"}),
         ("DELETE", "/api/resumes/{version_id}"): (f"/api/resumes/{r}", None),
-        ("POST", "/api/resumes/{version_id}/default"): (
-            f"/api/resumes/{r}/default",
-            None,
+        ("PUT", "/api/resumes/{version_id}/data"): (
+            f"/api/resumes/{r}/data",
+            {"basics": {"name": "x"}},
         ),
-        ("GET", "/api/resumes/{version_id}/{section}"): (
-            f"/api/resumes/{r}/summary",
-            None,
-        ),
-        ("PUT", "/api/resumes/{version_id}/contact"): (
-            f"/api/resumes/{r}/contact",
+        ("PATCH", "/api/resumes/{version_id}/data/basics"): (
+            f"/api/resumes/{r}/data/basics",
             {"name": "x"},
         ),
-        ("PUT", "/api/resumes/{version_id}/summary"): (
-            f"/api/resumes/{r}/summary",
-            {"text": "x"},
-        ),
-        ("POST", "/api/resumes/{version_id}/{section}/entries"): (
-            f"/api/resumes/{r}/experience/entries",
+        ("POST", "/api/resumes/{version_id}/data/{section}"): (
+            f"/api/resumes/{r}/data/work",
             exp,
         ),
-        ("PUT", "/api/resumes/{version_id}/{section}/entries/{entry_ref}"): (
-            f"/api/resumes/{r}/experience/entries/0",
-            {"title": "x"},
+        ("PUT", "/api/resumes/{version_id}/data/{section}/order"): (
+            f"/api/resumes/{r}/data/work/order",
+            {"ids": [ids["entry_id"]]},
         ),
-        ("DELETE", "/api/resumes/{version_id}/{section}/entries/{entry_ref}"): (
-            f"/api/resumes/{r}/experience/entries/0",
+        ("PATCH", "/api/resumes/{version_id}/data/{section}/{entry_id}"): (
+            f"/api/resumes/{r}/data/work/{ids['entry_id']}",
+            {"position": "x"},
+        ),
+        ("DELETE", "/api/resumes/{version_id}/data/{section}/{entry_id}"): (
+            f"/api/resumes/{r}/data/work/{ids['entry_id']}",
             None,
-        ),
-        ("PUT", "/api/resumes/{version_id}/sections/{section}"): (
-            f"/api/resumes/{r}/sections/projects",
-            {"enabled": True},
         ),
         ("GET", "/api/applications/{app_id}"): (f"/api/applications/{a}", None),
         ("PATCH", "/api/applications/{app_id}"): (

@@ -1,158 +1,112 @@
 import { describe, it, expect } from 'vitest'
 import {
-  workExperienceSchema,
-  educationSchema,
-  skillSchema,
-  buildContactSchema,
+  PARTIAL_DATE,
+  basicsSchema,
   buildEntrySchema,
+  withScheme,
 } from '../../schemas/resumeEntry'
-import type { ContactKind, SectionField } from '../../types'
+import type { SectionField } from '../../types'
 
-describe('workExperienceSchema', () => {
-  it('accepts valid input', () => {
-    const result = workExperienceSchema.safeParse({ title: 'Engineer', company: 'Acme' })
-    expect(result.success).toBe(true)
-  })
-
-  it('requires title', () => {
-    const result = workExperienceSchema.safeParse({ title: '', company: 'Acme' })
-    expect(result.success).toBe(false)
-  })
-
-  it('requires company', () => {
-    const result = workExperienceSchema.safeParse({ title: 'Engineer', company: '' })
-    expect(result.success).toBe(false)
-  })
-
-  it('defaults highlights to empty array', () => {
-    const result = workExperienceSchema.safeParse({ title: 'Engineer', company: 'Acme' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.highlights).toEqual([])
+describe('withScheme', () => {
+  it('adds https:// to bare hosts only', () => {
+    expect(withScheme('github.com/me')).toBe('https://github.com/me')
+    expect(withScheme(' http://a.io ')).toBe('http://a.io')
+    expect(withScheme('//cdn.io/x')).toBe('//cdn.io/x')
   })
 })
 
-describe('educationSchema', () => {
-  it('accepts valid input', () => {
-    const result = educationSchema.safeParse({ institution: 'MIT', degree: 'BS' })
-    expect(result.success).toBe(true)
+describe('PARTIAL_DATE', () => {
+  it.each(['2024', '2024-03', '2024-03-05'])('accepts %s', (d) => {
+    expect(PARTIAL_DATE.test(d)).toBe(true)
   })
-
-  it('requires institution', () => {
-    const result = educationSchema.safeParse({ institution: '', degree: 'BS' })
-    expect(result.success).toBe(false)
-  })
-
-  it('requires degree', () => {
-    const result = educationSchema.safeParse({ institution: 'MIT', degree: '' })
-    expect(result.success).toBe(false)
-  })
-})
-
-describe('skillSchema', () => {
-  it('accepts valid input', () => {
-    const result = skillSchema.safeParse({ name: 'TypeScript' })
-    expect(result.success).toBe(true)
-  })
-
-  it('requires name', () => {
-    const result = skillSchema.safeParse({ name: '' })
-    expect(result.success).toBe(false)
-  })
-
-  it('normalizes empty category to undefined', () => {
-    const result = skillSchema.safeParse({ name: 'TypeScript', category: '' })
-    expect(result.success).toBe(true)
-    if (result.success) expect(result.data.category).toBeUndefined()
-  })
-})
-
-describe('buildContactSchema', () => {
-  const kinds: Record<string, ContactKind> = { email: 'email', github: 'url', website: 'url' }
-  const schema = buildContactSchema((key) => kinds[key.toLowerCase()] ?? 'text')
-
-  it('accepts an empty object and defaults fields', () => {
-    const r = schema.safeParse({})
-    expect(r.success).toBe(true)
-    if (r.success) expect(r.data.fields).toEqual([])
-  })
-
-  it('validates email values', () => {
-    expect(schema.safeParse({ fields: [{ key: 'Email', value: 'bad' }] }).success).toBe(false)
-    expect(schema.safeParse({ fields: [{ key: 'Email', value: 'a@b.co' }] }).success).toBe(true)
-  })
-
-  it.each(['javascript:alert(1)', 'ftp://example.com'])('rejects %s for a URL key', (value) => {
-    expect(schema.safeParse({ fields: [{ key: 'GitHub', value }] }).success).toBe(false)
-  })
-
-  it('adds https:// to bare hosts for URL keys only', () => {
-    const r = schema.safeParse({
-      fields: [
-        { key: 'GitHub', value: 'github.com/me' },
-        { key: 'Pronouns', value: 'github.com/me' },
-      ],
-    })
-    expect(r.success).toBe(true)
-    if (r.success) {
-      expect(r.data.fields[0].value).toBe('https://github.com/me')
-      expect(r.data.fields[1].value).toBe('github.com/me')
-    }
-  })
-
-  it('requires a key and a value', () => {
-    expect(schema.safeParse({ fields: [{ key: '', value: 'x' }] }).success).toBe(false)
-    expect(schema.safeParse({ fields: [{ key: 'Pronouns', value: '  ' }] }).success).toBe(false)
-  })
-
-  it('rejects duplicate keys case-insensitively', () => {
-    const r = schema.safeParse({
-      fields: [
-        { key: 'Pronouns', value: 'a' },
-        { key: 'pronouns', value: 'b' },
-      ],
-    })
-    expect(r.success).toBe(false)
-  })
-
-  it('caps the number of details', () => {
-    const fields = Array.from({ length: 31 }, (_, i) => ({ key: `k${i}`, value: 'v' }))
-    expect(schema.safeParse({ fields }).success).toBe(false)
-  })
+  it.each(['24', 'March 2024', '2024-13', '2024/03', '2024-3', '03/2024', ''])(
+    'rejects %s',
+    (d) => {
+      expect(PARTIAL_DATE.test(d)).toBe(false)
+    },
+  )
 })
 
 describe('buildEntrySchema', () => {
-  const fields = [
-    { name: 'name', label: 'Name', widget: 'text', required: true },
-    { name: 'url', label: 'Url', widget: 'url', required: false },
-    { name: 'homepage', label: 'Homepage', widget: 'url', required: true },
-    { name: 'description', label: 'Description', widget: 'textarea', required: false },
-    { name: 'highlights', label: 'Highlights', widget: 'bullets', required: false },
-  ] as SectionField[]
-  const schema = buildEntrySchema(fields)
+  const fields: SectionField[] = [
+    { name: 'position', label: 'Position', widget: 'text' },
+    { name: 'url', label: 'URL', widget: 'url' },
+    { name: 'startDate', label: 'Start date', widget: 'date' },
+    { name: 'summary', label: 'Summary', widget: 'textarea' },
+    { name: 'keywords', label: 'Technologies', widget: 'tags' },
+    { name: 'highlights', label: 'Highlights', widget: 'bullets' },
+  ]
+  const schema = buildEntrySchema(fields, 'position')
 
-  it('accepts a minimal valid entry and defaults bullets', () => {
-    const r = schema.safeParse({ name: ' X ', homepage: 'https://a.com' })
+  it('accepts a minimal entry, trims it and defaults bullets', () => {
+    const r = schema.safeParse({ position: ' Dev ' })
     expect(r.success).toBe(true)
     if (r.success) {
-      expect(r.data.name).toBe('X')
+      expect(r.data.position).toBe('Dev')
       expect(r.data.highlights).toEqual([])
+      expect(r.data.url).toBeUndefined()
     }
   })
 
-  it('rejects missing required fields', () => {
-    const r = schema.safeParse({ name: '', homepage: '' })
+  it('requires only the primary field', () => {
+    const r = schema.safeParse({ position: '' })
     expect(r.success).toBe(false)
+    if (!r.success) expect(r.error.issues[0].message).toBe('Position is required')
   })
 
-  it('rejects non-http(s) urls in optional and required url fields', () => {
-    expect(schema.safeParse({ name: 'x', homepage: 'javascript:alert(1)' }).success).toBe(false)
-    expect(
-      schema.safeParse({ name: 'x', homepage: 'https://a.com', url: 'ftp://a.com' }).success,
-    ).toBe(false)
+  it('validates partial ISO dates and treats blank as absent', () => {
+    expect(schema.safeParse({ position: 'x', startDate: '2024-03' }).success).toBe(true)
+    expect(schema.safeParse({ position: 'x', startDate: '' }).success).toBe(true)
+    expect(schema.safeParse({ position: 'x', startDate: 'March 2024' }).success).toBe(false)
+  })
+
+  it('adds https:// to bare hosts and rejects non-http(s) urls', () => {
+    const ok = schema.safeParse({ position: 'x', url: 'github.com/me' })
+    expect(ok.success).toBe(true)
+    if (ok.success) expect(ok.data.url).toBe('https://github.com/me')
+    for (const url of ['javascript:alert(1)', 'ftp://a.com']) {
+      expect(schema.safeParse({ position: 'x', url }).success).toBe(false)
+    }
   })
 
   it('treats an empty optional url as absent', () => {
-    const r = schema.safeParse({ name: 'x', homepage: 'https://a.com', url: '' })
+    const r = schema.safeParse({ position: 'x', url: '' })
     expect(r.success).toBe(true)
+  })
+})
+
+describe('basicsSchema', () => {
+  const ok = (v: object) => basicsSchema.safeParse({ profiles: [], ...v })
+
+  it('accepts an empty form', () => {
+    expect(ok({}).success).toBe(true)
+  })
+
+  it('validates email', () => {
+    expect(ok({ email: 'bad' }).success).toBe(false)
+    expect(ok({ email: 'a@b.co' }).success).toBe(true)
+    expect(ok({ email: '' }).success).toBe(true)
+  })
+
+  it('normalizes the website and rejects unsafe schemes', () => {
+    const r = ok({ url: 'janedoe.dev' })
+    expect(r.success && r.data.url).toBe('https://janedoe.dev')
+    expect(ok({ url: 'javascript:alert(1)' }).success).toBe(false)
+  })
+
+  it('requires a network on each profile and validates its url', () => {
+    expect(ok({ profiles: [{ network: '', url: 'github.com/me' }] }).success).toBe(false)
+    expect(ok({ profiles: [{ network: 'GitHub', url: 'ftp://x.io' }] }).success).toBe(false)
+    const r = ok({ profiles: [{ network: 'GitHub', url: 'github.com/me', profileId: 'p1' }] })
+    expect(r.success && r.data.profiles[0]).toMatchObject({
+      network: 'GitHub',
+      url: 'https://github.com/me',
+      profileId: 'p1',
+    })
+  })
+
+  it('caps the number of profiles', () => {
+    const profiles = Array.from({ length: 31 }, () => ({ network: 'N' }))
+    expect(ok({ profiles }).success).toBe(false)
   })
 })

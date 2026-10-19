@@ -13,7 +13,7 @@ from pktx.server import create_app
 
 def _default_url(client: TestClient) -> str:
     """URL prefix of the no-auth ("legacy") user's default resume version."""
-    rid = client.get("/api/resumes/default").json()["id"]
+    rid = client.get("/api/resumes").json()[0]["id"]
     return f"/api/resumes/{rid}"
 
 
@@ -38,15 +38,14 @@ class TestCrossInterfaceSharedState:
 
         # Add skill via REST API
         response = client.post(
-            f"{_default_url(client)}/skills/entries",
-            json={"name": "Docker", "category": "DevOps"},
+            f"{_default_url(client)}/data/skills",
+            json={"name": "DevOps", "keywords": ["Docker"]},
         )
         assert response.status_code == 201
 
         # Read via service (same underlying database)
-        skills = service.get_section("skills", user_id="legacy")
-        skill_names = [s["name"] for s in skills]
-        assert "Docker" in skill_names
+        skills = service.get_resume(user_id="legacy")["data"]["skills"]
+        assert "DevOps" in [s["name"] for s in skills]
 
     def test_update_via_service_visible_in_rest(
         self, app_and_service: tuple[Any, ResumeService, TestClient]
@@ -54,19 +53,19 @@ class TestCrossInterfaceSharedState:
         """Test US3: Update via service, verify visible via REST API."""
         app, service, client = app_and_service
 
-        # Update contact via service
-        service.update_section(
-            "contact",
+        vid = service.get_resume(user_id="legacy")["id"]
+        service.update_basics(
+            vid,
             {"name": "John Updated", "email": "updated@example.com"},
             user_id="legacy",
         )
 
         # Read via REST API
-        response = client.get(f"{_default_url(client)}/contact")
+        response = client.get(_default_url(client))
         assert response.status_code == 200
-        contact = response.json()
-        assert contact["name"] == "John Updated"
-        assert {"key": "Email", "value": "updated@example.com"} in contact["fields"]
+        basics = response.json()["data"]["basics"]
+        assert basics["name"] == "John Updated"
+        assert basics["email"] == "updated@example.com"
 
     def test_concurrent_operations_no_corruption(
         self, app_and_service: tuple[Any, ResumeService, TestClient]
@@ -79,21 +78,22 @@ class TestCrossInterfaceSharedState:
             if i % 2 == 0:
                 # REST API
                 client.post(
-                    f"{_default_url(client)}/skills/entries",
-                    json={"name": f"RestSkill{i}", "category": "Languages"},
+                    f"{_default_url(client)}/data/skills",
+                    json={"name": f"RestSkill{i}"},
                 )
             else:
                 # Service (used by MCP tools)
                 service.add_entry(
+                    service.get_resume(user_id="legacy")["id"],
                     "skills",
-                    {"name": f"ServiceSkill{i}", "category": "Languages"},
+                    {"name": f"ServiceSkill{i}"},
                     user_id="legacy",
                 )
 
         # Verify all entries present via REST
-        response = client.get(f"{_default_url(client)}/skills")
+        response = client.get(_default_url(client))
         assert response.status_code == 200
-        skills = response.json()
+        skills = response.json()["data"]["skills"]
         skill_names = [s["name"] for s in skills]
 
         # All added skills should be present
@@ -148,13 +148,11 @@ class TestResumeVersionCrossInterface:
         app, service, client = full_app
 
         default = service.get_resume(user_id="legacy")
-        service.update_section(
-            "contact", {"name": "Updated Name"}, default["id"], user_id="legacy"
-        )
+        service.update_basics(default["id"], {"name": "Updated Name"}, user_id="legacy")
 
-        resp = client.get(f"/api/resumes/{default['id']}/contact")
+        resp = client.get(f"/api/resumes/{default['id']}")
         assert resp.status_code == 200
-        assert resp.json()["name"] == "Updated Name"
+        assert resp.json()["data"]["basics"]["name"] == "Updated Name"
 
     def test_set_default_via_rest_visible_in_service(
         self, full_app: tuple[Any, ResumeService, TestClient]
@@ -165,7 +163,7 @@ class TestResumeVersionCrossInterface:
         resp = client.post("/api/resumes", json={"label": "Promoted"})
         new_id = resp.json()["id"]
 
-        client.post(f"/api/resumes/{new_id}/default")
+        client.patch(f"/api/resumes/{new_id}", json={"is_default": True})
 
         default = service.get_resume(user_id="legacy")
         assert default["id"] == new_id

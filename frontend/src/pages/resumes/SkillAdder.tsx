@@ -2,29 +2,30 @@ import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 're
 import type { ClipboardEvent, KeyboardEvent } from 'react'
 import styles from './SkillAdder.module.css'
 
-/** Separators accepted when typing or pasting several skills at once. */
+/** Separators accepted when typing or pasting several keywords at once. */
 const SPLIT = /[,;\n\r\t]+/
 
 interface SkillAdderProps {
-  /** Called with one or more trimmed, non-empty skill names. */
+  /** Called with one or more trimmed, non-empty keywords. */
   onCommit: (names: string[]) => void
   /** Escape pressed — the caller decides whether to unmount the adder. */
   onClose: () => void
   label: string
+  /** A write is in flight. The field stays usable so typing can carry on. */
   busy?: boolean
   placeholder?: string
   autoFocus?: boolean
 }
 
 /**
- * Chip-sized inline input for adding skills to one category. Commits on Enter,
+ * Chip-sized inline input for adding keywords to one skill. Commits on Enter,
  * comma, or blur; a pasted separated list commits every value at once. Stays
- * mounted after committing so several skills can be typed in a row.
+ * mounted after committing so several keywords can be typed in a row.
  *
  * Forwards a ref to the input so callers can hand it the focus.
  */
 export const SkillAdder = forwardRef<HTMLInputElement, SkillAdderProps>(function SkillAdder(
-  { onCommit, onClose, label, busy = false, placeholder = 'add skill…', autoFocus = true },
+  { onCommit, onClose, label, busy = false, placeholder = 'add keyword…', autoFocus = true },
   ref
 ) {
   const [text, setText] = useState('')
@@ -76,7 +77,7 @@ export const SkillAdder = forwardRef<HTMLInputElement, SkillAdderProps>(function
       onKeyDown={handleKeyDown}
       onPaste={handlePaste}
       onBlur={handleBlur}
-      disabled={busy}
+      aria-busy={busy}
       placeholder={placeholder}
       aria-label={label}
       autoComplete="off"

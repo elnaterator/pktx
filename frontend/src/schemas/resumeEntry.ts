@@ -1,19 +1,13 @@
 import { z } from 'zod'
-import { MAX_URL_LENGTH, httpUrl, requiredHttpUrl } from './httpUrl'
+import { MAX_URL_LENGTH } from './httpUrl'
 import { isHttpUrl } from '../utils/safeUrl'
-import type { ContactKind, SectionField } from '../types'
+import type { SectionField } from '../types'
 
 const optionalTrimmed = (max?: number) => {
   const s = z.string().trim()
   const base = max ? s.max(max) : s
   return base.transform((v) => v || undefined).optional()
 }
-
-const optionalFreeDate = z
-  .string()
-  .trim()
-  .transform((v) => v || undefined)
-  .optional()
 
 const URL_SCHEME = /^[a-z][a-z0-9+.-]*:/i
 
@@ -23,116 +17,105 @@ export function withScheme(value: string): string {
   return URL_SCHEME.test(v) || v.startsWith('//') ? v : `https://${v}`
 }
 
-const contactFieldSchema = (kindOf: (key: string) => ContactKind) =>
+/** Optional http(s) URL; a bare host gets `https://` like the backend does. */
+const looseHttpUrl = () =>
   z
-    .object({
-      key: z.string().trim().min(1, 'Key is required').max(200),
-      value: z.string().trim().min(1, 'Value is required'),
-      /** Form-only: the key is user-typed rather than a preset. Not sent. */
-      custom: z.boolean().optional(),
-    })
-    .superRefine((f, ctx) => {
-      const kind = kindOf(f.key)
-      if (kind === 'email' && !z.string().email().safeParse(f.value).success) {
-        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Invalid email' })
-      } else if (kind === 'url' && !isHttpUrl(withScheme(f.value))) {
-        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Enter a valid http(s) URL' })
-      } else if (f.value.length > (kind === 'url' ? MAX_URL_LENGTH : 500)) {
-        ctx.addIssue({ code: 'custom', path: ['value'], message: 'Value is too long' })
-      }
-    })
-    .transform((f) => ({
-      key: f.key,
-      value: kindOf(f.key) === 'url' ? withScheme(f.value) : f.value,
-      custom: f.custom,
-    }))
+    .string()
+    .trim()
+    .transform((v) => (v ? withScheme(v) : undefined))
+    .pipe(
+      z
+        .string()
+        .max(MAX_URL_LENGTH)
+        .refine(isHttpUrl, 'Enter a valid http(s) URL')
+        .optional(),
+    )
+    .optional()
+
+/** `YYYY`, `YYYY-MM` or `YYYY-MM-DD`; matches the backend's partial ISO dates. */
+export const PARTIAL_DATE = /^\d{4}(-(0[1-9]|1[0-2])(-(0[1-9]|[12]\d|3[01]))?)?$/
+
+const partialDate = () =>
+  z
+    .string()
+    .trim()
+    .transform((v) => v || undefined)
+    .pipe(z.string().regex(PARTIAL_DATE, 'Use YYYY, YYYY-MM or YYYY-MM-DD').optional())
+    .optional()
 
 /**
- * Contact form: name/phone/location plus key/value details. `kindOf` maps a key
- * to how its value is validated (presets are email/url, anything else is text).
+ * Zod schema for a list section, built from the fields the section's JSON Schema
+ * declares (`GET /api/resumes/schema`). Only the primary field is required in the
+ * form; the API itself only needs one non-empty field.
  */
-export function buildContactSchema(kindOf: (key: string) => ContactKind) {
-  return z
-    .object({
-      name: optionalTrimmed(200),
-      phone: optionalTrimmed(500),
-      location: optionalTrimmed(500),
-      fields: z.array(contactFieldSchema(kindOf)).max(30, 'At most 30 details').default([]),
-    })
-    .superRefine((data, ctx) => {
-      const seen = new Set<string>()
-      data.fields.forEach((f, i) => {
-        const folded = f.key.toLowerCase()
-        if (seen.has(folded)) {
-          ctx.addIssue({ code: 'custom', path: ['fields', i, 'key'], message: 'Duplicate key' })
-        }
-        seen.add(folded)
-      })
-    })
-}
-
-export type ContactFormInput = z.input<ReturnType<typeof buildContactSchema>>
-
-export const summarySchema = z.object({
-  summary: z.string().trim().min(1, 'Summary cannot be empty'),
-})
-
-export type SummaryInput = z.infer<typeof summarySchema>
-
-export const workExperienceSchema = z.object({
-  title: z.string().trim().min(1, 'Title is required').max(200),
-  company: z.string().trim().min(1, 'Company is required').max(200),
-  start_date: optionalFreeDate,
-  end_date: optionalFreeDate,
-  location: optionalTrimmed(200),
-  highlights: z.array(z.string()).default([]),
-})
-
-export type WorkExperienceInput = z.infer<typeof workExperienceSchema>
-
-export const educationSchema = z.object({
-  institution: z.string().trim().min(1, 'Institution is required').max(200),
-  degree: z.string().trim().min(1, 'Degree is required').max(200),
-  field: optionalTrimmed(200),
-  start_date: optionalFreeDate,
-  end_date: optionalFreeDate,
-  honors: optionalTrimmed(200),
-  highlights: z.array(z.string()).default([]),
-})
-
-export type EducationInput = z.infer<typeof educationSchema>
-
-export const skillSchema = z.object({
-  name: z.string().trim().min(1, 'Skill name is required').max(200),
-  category: optionalTrimmed(200),
-})
-
-export type SkillInput = z.infer<typeof skillSchema>
-
-/**
- * Zod schema for a registry-defined list section, built from the field
- * descriptors served by `GET /api/resume-sections`.
- */
-export function buildEntrySchema(fields: SectionField[]) {
+export function buildEntrySchema(fields: SectionField[], primaryField: string) {
   const shape: Record<string, z.ZodTypeAny> = {}
   for (const f of fields) {
+    const required = f.name === primaryField
     if (f.widget === 'bullets') {
       shape[f.name] = z.array(z.string()).default([])
+    } else if (required) {
+      shape[f.name] = z.string().trim().min(1, `${f.label} is required`).max(200)
     } else if (f.widget === 'url') {
-      shape[f.name] = f.required
-        ? requiredHttpUrl(`${f.label} is required`)
-        : httpUrl()
-    } else if (f.widget === 'textarea') {
-      shape[f.name] = f.required
-        ? z.string().trim().min(1, `${f.label} is required`)
-        : optionalTrimmed()
+      shape[f.name] = looseHttpUrl()
+    } else if (f.widget === 'date') {
+      shape[f.name] = partialDate()
+    } else if (f.widget === 'email') {
+      shape[f.name] = z
+        .string()
+        .trim()
+        .transform((v) => v || undefined)
+        .pipe(z.string().email('Invalid email').optional())
+        .optional()
+    } else if (f.widget === 'textarea' || f.widget === 'tags') {
+      shape[f.name] = optionalTrimmed()
     } else {
-      shape[f.name] = f.required
-        ? z.string().trim().min(1, `${f.label} is required`).max(200)
-        : f.widget === 'tags'
-          ? optionalTrimmed()
-          : optionalFreeDate
+      shape[f.name] = optionalTrimmed(200)
     }
   }
   return z.object(shape)
 }
+
+/** Social networks suggested in the profile editor; any name is accepted. */
+export const NETWORKS = [
+  'LinkedIn',
+  'GitHub',
+  'GitLab',
+  'X',
+  'Mastodon',
+  'Bluesky',
+  'Stack Overflow',
+  'Portfolio',
+  'YouTube',
+] as const
+
+export const basicsSchema = z.object({
+  name: optionalTrimmed(200),
+  label: optionalTrimmed(200),
+  email: z
+    .string()
+    .trim()
+    .transform((v) => v || undefined)
+    .pipe(z.string().email('Invalid email').max(500).optional())
+    .optional(),
+  phone: optionalTrimmed(200),
+  url: looseHttpUrl(),
+  city: optionalTrimmed(200),
+  region: optionalTrimmed(200),
+  countryCode: optionalTrimmed(200),
+  summary: optionalTrimmed(),
+  profiles: z
+    .array(
+      z.object({
+        /** Form-only: the backend id, kept so edits don't re-key a profile. */
+        profileId: z.string().optional(),
+        network: z.string().trim().min(1, 'Network is required').max(200),
+        username: optionalTrimmed(200),
+        url: looseHttpUrl(),
+      }),
+    )
+    .max(30, 'At most 30 profiles'),
+})
+
+export type BasicsFormInput = z.input<typeof basicsSchema>
+export type BasicsFormOutput = z.output<typeof basicsSchema>

@@ -5,7 +5,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.encoders import jsonable_encoder
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from pktx.accomplishment_service import AccomplishmentService
 from pktx.application_service import ApplicationService
@@ -14,14 +14,8 @@ from pktx.communication_service import ContactCommunicationService
 from pktx.contact_service import ContactService
 from pktx.export_service import ExportService
 from pktx.link_service import RESOURCE_TYPES, LinkService
-from pktx.models import Resume
 from pktx.note_service import NoteService
-from pktx.resume_sections import (
-    ALL_SECTIONS,
-    LIST_SECTIONS,
-    describe_contact_keys,
-    describe_sections,
-)
+from pktx.resume_sections import LIST_SECTIONS, describe_sections
 from pktx.resume_service import ResumeService
 from pktx.search_service import SearchService
 
@@ -52,21 +46,28 @@ def _client_error(e: Exception) -> HTTPException:
     return HTTPException(status_code=422, detail=detail)
 
 
-_NOT_FOUND_MARKERS = (
-    "not found",
-    "out of range",
-    " entry with id ",
-)
+_NOT_FOUND_MARKERS = ("not found", "out of range")
 
 
 def _check_list_section(section: str) -> None:
     if section not in LIST_SECTIONS:
         raise HTTPException(
-            status_code=400,
+            status_code=404,
             detail=(
-                f"Invalid section for entries: '{section}'. "
+                f"Unknown resume section: '{section}'. "
                 f"Must be one of: {', '.join(LIST_SECTIONS)}"
             ),
+        )
+
+
+def _check_keys(body: dict[str, Any], allowed: set[str]) -> None:
+    """Reject unknown top-level body keys (a typo must not silently no-op)."""
+    unknown = sorted(set(body) - allowed)
+    if unknown:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Unknown field(s): {', '.join(unknown)}. "
+            f"Valid fields: {', '.join(sorted(allowed))}",
         )
 
 
@@ -124,37 +125,35 @@ def create_router(
 
     @api.post("/api/resumes", status_code=201)
     def create_resume(
-        data: dict[str, Any],
+        body: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, Any]:
-        label = data.get("label", "")
-        if not isinstance(label, str) or not label.strip():
-            raise HTTPException(status_code=422, detail="Label is required")
-        tags = data.get("tags") or []
+        """Create ``{label, tags?, data?}``; without ``data``, copy the default."""
+        _check_keys(body, {"label", "tags", "data"})
         try:
-            return service.create_resume(label, user_id=current_user.id, tags=tags)
+            return service.create_resume(
+                body.get("label", ""),
+                user_id=current_user.id,
+                tags=body.get("tags"),
+                data=body.get("data"),
+            )
         except ValueError as e:
             raise HTTPException(status_code=422, detail=str(e))
 
-    # NOTE: /tags MUST be registered BEFORE /{version_id} to prevent FastAPI
-    # matching the literal string "tags" as an integer path parameter.
+    # NOTE: literal paths (/tags, /schema) MUST be registered BEFORE
+    # /{version_id} so FastAPI does not parse them as an integer parameter.
     @api.get("/api/resumes/tags")
     def list_resume_tags(
         current_user: UserContext = Depends(_user_dep),
     ) -> list[str]:
         return service.list_tags(user_id=current_user.id)
 
-    @api.get("/api/resumes/default")
-    def get_default_resume(
+    @api.get("/api/resumes/schema")
+    def get_resume_schema(
         current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, Any]:
-        try:
-            version = service.get_resume(None, user_id=current_user.id)
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        resume = Resume(**version["resume_data"])
-        version["resume_data"] = resume.model_dump()
-        return version
+    ) -> list[dict[str, Any]]:
+        """Per-section label, primary field and JSON Schema (with UI widget hints)."""
+        return describe_sections()
 
     @api.get("/api/resumes/{version_id}")
     def get_resume_version(
@@ -162,35 +161,22 @@ def create_router(
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, Any]:
         try:
-            version = service.get_resume(version_id, user_id=current_user.id)
+            return service.get_resume(version_id, user_id=current_user.id)
         except ValueError as e:
             raise HTTPException(status_code=404, detail=str(e))
-        resume = Resume(**version["resume_data"])
-        version["resume_data"] = resume.model_dump()
-        return version
 
     @api.patch("/api/resumes/{version_id}")
-    def update_resume_metadata(
+    def update_resume(
         version_id: int,
-        data: dict[str, Any],
+        body: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, Any]:
-        label = data.get("label", "")
-        if not isinstance(label, str) or not label.strip():
-            raise HTTPException(status_code=422, detail="Label is required")
-        tags = data.get("tags")
+        """Update ``{label?, tags?, is_default?, data?}`` (``data`` replaces all)."""
+        _check_keys(body, {"label", "tags", "is_default", "data"})
         try:
-            version = service.update_metadata(
-                version_id, label, user_id=current_user.id, tags=tags
-            )
+            return service.update_resume(version_id, user_id=current_user.id, **body)
         except ValueError as e:
-            detail = str(e)
-            if "not found" in detail:
-                raise HTTPException(status_code=404, detail=detail)
-            raise HTTPException(status_code=422, detail=detail)
-        resume = Resume(**version["resume_data"])
-        version["resume_data"] = resume.model_dump()
-        return version
+            raise _client_error(e)
 
     @api.delete("/api/resumes/{version_id}")
     def delete_resume_version(
@@ -198,156 +184,102 @@ def create_router(
         current_user: UserContext = Depends(_user_dep),
     ) -> dict[str, str]:
         try:
-            msg = service.delete_resume(version_id, user_id=current_user.id)
+            deleted = service.delete_resume(version_id, user_id=current_user.id)
         except ValueError as e:
             detail = str(e)
             if "last remaining" in detail:
                 raise HTTPException(status_code=409, detail=detail)
             raise HTTPException(status_code=404, detail=detail)
-        return {"message": msg}
+        return {"message": f"Deleted resume version '{deleted['label']}'"}
 
-    @api.post("/api/resumes/{version_id}/default")
-    def set_resume_default(
-        version_id: int,
-        current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
-        try:
-            msg = service.set_default(version_id, user_id=current_user.id)
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        return {"message": msg}
+    # --- The JSON Resume document (``data``) ---
 
-    @api.get("/api/resumes/{version_id}/{section}")
-    def get_resume_section(
+    @api.put("/api/resumes/{version_id}/data")
+    def replace_resume_data(
         version_id: int,
-        section: str,
+        body: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
-    ) -> Any:
-        if section not in ALL_SECTIONS:
-            raise HTTPException(
-                status_code=404,
-                detail=(
-                    f"Invalid section: '{section}'. "
-                    f"Must be one of: {', '.join(ALL_SECTIONS)}"
-                ),
-            )
+    ) -> dict[str, Any]:
+        """Replace the whole document with a JSON Resume (import)."""
         try:
-            version = service.get_resume(version_id, user_id=current_user.id)
-        except ValueError as e:
-            raise HTTPException(status_code=404, detail=str(e))
-        resume = Resume(**version["resume_data"])
-        return resume.model_dump()[section]
-
-    @api.put("/api/resumes/{version_id}/contact")
-    def update_resume_contact(
-        version_id: int,
-        data: dict[str, Any],
-        current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
-        try:
-            msg = service.update_section(
-                "contact", data, version_id, user_id=current_user.id
-            )
+            return service.update_resume(version_id, user_id=current_user.id, data=body)
         except ValueError as e:
             raise _client_error(e)
-        return {"message": msg}
 
-    @api.put("/api/resumes/{version_id}/summary")
-    def update_resume_summary(
+    @api.patch("/api/resumes/{version_id}/data/basics")
+    def update_resume_basics(
         version_id: int,
-        data: dict[str, Any],
+        body: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
-        text = data.get("text", "")
-        if not text:
-            raise HTTPException(
-                status_code=422, detail="Summary text must not be empty"
-            )
+    ) -> dict[str, Any]:
         try:
-            msg = service.update_section(
-                "summary", data, version_id, user_id=current_user.id
-            )
+            return service.update_basics(version_id, body, user_id=current_user.id)
         except ValueError as e:
             raise _client_error(e)
-        return {"message": msg}
 
-    @api.post("/api/resumes/{version_id}/{section}/entries", status_code=201)
+    @api.post("/api/resumes/{version_id}/data/{section}", status_code=201)
     def add_resume_entry(
         version_id: int,
         section: str,
-        data: dict[str, Any],
+        body: dict[str, Any],
+        position: int | None = Query(default=None, ge=0),
         current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
+        """Add an entry (body = the entry); ``position`` is a 0-based index."""
         _check_list_section(section)
         try:
-            msg = service.add_entry(section, data, version_id, user_id=current_user.id)
-        except (ValueError, TypeError) as e:
+            return service.add_entry(
+                version_id, section, body, user_id=current_user.id, position=position
+            )
+        except ValueError as e:
             raise _client_error(e)
-        return {"message": msg}
 
-    @api.put("/api/resumes/{version_id}/{section}/entries/{entry_ref}")
+    @api.put("/api/resumes/{version_id}/data/{section}/order")
+    def reorder_resume_entries(
+        version_id: int,
+        section: str,
+        body: dict[str, Any],
+        current_user: UserContext = Depends(_user_dep),
+    ) -> list[dict[str, Any]]:
+        """Reorder a section: ``{ids: [...]}`` = every entry id exactly once."""
+        _check_list_section(section)
+        _check_keys(body, {"ids"})
+        try:
+            return service.reorder_entries(
+                version_id, section, body.get("ids", []), user_id=current_user.id
+            )
+        except ValueError as e:
+            raise _client_error(e)
+
+    @api.patch("/api/resumes/{version_id}/data/{section}/{entry_id}")
     def update_resume_entry(
         version_id: int,
         section: str,
-        entry_ref: str,
-        data: dict[str, Any],
+        entry_id: str,
+        body: dict[str, Any],
         current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
+    ) -> dict[str, Any]:
         _check_list_section(section)
         try:
-            msg = service.update_entry(
-                section, entry_ref, data, version_id, user_id=current_user.id
+            return service.update_entry(
+                version_id, section, entry_id, body, user_id=current_user.id
             )
-        except (ValueError, TypeError) as e:
+        except ValueError as e:
             raise _client_error(e)
-        return {"message": msg}
 
-    @api.delete("/api/resumes/{version_id}/{section}/entries/{entry_ref}")
+    @api.delete("/api/resumes/{version_id}/data/{section}/{entry_id}", status_code=204)
     def remove_resume_entry(
         version_id: int,
         section: str,
-        entry_ref: str,
+        entry_id: str,
         current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
+    ) -> Response:
         _check_list_section(section)
         try:
-            msg = service.remove_entry(
-                section, entry_ref, version_id, user_id=current_user.id
-            )
+            service.remove_entry(version_id, section, entry_id, user_id=current_user.id)
         except ValueError as e:
             raise _client_error(e)
-        return {"message": msg}
-
-    @api.put("/api/resumes/{version_id}/sections/{section}")
-    def set_resume_section_enabled(
-        version_id: int,
-        section: str,
-        data: dict[str, Any],
-        current_user: UserContext = Depends(_user_dep),
-    ) -> dict[str, str]:
-        """Add (``{"enabled": true}``) or remove an optional section."""
-        try:
-            msg = service.set_section_enabled(
-                section,
-                bool(data.get("enabled", True)),
-                version_id,
-                user_id=current_user.id,
-            )
-        except ValueError as e:
-            raise _client_error(e)
-        return {"message": msg}
-
-    @api.get("/api/resume-contact-keys")
-    def list_resume_contact_keys(
-        current_user: UserContext = Depends(_user_dep),
-    ) -> list[dict[str, str]]:
-        return describe_contact_keys()
-
-    @api.get("/api/resume-sections")
-    def list_resume_sections(
-        current_user: UserContext = Depends(_user_dep),
-    ) -> list[dict[str, Any]]:
-        return describe_sections()
+        return Response(status_code=204)
 
     # ==========================================================
     # Application Routes

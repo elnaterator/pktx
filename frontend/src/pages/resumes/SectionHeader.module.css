@@ -1,0 +1,48 @@
+.header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+  border-bottom: 1px solid var(--border-primary);
+  padding-bottom: var(--space-2);
+  margin: 0 0 var(--space-6) 0;
+}
+
+.title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-4);
+}
+
+.actions button {
+  background: none;
+  color: var(--accent-green);
+  cursor: pointer;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  padding: 0;
+}
+
+.actions button:hover {
+  color: var(--accent-green-dim);
+}
+
+/* The quieter secondary action (e.g. removing an empty section). */
+.actions button[data-quiet] {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.actions button[data-quiet]:hover {
+  color: var(--status-error);
+}

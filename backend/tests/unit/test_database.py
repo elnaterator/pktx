@@ -31,22 +31,29 @@ class TestCreateResumeVersion:
     def test_creates_version_with_data(self, db_conn) -> None:
         from pktx.database import create_resume_version
 
-        data = {"contact": {"name": "Alice"}, "summary": "A test."}
+        data = {"basics": {"name": "Alice", "summary": "A test."}}
         result = create_resume_version(db_conn, "Test Resume", data, user_id="legacy")
 
         assert result["id"] is not None
         assert result["label"] == "Test Resume"
         assert result["is_default"] is False
-        assert result["resume_data"] == data
+        assert result["data"] == data
 
-    def test_returns_parsed_resume_data(self, db_conn) -> None:
+    def test_returns_parsed_document(self, db_conn) -> None:
         from pktx.database import create_resume_version
 
-        data = {"skills": [{"name": "Python", "category": "Languages"}]}
+        data = {"skills": [{"name": "Languages", "keywords": ["Python"]}]}
         result = create_resume_version(db_conn, "Skills Resume", data, user_id="legacy")
 
-        assert isinstance(result["resume_data"], dict)
-        assert result["resume_data"]["skills"][0]["name"] == "Python"
+        assert isinstance(result["data"], dict)
+        assert result["data"]["skills"][0]["keywords"] == ["Python"]
+
+    def test_column_is_jsonb(self, db_conn) -> None:
+        row = db_conn.execute(
+            "SELECT data_type FROM information_schema.columns "
+            "WHERE table_name = 'resume_version' AND column_name = 'resume_data'"
+        ).fetchone()
+        assert row["data_type"] == "jsonb"
 
     def test_multiple_versions_get_unique_ids(self, db_conn) -> None:
         from pktx.database import create_resume_version
@@ -60,7 +67,7 @@ class TestCreateResumeVersion:
         from pktx.database import create_resume_version
 
         result = create_resume_version(
-            db_conn, "Non-Default", {"summary": "hi"}, user_id="legacy"
+            db_conn, "Non-Default", {"basics": {"name": "x"}}, user_id="legacy"
         )
         assert result["is_default"] is False
 
@@ -80,13 +87,13 @@ class TestLoadResumeVersion:
         from pktx.database import create_resume_version, load_resume_version
 
         created = create_resume_version(
-            db_conn, "My Resume", {"summary": "hello"}, user_id="legacy"
+            db_conn, "My Resume", {"basics": {"summary": "hello"}}, user_id="legacy"
         )
         loaded = load_resume_version(db_conn, created["id"], user_id="legacy")
 
         assert loaded["id"] == created["id"]
         assert loaded["label"] == "My Resume"
-        assert loaded["resume_data"]["summary"] == "hello"
+        assert loaded["data"]["basics"]["summary"] == "hello"
 
     def test_raises_for_missing_id(self, db_conn) -> None:
         from pktx.database import load_resume_version
@@ -99,18 +106,16 @@ class TestLoadResumeVersion:
         from pktx.database import create_resume_version, load_resume_version
 
         original = {
-            "contact": {"name": "Jane", "email": "jane@example.com"},
-            "summary": "Experienced engineer.",
-            "experience": [{"title": "Dev", "company": "Acme"}],
-            "education": [],
-            "skills": [{"name": "Python", "category": "Languages"}],
+            "basics": {"name": "Jane", "email": "jane@example.com"},
+            "work": [{"position": "Dev", "name": "Acme", "startDate": "2020-01"}],
+            "skills": [{"name": "Languages", "keywords": ["Python"]}],
         }
         created = create_resume_version(
             db_conn, "Round Trip", original, user_id="legacy"
         )
         loaded = load_resume_version(db_conn, created["id"], user_id="legacy")
 
-        assert loaded["resume_data"] == original
+        assert loaded["data"] == original
 
 
 class TestLoadResumeVersions:
@@ -178,97 +183,84 @@ class TestLoadDefaultResumeVersion:
         from pktx.database import load_default_resume_version
 
         default = load_default_resume_version(db_conn_with_data, user_id="legacy")
-        assert default["resume_data"]["contact"]["name"] == "Jane Doe"
+        assert default["data"]["basics"]["name"] == "Jane Doe"
 
 
-class TestUpdateResumeVersionMetadata:
-    """Tests for update_resume_version_metadata."""
+class TestUpdateResumeVersion:
+    """Tests for update_resume_version."""
 
-    def test_updates_label(self, db_conn) -> None:
-        from pktx.database import (
-            load_default_resume_version,
-            update_resume_version_metadata,
-        )
+    def test_updates_label_and_tags(self, db_conn) -> None:
+        from pktx.database import load_default_resume_version, update_resume_version
 
         version = load_default_resume_version(db_conn, user_id="legacy")
-        updated = update_resume_version_metadata(
-            db_conn, version["id"], "New Label", user_id="legacy"
+        updated = update_resume_version(
+            db_conn, version["id"], "legacy", label="New Label", tags=["a"]
         )
 
         assert updated["label"] == "New Label"
+        assert updated["tags"] == ["a"]
         assert updated["id"] == version["id"]
 
+    def test_none_leaves_fields_unchanged(self, db_conn) -> None:
+        from pktx.database import (
+            create_resume_version,
+            update_resume_version,
+        )
+
+        v = create_resume_version(
+            db_conn, "Keep", {"basics": {"name": "A"}}, "legacy", tags=["t"]
+        )
+        updated = update_resume_version(db_conn, v["id"], "legacy", label="Renamed")
+        assert updated["data"] == {"basics": {"name": "A"}}
+        assert updated["tags"] == ["t"]
+
+    def test_empty_tags_clear(self, db_conn) -> None:
+        from pktx.database import create_resume_version, update_resume_version
+
+        v = create_resume_version(db_conn, "T", {}, "legacy", tags=["t"])
+        assert update_resume_version(db_conn, v["id"], "legacy", tags=[])["tags"] == []
+
     def test_raises_for_missing_id(self, db_conn) -> None:
-        from pktx.database import update_resume_version_metadata
+        from pktx.database import update_resume_version
 
         with pytest.raises(ValueError, match="not found"):
-            update_resume_version_metadata(db_conn, 9999, "Ghost", user_id="legacy")
+            update_resume_version(db_conn, 9999, "legacy", label="Ghost")
 
-    def test_does_not_change_resume_data(self, db_conn) -> None:
-        from pktx.database import (
-            load_default_resume_version,
-            update_resume_version_data,
-            update_resume_version_metadata,
-        )
-
-        version = load_default_resume_version(db_conn, user_id="legacy")
-        original_data = {"summary": "preserved"}
-        update_resume_version_data(
-            db_conn, version["id"], original_data, user_id="legacy"
-        )
-
-        updated = update_resume_version_metadata(
-            db_conn, version["id"], "Renamed", user_id="legacy"
-        )
-        assert updated["resume_data"] == original_data
-
-
-class TestUpdateResumeVersionData:
-    """Tests for update_resume_version_data."""
-
-    def test_updates_resume_data(self, db_conn) -> None:
+    def test_replaces_document(self, db_conn) -> None:
         from pktx.database import (
             load_default_resume_version,
             load_resume_version,
-            update_resume_version_data,
+            update_resume_version,
         )
 
         version = load_default_resume_version(db_conn, user_id="legacy")
-        new_data = {"summary": "Updated summary", "contact": {"name": "Bob"}}
-        update_resume_version_data(db_conn, version["id"], new_data, user_id="legacy")
+        new_data = {"basics": {"name": "Bob", "summary": "Updated summary"}}
+        update_resume_version(db_conn, version["id"], "legacy", data=new_data)
 
         reloaded = load_resume_version(db_conn, version["id"], user_id="legacy")
-        assert reloaded["resume_data"]["summary"] == "Updated summary"
-        assert reloaded["resume_data"]["contact"]["name"] == "Bob"
-
-    def test_raises_for_missing_id(self, db_conn) -> None:
-        from pktx.database import update_resume_version_data
-
-        with pytest.raises(ValueError, match="not found"):
-            update_resume_version_data(db_conn, 9999, {}, user_id="legacy")
+        assert reloaded["data"] == new_data
 
     def test_json_round_trip_complex_data(self, db_conn) -> None:
         from pktx.database import (
             load_default_resume_version,
             load_resume_version,
-            update_resume_version_data,
+            update_resume_version,
         )
 
         version = load_default_resume_version(db_conn, user_id="legacy")
         complex_data = {
-            "contact": {"name": "Alice", "email": "alice@test.com"},
-            "summary": "A summary.",
-            "experience": [
-                {"title": "Engineer", "company": "Corp", "highlights": ["a", "b"]}
-            ],
-            "skills": [{"name": "Go", "category": "Languages"}],
+            "basics": {
+                "name": "Alice",
+                "location": {"city": "Oslo"},
+                "profiles": [{"id": "p", "network": "GH", "url": "https://gh.io/a"}],
+            },
+            "work": [{"id": "w", "position": "Eng", "highlights": ["a", "b"]}],
+            "skills": [{"id": "s", "name": "Languages", "keywords": ["Go"]}],
         }
-        update_resume_version_data(
-            db_conn, version["id"], complex_data, user_id="legacy"
-        )
+        update_resume_version(db_conn, version["id"], "legacy", data=complex_data)
 
         reloaded = load_resume_version(db_conn, version["id"], user_id="legacy")
-        assert reloaded["resume_data"] == complex_data
+        assert reloaded["data"] == complex_data
 
 
 class TestDeleteResumeVersion:

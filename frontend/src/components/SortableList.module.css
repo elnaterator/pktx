@@ -1,0 +1,22 @@
+.handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-1) var(--space-2);
+  background: none;
+  color: var(--text-muted);
+  cursor: grab;
+  touch-action: none; /* let a finger drag instead of scrolling */
+  opacity: 0.6;
+  transition: color var(--transition-fast), opacity var(--transition-fast);
+}
+
+.handle:hover,
+.handle:focus-visible {
+  color: var(--accent-green);
+  opacity: 1;
+}
+
+.handle:active {
+  cursor: grabbing;
+}

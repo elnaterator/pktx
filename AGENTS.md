@@ -42,12 +42,12 @@ frontend/                 # React SPA
   src/
     pages/                # Route-level page modules
       home/               # HomeView
-      resumes/            # ListView, DetailView, GenericListSection (registry-driven), AddSectionBar, Contact/Summary/Skills sections
+      resumes/            # ListView, DetailView, BasicsSection, SkillsSection, GenericListSection (schema-driven), AddSectionBar
       applications/       # ListView, DetailView
       accomplishments/    # ListView, DetailView
       notes/              # ListView, DetailView
       contacts/           # ListView, DetailView
-    components/           # Shared components (used across ≥2 pages)
+    components/           # Shared components (used across ≥2 pages); SortableList = drag-and-drop reordering (@dnd-kit)
     hooks/                # Reusable state hooks (useResourceList, useResourceDetail, etc.)
     services/
       api/                # Per-resource API modules + shared client
@@ -70,7 +70,8 @@ frontend/                 # React SPA
 backend/                  # Python FastAPI + MCP server
   src/pktx/               # Python package
     server.py             # FastAPI + MCP server entrypoint
-    models.py             # Pydantic data models
+    models.py             # Pydantic data models (non-resume resources)
+    json_resume.py        # JSON Resume models (camelCase aliases, partial ISO dates, `dump` helper)
     config.py             # Configuration (env-var resolvers)
     database.py           # PostgreSQL operations (psycopg + pool)
     migrations.py         # Schema migration framework (schema_version table)
@@ -79,9 +80,7 @@ backend/                  # Python FastAPI + MCP server
     auth.py               # Clerk JWT (REST) + MCP OAuth proxy (build_mcp_auth)
     oauth_store.py        # PostgreSQL-backed AsyncKeyValue for OAuth-proxy state
     resume_service.py     # Shared business logic (one *_service.py per resource)
-    resume_sections.py    # Resume section registry (one SectionDef per section; drives service/tools/routes/UI)
-    contact_keys.py       # Preset contact keys (Email, Website, LinkedIn, ...) + value kind
-    resume_order.py       # Fixed section order, core vs optional sections, enabled-section normalization
+    resume_sections.py    # Resume section registry (one SectionDef per list section; dict order = display order; serves JSON Schemas to the UI)
     export_service.py     # Per-user JSON export behind GET /api/export
     api/                  # REST API routes
       routes.py           # FastAPI route handlers
@@ -103,7 +102,7 @@ specs/                    # Feature specifications
 
 **Connect UX (030):** per-assistant connect steps, snippets, install links, and `lastVerified` dates live only in `frontend/src/components/connect/connectAssistants.ts` — edit data there, not JSX. Shared by the side panel (`ConnectAssistantPanel`) and `/connect` (`pages/connect`).
 
-**Resume sections (033):** `backend/src/pktx/resume_sections.py` is the single registry — add a model in `models.py`, a `Resume` field, a `LIST_ORDER` entry in `resume_order.py` and one `SectionDef`; service, REST (`/api/resumes/{id}/{section}/entries/{entry_id}`), MCP tools and the UI (`GET /api/resume-sections` → `GenericListSection`) follow. Order is fixed (no reordering, no custom sections): experience/education/skills are always shown, the rest are optional and added from a fixed list (`enabled_sections`, `PUT /api/resumes/{id}/sections/{section}`); a section with entries is always shown. Entries carry a stable `id` (legacy 0-based index still accepted). Contact is name/phone/location plus `fields` — key/value pairs; preset keys (`contact_keys.py`, served by `GET /api/resume-contact-keys`, most common first) are validated by kind (email/url), any other key is custom free text; the old `email`/`website`/`linkedin`/`github`/`profiles` inputs still upsert into `fields` (`ContactInfo.upgrade_legacy`).
+**Resume (034):** a resume version is an envelope (`id`, `label`, `tags`, `is_default`, timestamps, snake_case like every resource) around a **JSON Resume** document (`data`, jsonresume.org v1.0.0, camelCase) stored as JSONB in `resume_version.resume_data`. `backend/src/pktx/json_resume.py` holds the models (full spec incl. `interests`/`references`/`meta`; unknown keys ignored; the only extension is a stable `id` on every entry and profile; always serialize with `dump()` so output is compact camelCase). Dates are partial ISO (`YYYY`, `YYYY-MM`, `YYYY-MM-DD`), a missing `endDate` means present; every URL is http(s)-only. A section shows when it has entries (no stored visibility); array order is display order (`PUT /api/resumes/{id}/data/{section}/order`, `reorder_resume_entries`, optional `position` on add). REST: `/api/resumes[/{id}]` (`PATCH` takes `label`/`tags`/`is_default`/`data`), `PUT /api/resumes/{id}/data` (whole-document import), `PATCH .../data/basics`, `POST|PATCH|DELETE .../data/{section}[/{entry_id}]`, `GET /api/resumes/schema` (per-section JSON Schema + `widget`/`title` UI hints, drives `GenericListSection`). MCP: `list_resumes`, `get_resume(id?, section?)`, `create_resume(data?)`, `update_resume(label?, tags?, is_default?, data?)`, `delete_resume`, `update_resume_basics`, `add/update/remove/reorder_resume_entry`; write tools return the changed object, errors raise (`tools/errors.raises_tool_error`). To add a section: an `Entry` model + `Resume` field in `json_resume.py`, one `SectionDef`, and the `ListSection` literal in `tools/resume_tools.py` (import-time checks fail if they drift).
 
 **Frontend Organization:** A component used in exactly one page lives in `pages/<name>/`. A component reused across ≥2 pages, or a UI primitive (dialog, form input, badge), lives in `components/`. Types live in `types/` with a barrel `index.ts`. Services are split per resource in `services/api/` with a barrel `index.ts`. Hooks in `hooks/` extract shared state patterns (list loading, detail loading, status messages).
 
@@ -189,7 +188,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - FastMCP >=3.4.7 for MCP server (streamable-http + stdio)
 - FastAPI >=0.100.0 for REST API + static file serving
 - uvicorn >=0.20.0 for ASGI HTTP server
-- PostgreSQL 16+ via `psycopg` + `psycopg-pool`, `DBConnection` protocol, migrations in `migrations.py` (schema v15)
+- PostgreSQL 16+ via `psycopg` + `psycopg-pool`, `DBConnection` protocol, migrations in `migrations.py` (schema v17)
 - `uv` for dependency management + packaging
 - pytest for testing (unit, contract, integration)
 - ruff for linting + formatting
@@ -211,6 +210,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - AWS Lambda (container image + Function URL) via Terraform in `infra/`; EventBridge keep-warm rule pings `GET /health` every 5 min (toggle: `keep_warm_enabled` module var)
 
 ## Recent Changes
+- 034-json-resume-schema: JSON Resume (jsonresume.org) is the canonical resume shape, stored as JSONB; `basics` replaces contact + summary; skills are keyword groups; ids-only entry addressing; reorder + whole-document import; resume REST/MCP reshaped (10 MCP tools); `enabled_sections`, contact keys/presets and every legacy path removed; schema v16 → v17 (reshape, date normalisation, newest-first period sections)
 - 033-resume-sections: section registry + stable entry ids; fixed section order with optional sections added from a fixed list; new sections (projects, certifications, awards, publications, volunteer, languages, contact as key/value details); schema v14 → v16 (backfill entry ids; contact links → `contact.fields`)
 - 029-pyjwt: python-jose → PyJWT for REST Clerk JWT verification (drops `ecdsa`/`rsa`/`pyasn1` and the PYSEC-2026-1325 pip-audit waiver); RS256 pinned, unusable JWKS entries → 401
 - 028-security-scanning: Renovate + Trivy (replaces Checkov) + pip-audit + npm audit + ruff `S`; new `security.yml` (PR + weekly); Dockerfile on node 22, all images digest-pinned, runtime drops system pip/setuptools and applies Debian security updates; Actions SHA-pinned with read-only `permissions`; vulnerable deps bumped; unused `clerk-backend-api` dropped

@@ -6,6 +6,7 @@ import logging
 from typing import Any
 
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from psycopg_pool import ConnectionPool
 
 from pktx.db import DBConnection
@@ -146,13 +147,16 @@ def _user_tags(conn: DBConnection, sql: str, user_id: str) -> list[str]:
 # --- Resume Version operations ---
 
 
-def _row_to_resume_data(row: Any) -> dict[str, Any]:
-    """Convert a resume_version row to a dict with parsed resume_data and tags."""
+def _row_to_resume_version(row: Any) -> dict[str, Any]:
+    """Convert a resume_version row to a dict: envelope fields plus ``data``.
+
+    ``data`` is the JSON Resume document (a JSONB column, already parsed).
+    """
     return {
         "id": row["id"],
         "label": row["label"],
         "is_default": bool(row["is_default"]),
-        "resume_data": json.loads(row["resume_data"]),
+        "data": row["resume_data"],
         "tags": _load_tags(row["tags"]) if "tags" in dict(row) else [],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
@@ -162,7 +166,7 @@ def _row_to_resume_data(row: Any) -> dict[str, Any]:
 def create_resume_version(
     conn: DBConnection,
     label: str,
-    resume_data: dict[str, Any],
+    data: dict[str, Any],
     user_id: str,
     tags: list[str] | None = None,
 ) -> dict[str, Any]:
@@ -170,9 +174,9 @@ def create_resume_version(
     row = conn.execute(
         "INSERT INTO resume_version (user_id, label, is_default, resume_data, tags) "
         "VALUES (%s, %s, 0, %s, %s) RETURNING *",
-        (user_id, label, json.dumps(resume_data), json.dumps(tags or [])),
+        (user_id, label, Jsonb(data), json.dumps(tags or [])),
     ).fetchone()
-    return _row_to_resume_data(row)
+    return _row_to_resume_version(row)
 
 
 def load_resume_version(
@@ -182,7 +186,7 @@ def load_resume_version(
 ) -> dict[str, Any]:
     """Load a user's resume version by ID. Raises ValueError if not found."""
     row = _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
-    return _row_to_resume_data(row)
+    return _row_to_resume_version(row)
 
 
 def load_resume_versions(
@@ -223,47 +227,41 @@ def load_default_resume_version(
     ).fetchone()
     if row is None:
         raise ValueError("No default resume version found")
-    return _row_to_resume_data(row)
+    return _row_to_resume_version(row)
 
 
-def update_resume_version_metadata(
+def update_resume_version(
     conn: DBConnection,
     version_id: int,
-    label: str,
     user_id: str,
+    *,
+    label: str | None = None,
     tags: list[str] | None = None,
+    data: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
-    """Update resume version label (and optionally tags). Returns updated version."""
+    """Update a user's resume version; ``None`` leaves a field unchanged.
+
+    Returns the updated version.
+    """
     _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
+    sets: list[str] = []
+    params: list[Any] = []
+    if label is not None:
+        sets.append("label = %s")
+        params.append(label)
     if tags is not None:
+        sets.append("tags = %s")
+        params.append(json.dumps(tags))
+    if data is not None:
+        sets.append("resume_data = %s")
+        params.append(Jsonb(data))
+    if sets:
         conn.execute(
-            "UPDATE resume_version SET label = %s, tags = %s, "
+            f"UPDATE resume_version SET {', '.join(sets)}, "  # noqa: S608
             "updated_at = CURRENT_TIMESTAMP WHERE id = %s AND user_id = %s",
-            (label, json.dumps(tags), version_id, user_id),
-        )
-    else:
-        conn.execute(
-            "UPDATE resume_version SET label = %s, updated_at = CURRENT_TIMESTAMP "
-            "WHERE id = %s AND user_id = %s",
-            (label, version_id, user_id),
+            (*params, version_id, user_id),
         )
     return load_resume_version(conn, version_id, user_id)
-
-
-def update_resume_version_data(
-    conn: DBConnection,
-    version_id: int,
-    resume_data: dict[str, Any],
-    user_id: str,
-) -> None:
-    """Update the resume_data JSON blob for a user's version."""
-    _load_owned(conn, "resume_version", version_id, user_id, "Resume version")
-    conn.execute(
-        "UPDATE resume_version "
-        "SET resume_data = %s, updated_at = CURRENT_TIMESTAMP "
-        "WHERE id = %s AND user_id = %s",
-        (json.dumps(resume_data), version_id, user_id),
-    )
 
 
 def delete_resume_version(
