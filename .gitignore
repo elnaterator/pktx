@@ -66,3 +66,6 @@ yarn-error.log*
 
 # pip-audit scratch export (backend/Makefile audit)
 .audit-reqs.txt
+
+# TypeScript incremental build info (written by tsc -b)
+*.tsbuildinfo
