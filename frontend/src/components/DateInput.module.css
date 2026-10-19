@@ -1,0 +1,138 @@
+.wrap {
+  position: relative;
+  display: flex;
+  align-items: stretch;
+}
+
+.wrap > input:first-child {
+  flex: 1;
+  min-width: 0;
+  padding-right: var(--space-7);
+}
+
+.pick {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 var(--space-2);
+  background: none;
+  color: var(--text-muted);
+  cursor: pointer;
+}
+
+.pick:hover,
+.pick[aria-expanded='true'] {
+  color: var(--accent-green);
+}
+
+.popover {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  z-index: 20;
+  margin-top: var(--space-1);
+  min-width: 15rem;
+  padding: var(--space-3);
+  background-color: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+}
+
+.calendar {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+}
+
+.calendar button {
+  background: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font: inherit;
+  padding: var(--space-1) var(--space-2);
+}
+
+.calendar button:hover {
+  color: var(--accent-green);
+  background-color: var(--bg-hover);
+}
+
+.calendarHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.calendarHeader button {
+  display: flex;
+  align-items: center;
+}
+
+.calendarTitle {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.year {
+  width: 5rem;
+  text-align: center;
+  padding: var(--space-1);
+  font: inherit;
+  font-weight: 600;
+  color: var(--text-primary);
+  background-color: var(--bg-input);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-none);
+  appearance: textfield;
+}
+
+.year::-webkit-inner-spin-button,
+.year::-webkit-outer-spin-button {
+  appearance: none;
+  margin: 0;
+}
+
+.monthGrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-1);
+}
+
+.weekdays,
+.dayGrid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  text-align: center;
+}
+
+.weekdays {
+  color: var(--text-muted);
+}
+
+.calendar .selected {
+  background-color: var(--accent-green);
+  color: var(--bg-primary);
+}
+
+.calendar .selected:hover {
+  background-color: var(--accent-green-dim);
+  color: var(--bg-primary);
+}
+
+.calendarFooter {
+  display: flex;
+  justify-content: space-between;
+  border-top: 1px solid var(--border-primary);
+  padding-top: var(--space-2);
+}
+
+.calendarFooter button {
+  color: var(--text-muted);
+}

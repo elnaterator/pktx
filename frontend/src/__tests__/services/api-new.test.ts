@@ -38,14 +38,6 @@ describe('Resume Version API', () => {
     })
   })
 
-  describe('getDefaultResume', () => {
-    it('fetches /api/resumes/default', async () => {
-      mockFetch({ id: 1, label: 'Main', is_default: true })
-      await api.getDefaultResume()
-      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/default', undefined)
-    })
-  })
-
   describe('createResume', () => {
     it('sends POST to /api/resumes with label', async () => {
       mockFetch({ id: 2, label: 'New Version' })
@@ -55,6 +47,17 @@ describe('Resume Version API', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: 'New Version' }),
       })
+    })
+
+    it('can start from a JSON Resume document', async () => {
+      mockFetch({ id: 2 })
+      await api.createResume('Imported', { basics: { name: 'Ada' } })
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/resumes',
+        expect.objectContaining({
+          body: JSON.stringify({ label: 'Imported', data: { basics: { name: 'Ada' } } }),
+        }),
+      )
     })
   })
 
@@ -66,82 +69,130 @@ describe('Resume Version API', () => {
     })
   })
 
-  describe('setDefaultResume', () => {
-    it('sends POST to /api/resumes/:id/default', async () => {
-      mockFetch({ message: 'Updated' })
-      await api.setDefaultResume(2)
-      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/2/default', { method: 'POST' })
-    })
-  })
-
-  describe('updateResumeLabel', () => {
-    it('sends PATCH to /api/resumes/:id with label', async () => {
+  describe('updateResume', () => {
+    it('sends PATCH with only the changes', async () => {
       mockFetch({ id: 1, label: 'Updated Label' })
-      await api.updateResumeLabel(1, 'Updated Label')
+      await api.updateResume(1, { label: 'Updated Label' })
       expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ label: 'Updated Label' }),
       })
     })
+
+    it('sets the default through is_default', async () => {
+      mockFetch({ id: 2, is_default: true })
+      await api.updateResume(2, { is_default: true })
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/resumes/2',
+        expect.objectContaining({ method: 'PATCH', body: JSON.stringify({ is_default: true }) }),
+      )
+    })
   })
 
-  describe('updateVersionContact', () => {
-    it('sends PUT to /api/resumes/:id/contact', async () => {
-      mockFetch({ message: 'Updated' })
-      await api.updateVersionContact(1, { name: 'Jane' })
-      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/contact', {
+  describe('getResumeSchema', () => {
+    it('fetches /api/resumes/schema', async () => {
+      mockFetch([])
+      await api.getResumeSchema()
+      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/schema', undefined)
+    })
+  })
+
+  describe('replaceResumeData', () => {
+    it('sends PUT to /api/resumes/:id/data', async () => {
+      mockFetch({ id: 1 })
+      await api.replaceResumeData(1, { basics: { name: 'Jane' } })
+      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/data', {
         method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ basics: { name: 'Jane' } }),
+      })
+    })
+  })
+
+  describe('updateBasics', () => {
+    it('sends PATCH to /api/resumes/:id/data/basics', async () => {
+      mockFetch({ name: 'Jane' })
+      await api.updateBasics(1, { name: 'Jane' })
+      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/data/basics', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: 'Jane' }),
       })
     })
   })
 
-  describe('updateVersionSummary', () => {
-    it('sends PUT to /api/resumes/:id/summary', async () => {
-      mockFetch({ message: 'Updated' })
-      await api.updateVersionSummary(1, 'New summary')
-      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/summary', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: 'New summary' }),
-      })
-    })
-  })
-
-  describe('addVersionEntry', () => {
-    it('sends POST to version-scoped section endpoint', async () => {
-      mockFetch({ message: 'Added' })
-      const data = { name: 'TypeScript', category: 'Languages' }
-      await api.addVersionEntry(1, 'skills', data)
-      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/skills/entries', {
+  describe('addEntry', () => {
+    it('sends POST to the section endpoint', async () => {
+      mockFetch({ id: 'e1' })
+      const data = { name: 'Languages', keywords: ['Go'] }
+      await api.addEntry(1, 'skills', data)
+      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/data/skills', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data),
       })
     })
+
+    it('passes the insert position as a query parameter', async () => {
+      mockFetch({ id: 'e1' })
+      await api.addEntry(1, 'work', { name: 'Acme' }, 0)
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/resumes/1/data/work?position=0',
+        expect.objectContaining({ method: 'POST' }),
+      )
+    })
   })
 
-  describe('updateVersionEntry', () => {
-    it('sends PUT to version-scoped section entry endpoint', async () => {
-      mockFetch({ message: 'Updated' })
-      const data = { name: 'TypeScript Updated' }
-      await api.updateVersionEntry(1, 'skills', 0, data)
-      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/skills/entries/0', {
-        method: 'PUT',
+  describe('updateEntry', () => {
+    it('sends PATCH to the entry endpoint by id', async () => {
+      mockFetch({ id: 'e 1' })
+      await api.updateEntry(1, 'skills', 'e 1', { name: 'Updated' })
+      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/data/skills/e%201', {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({ name: 'Updated' }),
       })
     })
   })
 
-  describe('removeVersionEntry', () => {
-    it('sends DELETE to version-scoped section entry endpoint', async () => {
-      mockFetch({ message: 'Removed' })
-      await api.removeVersionEntry(1, 'experience', 2)
-      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/experience/entries/2', {
+  describe('removeEntry', () => {
+    it('sends DELETE and accepts 204 No Content', async () => {
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: true,
+        status: 204,
+        statusText: 'No Content',
+        json: async () => {
+          throw new Error('no body')
+        },
+      })
+      await expect(api.removeEntry(1, 'work', 'w1')).resolves.toBeUndefined()
+      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/data/work/w1', {
         method: 'DELETE',
+      })
+    })
+
+    it('throws the API error detail on failure', async () => {
+      ;(global.fetch as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        json: async () => ({ detail: 'Resume work entry not found' }),
+      })
+      await expect(api.removeEntry(1, 'work', 'zz')).rejects.toThrow(
+        'Resume work entry not found',
+      )
+    })
+  })
+
+  describe('reorderEntries', () => {
+    it('sends PUT with the full id order', async () => {
+      mockFetch([])
+      await api.reorderEntries(1, 'work', ['b', 'a'])
+      expect(global.fetch).toHaveBeenCalledWith('/api/resumes/1/data/work/order', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: ['b', 'a'] }),
       })
     })
   })

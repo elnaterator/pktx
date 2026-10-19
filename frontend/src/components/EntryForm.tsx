@@ -4,15 +4,19 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Check, X, Trash2 } from 'lucide-react'
 import { AutoResizeTextarea } from './AutoResizeTextarea'
+import { DateInput } from './DateInput'
+import SortableList from './SortableList'
 import { FieldError } from './FieldError'
 import styles from './EntryForm.module.css'
 
 export interface FieldConfig {
   name: string
   label: string
-  type: 'text' | 'textarea' | 'highlights'
+  type: 'text' | 'textarea' | 'highlights' | 'date'
   required: boolean
   group?: string
+  /** `date` fields only: let the calendar choose a day, not just a month. */
+  days?: boolean
   placeholder?: string
 }
 
@@ -78,7 +82,12 @@ export function EntryForm({ fields, schema, defaultValues = {}, onSubmit, onCanc
     control: form.control,
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     name: (highlightsField?.name ?? '__highlights') as any,
-  }) as unknown as { fields: { id: string; value: string }[]; append: (v: { value: string }) => void; remove: (i: number) => void }
+  }) as unknown as {
+    fields: { id: string; value: string }[]
+    append: (v: { value: string }) => void
+    remove: (i: number) => void
+    move: (from: number, to: number) => void
+  }
 
   const handleSubmit = (data: InternalValues) => {
     onSubmit(buildExternalData(data, fields))
@@ -95,14 +104,30 @@ export function EntryForm({ fields, schema, defaultValues = {}, onSubmit, onCanc
         {field.label}
         {field.required && <span className={styles.required}>*</span>}
       </label>
-      <input
-        type="text"
-        id={field.name}
-        className={styles.input}
-        placeholder={inGroup ? (field.placeholder ?? field.label) : field.placeholder}
-        aria-invalid={!!form.formState.errors[field.name]}
-        {...form.register(field.name)}
-      />
+      {field.type === 'date' ? (
+        <DateInput
+          id={field.name}
+          className={styles.input}
+          placeholder={field.placeholder}
+          value={(form.watch(field.name as keyof InternalValues) as string) ?? ''}
+          onChange={(value) =>
+            form.setValue(field.name as keyof InternalValues, value as InternalValues[keyof InternalValues], {
+              shouldDirty: true,
+            })
+          }
+          invalid={!!form.formState.errors[field.name]}
+          days={field.days}
+        />
+      ) : (
+        <input
+          type="text"
+          id={field.name}
+          className={styles.input}
+          placeholder={inGroup ? (field.placeholder ?? field.label) : field.placeholder}
+          aria-invalid={!!form.formState.errors[field.name]}
+          {...form.register(field.name)}
+        />
+      )}
       <FieldError error={form.formState.errors[field.name] as import('react-hook-form').FieldError | undefined} />
     </div>
   )
@@ -155,24 +180,35 @@ export function EntryForm({ fields, schema, defaultValues = {}, onSubmit, onCanc
                 {field.required && <span className={styles.required}>*</span>}
               </label>
               <div className={styles.highlightsList}>
-                {highlightsArray.fields.map((item, index) => (
-                  <div key={item.id} className={styles.highlightItem}>
-                    <AutoResizeTextarea
-                      className={styles.highlightTextarea}
-                      placeholder="Highlight"
-                      value={form.watch(`${field.name}.${index}.value` as keyof InternalValues) as string ?? ''}
-                      onChange={(value) => form.setValue(`${field.name}.${index}.value` as keyof InternalValues, value as InternalValues[keyof InternalValues])}
-                    />
-                    <button
-                      type="button"
-                      className={styles.removeButton}
-                      onClick={() => highlightsArray.remove(index)}
-                      aria-label="Remove"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                ))}
+                <SortableList
+                  className={styles.highlightsList}
+                  items={highlightsArray.fields}
+                  getId={(item) => item.id}
+                  getLabel={(item) => `highlight ${highlightsArray.fields.findIndex((f) => f.id === item.id) + 1}`}
+                  onReorder={(_ids, { from, to }) => highlightsArray.move(from, to)}
+                  renderItem={(item, sortable) => {
+                    const index = highlightsArray.fields.findIndex((f) => f.id === item.id)
+                    return (
+                      <div ref={sortable.setNodeRef} style={sortable.style} className={styles.highlightItem}>
+                        {sortable.handle}
+                        <AutoResizeTextarea
+                          className={styles.highlightTextarea}
+                          placeholder="Highlight"
+                          value={form.watch(`${field.name}.${index}.value` as keyof InternalValues) as string ?? ''}
+                          onChange={(value) => form.setValue(`${field.name}.${index}.value` as keyof InternalValues, value as InternalValues[keyof InternalValues])}
+                        />
+                        <button
+                          type="button"
+                          className={styles.removeButton}
+                          onClick={() => highlightsArray.remove(index)}
+                          aria-label="Remove"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    )
+                  }}
+                />
                 <button
                   type="button"
                   className={styles.addButton}

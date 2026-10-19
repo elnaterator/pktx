@@ -81,7 +81,11 @@ def seeded_users(db_conn: Connection[Any]) -> dict[str, Any]:
 
     created: dict[str, Any] = {}
     for uid, marker in ((_USER, "mine"), (_OTHER, "theirs")):
-        resume = ResumeService(conn).create_resume(f"{marker} resume", user_id=uid)
+        resume = ResumeService(conn).create_resume(
+            f"{marker} resume",
+            user_id=uid,
+            data={"basics": {"summary": f"{marker} summary"}},
+        )
         app_row = ApplicationService(conn).create_application(
             {"company": f"{marker} co", "position": "Engineer"}, user_id=uid
         )
@@ -140,7 +144,7 @@ class TestExportContents:
 
         data = client.get("/api/export").json()
 
-        assert "resume_data" in data["resumes"][0]
+        assert data["resumes"][0]["data"]["basics"]["summary"] == "mine summary"
         assert data["notes"][0]["content"] == "mine content"
         assert data["communications"][0]["body"] == "mine body"
         assert (

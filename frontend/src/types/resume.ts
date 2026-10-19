@@ -1,154 +1,195 @@
 /**
- * TypeScript type definitions for resume data.
+ * TypeScript types for resumes.
  *
- * These types mirror the backend Pydantic models exactly.
- * Field names use snake_case to match the JSON API responses.
+ * A resume version is an envelope (`id`, `label`, `tags`, ...) around a JSON
+ * Resume document (`data`, jsonresume.org v1.0.0, camelCase). Empty sections
+ * are omitted, so every section is optional. The only non-spec field is the
+ * stable `id` the backend gives every entry and profile.
  */
 
 import type { GroupedLinks } from './link'
 
-/** One contact detail: a preset key (Email, GitHub, ...) or a custom one. */
-export interface ContactField {
-  key: string
-  value: string
-}
-
-export interface ContactInfo {
-  name: string | null
-  phone: string | null
-  location: string | null
-  fields: ContactField[]
-}
-
-export type ContactKind = 'email' | 'url' | 'text'
-
-/** Preset contact key served by `GET /api/resume-contact-keys`, most common first. */
-export interface ContactKeyPreset {
-  key: string
-  kind: ContactKind
-}
-
 /** Stable id assigned by the backend; absent only on entries not yet saved. */
 interface Entry {
-  id?: string | null
+  id?: string
 }
 
-export interface WorkExperience extends Entry {
-  title: string
-  company: string
-  start_date: string | null
-  end_date: string | null
-  location: string | null
-  highlights: string[]
+export interface Location {
+  address?: string
+  postalCode?: string
+  city?: string
+  countryCode?: string
+  region?: string
 }
 
-export interface Education extends Entry {
-  institution: string
-  degree: string
-  field: string | null
-  start_date: string | null
-  end_date: string | null
-  honors: string | null
-  highlights: string[]
+export interface Profile extends Entry {
+  network?: string
+  username?: string
+  url?: string
 }
 
-export interface Skill extends Entry {
-  name: string
-  category: string | null
+export interface Basics {
+  name?: string
+  label?: string
+  image?: string
+  email?: string
+  phone?: string
+  url?: string
+  summary?: string
+  location?: Location
+  profiles?: Profile[]
 }
 
-export interface Project extends Entry {
-  name: string
-  description: string | null
-  url: string | null
-  tech: string[]
-  start_date: string | null
-  end_date: string | null
-  highlights: string[]
-}
-
-export interface Certification extends Entry {
-  name: string
-  issuer: string | null
-  issued: string | null
-  expires: string | null
-  credential_id: string | null
-  url: string | null
-}
-
-export interface Award extends Entry {
-  title: string
-  issuer: string | null
-  date: string | null
-  description: string | null
-}
-
-export interface Publication extends Entry {
-  title: string
-  venue: string | null
-  date: string | null
-  url: string | null
-  description: string | null
+export interface Work extends Entry {
+  name?: string
+  location?: string
+  description?: string
+  position?: string
+  url?: string
+  startDate?: string
+  endDate?: string
+  summary?: string
+  highlights?: string[]
 }
 
 export interface Volunteer extends Entry {
-  role: string
-  organization: string
-  start_date: string | null
-  end_date: string | null
-  location: string | null
-  highlights: string[]
+  organization?: string
+  position?: string
+  url?: string
+  startDate?: string
+  endDate?: string
+  summary?: string
+  highlights?: string[]
+}
+
+export interface Education extends Entry {
+  institution?: string
+  url?: string
+  area?: string
+  studyType?: string
+  startDate?: string
+  endDate?: string
+  score?: string
+  courses?: string[]
+}
+
+export interface Award extends Entry {
+  title?: string
+  date?: string
+  awarder?: string
+  summary?: string
+}
+
+export interface Certificate extends Entry {
+  name?: string
+  date?: string
+  url?: string
+  issuer?: string
+}
+
+export interface Publication extends Entry {
+  name?: string
+  publisher?: string
+  releaseDate?: string
+  url?: string
+  summary?: string
+}
+
+/** A group of skills, e.g. `{ name: 'Languages', keywords: ['Go', 'Python'] }`. */
+export interface Skill extends Entry {
+  name?: string
+  level?: string
+  keywords?: string[]
 }
 
 export interface Language extends Entry {
-  language: string
-  proficiency: string | null
+  language?: string
+  fluency?: string
 }
 
-/** Generic list entry as rendered by the registry-driven section. */
+export interface Interest extends Entry {
+  name?: string
+  keywords?: string[]
+}
+
+export interface Reference extends Entry {
+  name?: string
+  reference?: string
+}
+
+export interface Project extends Entry {
+  name?: string
+  description?: string
+  highlights?: string[]
+  keywords?: string[]
+  startDate?: string
+  endDate?: string
+  url?: string
+  roles?: string[]
+  entity?: string
+  type?: string
+}
+
+export interface Meta {
+  canonical?: string
+  version?: string
+  lastModified?: string
+}
+
+/** The JSON Resume document stored in `ResumeVersion.data`. */
+export interface Resume {
+  basics?: Basics
+  work?: Work[]
+  volunteer?: Volunteer[]
+  education?: Education[]
+  awards?: Award[]
+  certificates?: Certificate[]
+  publications?: Publication[]
+  skills?: Skill[]
+  languages?: Language[]
+  interests?: Interest[]
+  references?: Reference[]
+  projects?: Project[]
+  meta?: Meta
+}
+
+/** Keys of the list sections (everything except `basics` and `meta`). */
+export type ListSectionKey = Exclude<keyof Resume, 'basics' | 'meta'>
+
+/** Generic list entry as rendered by the schema-driven section. */
 export type ListEntry = Entry & Record<string, unknown>
 
-export interface Resume {
-  contact: ContactInfo
-  summary: string
-  experience: WorkExperience[]
-  education: Education[]
-  skills: Skill[]
-  projects: Project[]
-  certifications: Certification[]
-  awards: Award[]
-  publications: Publication[]
-  volunteer: Volunteer[]
-  languages: Language[]
-  /** Optional sections added to this version (shown in fixed order). */
-  enabled_sections: string[]
+export type Widget = 'text' | 'textarea' | 'url' | 'bullets' | 'tags' | 'date' | 'email'
+
+/** The slice of a JSON Schema property the UI reads. */
+export interface SchemaProperty {
+  title?: string
+  widget?: Widget
+  type?: string
 }
 
-export interface SectionField {
-  name: string
-  label: string
-  widget: 'text' | 'textarea' | 'url' | 'bullets' | 'tags'
-  required: boolean
-}
-
-/** Section definition served by `GET /api/resume-sections`. */
+/** One entry of `GET /api/resumes/schema`. */
 export interface SectionMeta {
   key: string
   label: string
-  /** Optional sections are added by the user; the rest are always shown. */
-  optional: boolean
-  primary_field: string | null
-  unique_field: string | null
-  insert: 'prepend' | 'append'
-  fields: SectionField[]
+  kind: 'object' | 'list'
+  primaryField: string
+  schema: { properties: Record<string, SchemaProperty> }
+}
+
+/** A form field derived from a section's JSON Schema. */
+export interface SectionField {
+  name: string
+  label: string
+  widget: Widget
 }
 
 export interface ResumeVersion {
   id: number
   label: string
   is_default: boolean
-  resume_data: Resume
-  app_count: number
+  data: Resume
+  app_count?: number
   tags: string[]
   created_at: string
   updated_at: string

@@ -34,7 +34,7 @@ def carol(db_conn: Connection[Any]) -> TestClient:
 
 def _resume_url(client: TestClient) -> str:
     rid = client.post("/api/resumes", json={"label": "Main"}).json()["id"]
-    client.post(f"/api/resumes/{rid}/default")
+    client.patch(f"/api/resumes/{rid}", json={"is_default": True})
     return f"/api/resumes/{rid}"
 
 
@@ -87,22 +87,25 @@ def test_non_http_urls_rejected_everywhere(carol: TestClient, url: str) -> None:
     assert carol.post("/api/contacts", json=contact).status_code == 422
 
     resume = _resume_url(carol)
-    for field in ("linkedin", "website", "github"):
-        resp = carol.put(f"{resume}/contact", json={field: url})
-        assert resp.status_code == 422, field
-    for key in ("LinkedIn", "GitLab", "Website"):
-        payload = {"fields": [{"key": key, "value": url}]}
-        assert carol.put(f"{resume}/contact", json=payload).status_code == 422, key
+    basics = f"{resume}/data/basics"
+    for field in ("url", "image"):
+        assert carol.patch(basics, json={field: url}).status_code == 422, field
+    profiles = {"profiles": [{"network": "GitLab", "url": url}]}
+    assert carol.patch(basics, json=profiles).status_code == 422
+    for section in ("work", "projects", "certificates", "publications", "volunteer"):
+        entry = {"name": "x", "url": url}
+        assert carol.post(f"{resume}/data/{section}", json=entry).status_code == 422
+    doc = {"basics": {"url": url}}
+    assert carol.put(f"{resume}/data", json=doc).status_code == 422
 
 
 def test_http_urls_accepted(carol: TestClient) -> None:
     body = {"company": "c", "position": "p", "url": "https://jobs.example.com/1"}
     assert carol.post("/api/applications", json=body).status_code == 201
     resume = _resume_url(carol)
-    resp = carol.put(f"{resume}/contact", json={"website": "https://me.dev"})
+    resp = carol.patch(f"{resume}/data/basics", json={"url": "https://me.dev"})
     assert resp.status_code == 200
-    fields = carol.get(f"{resume}/contact").json()["fields"]
-    assert {"key": "Website", "value": "https://me.dev"} in fields
+    assert carol.get(resume).json()["data"]["basics"]["url"] == "https://me.dev"
 
 
 def test_mcp_create_application_rejects_javascript_url(
@@ -130,30 +133,34 @@ def test_mcp_create_application_rejects_javascript_url(
 
 
 @pytest.mark.parametrize(
-    "patch", [{"title": 123}, {"highlights": "not a list"}, {"company": None}]
+    "patch",
+    [{"position": 123}, {"highlights": "not a list"}, {"startDate": "May 2020"}],
 )
 def test_update_entry_wrong_types_422_and_resume_stays_readable(
     carol: TestClient, patch: dict[str, Any]
 ) -> None:
     resume = _resume_url(carol)
-    carol.post(f"{resume}/experience/entries", json={"title": "t", "company": "c"})
+    entry = carol.post(f"{resume}/data/work", json={"position": "t", "name": "c"})
+    eid = entry.json()["id"]
 
-    resp = carol.put(f"{resume}/experience/entries/0", json=patch)
+    resp = carol.patch(f"{resume}/data/work/{eid}", json=patch)
 
     assert resp.status_code == 422
     after = carol.get(resume)
     assert after.status_code == 200
-    assert after.json()["resume_data"]["experience"][0]["title"] == "t"
+    assert after.json()["data"]["work"][0]["position"] == "t"
 
 
-def test_update_entry_drops_unknown_fields(carol: TestClient) -> None:
+def test_update_entry_rejects_unknown_fields(carol: TestClient) -> None:
     resume = _resume_url(carol)
-    carol.post(f"{resume}/experience/entries", json={"title": "t", "company": "c"})
+    entry = carol.post(f"{resume}/data/work", json={"position": "t", "name": "c"})
+    eid = entry.json()["id"]
 
-    resp = carol.put(f"{resume}/experience/entries/0", json={"bogus": {"x": 1}})
+    resp = carol.patch(f"{resume}/data/work/{eid}", json={"bogus": {"x": 1}})
 
-    assert resp.status_code == 200
-    assert "bogus" not in carol.get(f"{resume}/experience").json()[0]
+    assert resp.status_code == 422
+    assert "bogus" in resp.json()["detail"]
+    assert "bogus" not in carol.get(resume).json()["data"]["work"][0]
 
 
 # ---------------------------------------------------------------------------
@@ -180,8 +187,10 @@ def test_oversized_fields_rejected_with_422(carol: TestClient) -> None:
             {**comm, "subject": "x" * 501},
         ),
         ("POST", "/api/resumes", {"label": "x" * 201}),
-        ("PUT", f"{resume}/summary", {"text": long}),
-        ("POST", f"{resume}/experience/entries", {"title": "x" * 201, "company": "c"}),
+        ("PATCH", f"{resume}/data/basics", {"summary": long}),
+        ("POST", f"{resume}/data/work", {"position": "x" * 201, "name": "c"}),
+        ("POST", f"{resume}/data/work", {"name": "c", "highlights": ["h" * 2001]}),
+        ("PUT", f"{resume}/data", {"work": [{"name": "x" * 201}]}),
     ]
     for method, url, body in cases:
         resp = carol.request(method, url, json=body)

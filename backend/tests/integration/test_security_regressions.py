@@ -93,7 +93,7 @@ def _seed_autocommit_user(conn: Any, uid: str) -> tuple[int, int]:
     svc = ResumeService(conn)
     first = svc.create_resume("first", user_id=uid)
     second = svc.create_resume("second", user_id=uid)
-    svc.set_default(first["id"], user_id=uid)
+    svc.update_resume(first["id"], user_id=uid, is_default=True)
     return first["id"], second["id"]
 
 

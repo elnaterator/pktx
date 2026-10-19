@@ -92,12 +92,14 @@ class TestStaticFileServing:
     def test_api_routes_still_work(self, app_with_frontend):
         """Test that API routes are not affected by static file serving."""
         client = TestClient(app_with_frontend)
-        response = client.get("/api/resumes/default")
+        response = client.get("/api/resumes")
 
         assert response.status_code == 200
-        data = response.json()["resume_data"]
-        assert "contact" in data
-        assert "summary" in data
+        rows = response.json()
+        assert rows and rows[0]["is_default"] is True
+        detail = client.get(f"/api/resumes/{rows[0]['id']}")
+        assert detail.status_code == 200
+        assert isinstance(detail.json()["data"], dict)
 
     def test_unknown_api_path_returns_json_404(self, app_with_frontend):
         """Unknown /api/* paths must 404 as JSON, not fall through to index.html."""
@@ -135,7 +137,7 @@ class TestStaticFileServing:
         assert response.status_code == 200
 
         # API should still work
-        response = client.get("/api/resumes/default")
+        response = client.get("/api/resumes")
         assert response.status_code == 200
 
         # Root path should return 404 since no static files are mounted
@@ -160,13 +162,12 @@ class TestStaticFileServing:
         # Create a file that conflicts with an API route
         (temp_frontend_dir / "api").mkdir(exist_ok=True)
         (temp_frontend_dir / "api" / "resumes").mkdir(exist_ok=True)
-        (temp_frontend_dir / "api" / "resumes" / "default").write_text("fake")
+        (temp_frontend_dir / "api" / "resumes" / "tags").write_text("fake")
 
         client = TestClient(app_with_frontend)
-        response = client.get("/api/resumes/default")
+        response = client.get("/api/resumes/tags")
 
         # Should get JSON from API, not the static file
         assert response.status_code == 200
         assert response.headers["content-type"].startswith("application/json")
-        data = response.json()["resume_data"]
-        assert "contact" in data
+        assert response.json() == []

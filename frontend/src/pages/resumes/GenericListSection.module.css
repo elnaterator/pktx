@@ -4,17 +4,6 @@
   padding: var(--space-6) var(--space-7);
 }
 
-.sectionLabel {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  border-bottom: 1px solid var(--border-primary);
-  padding-bottom: var(--space-2);
-  margin: 0 0 var(--space-6) 0;
-}
-
 .list {
   display: flex;
   flex-direction: column;
@@ -122,21 +111,6 @@
   color: var(--status-error);
 }
 
-.addButton {
-  margin-top: var(--space-6);
-  padding: var(--space-3) var(--space-6);
-  background: none;
-  color: var(--accent-green);
-  cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
-  font-family: var(--font-mono);
-}
-
-.addButton:hover {
-  color: var(--accent-green-dim);
-}
-
 .entryLink {
   color: var(--accent-green);
   text-decoration: none;
@@ -155,25 +129,7 @@
   overflow-wrap: anywhere;
 }
 
-.footer {
-  display: flex;
-  align-items: center;
-  gap: var(--space-6);
-  margin-top: var(--space-6);
-}
 
-.footer .addButton {
-  margin-top: 0;
-}
-
-.removeSectionButton {
-  background: none;
-  color: var(--text-muted);
-  cursor: pointer;
-  font-size: 0.8125rem;
-  font-family: var(--font-mono);
-}
-
-.removeSectionButton:hover {
-  color: var(--status-error);
+.addForm {
+  margin-bottom: var(--space-6);
 }

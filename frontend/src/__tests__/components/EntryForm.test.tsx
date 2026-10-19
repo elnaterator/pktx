@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { EntryForm } from '../../components/EntryForm'
-import { workExperienceSchema, skillSchema } from '../../schemas/resumeEntry'
+import { buildEntrySchema } from '../../schemas/resumeEntry'
 import { z } from 'zod'
 
 const simpleSchema = z.object({
@@ -334,18 +334,26 @@ describe('EntryForm', () => {
     })
   })
 
-  it('uses workExperienceSchema for experience forms', async () => {
+  it('works with a schema built from JSON Resume section fields', async () => {
     const user = userEvent.setup()
     const fields = [
-      { name: 'title', label: 'Title', type: 'text' as const, required: true },
-      { name: 'company', label: 'Company', type: 'text' as const, required: true },
+      { name: 'position', label: 'Position', type: 'text' as const, required: true },
+      { name: 'name', label: 'Company', type: 'text' as const, required: false },
       { name: 'highlights', label: 'Highlights', type: 'highlights' as const, required: false },
     ]
+    const schema = buildEntrySchema(
+      [
+        { name: 'position', label: 'Position', widget: 'text' },
+        { name: 'name', label: 'Company', widget: 'text' },
+        { name: 'highlights', label: 'Highlights', widget: 'bullets' },
+      ],
+      'position',
+    )
 
     render(
       <EntryForm
         fields={fields}
-        schema={workExperienceSchema}
+        schema={schema}
         onSubmit={mockOnSubmit}
         onCancel={mockOnCancel}
       />
@@ -354,21 +362,28 @@ describe('EntryForm', () => {
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('Title is required')).toBeInTheDocument()
+      expect(screen.getByText('Position is required')).toBeInTheDocument()
     })
   })
 
-  it('uses skillSchema for skill forms', async () => {
+  it('works with a built schema that has no list field', async () => {
     const user = userEvent.setup()
     const fields = [
-      { name: 'name', label: 'Skill Name', type: 'text' as const, required: true, group: 'main' },
-      { name: 'category', label: 'Category', type: 'text' as const, required: false, group: 'main' },
+      { name: 'language', label: 'Language', type: 'text' as const, required: true, group: 'main' },
+      { name: 'fluency', label: 'Fluency', type: 'text' as const, required: false, group: 'main' },
     ]
+    const schema = buildEntrySchema(
+      [
+        { name: 'language', label: 'Language', widget: 'text' },
+        { name: 'fluency', label: 'Fluency', widget: 'text' },
+      ],
+      'language',
+    )
 
     render(
       <EntryForm
         fields={fields}
-        schema={skillSchema}
+        schema={schema}
         onSubmit={mockOnSubmit}
         onCancel={mockOnCancel}
       />
@@ -377,7 +392,7 @@ describe('EntryForm', () => {
     await user.click(screen.getByRole('button', { name: /save/i }))
 
     await waitFor(() => {
-      expect(screen.getByText('Skill name is required')).toBeInTheDocument()
+      expect(screen.getByText('Language is required')).toBeInTheDocument()
     })
   })
 })

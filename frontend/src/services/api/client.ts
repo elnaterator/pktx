@@ -43,6 +43,8 @@ export async function handleResponse<T>(response: Response): Promise<T> {
     throw new ApiClientError(detail, response.status, detail)
   }
 
+  // 204 No Content (e.g. deleting a resume entry) has no body to parse.
+  if (response.status === 204) return undefined as T
   return response.json() as Promise<T>
 }
 

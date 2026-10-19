@@ -3,12 +3,12 @@ import type { SectionMeta } from '../../types'
 import styles from './AddSectionBar.module.css'
 
 interface AddSectionBarProps {
-  /** Optional sections not yet on this resume. */
+  /** Sections the resume has no entries in yet. */
   available: SectionMeta[]
   onAdd: (key: string) => void
 }
 
-/** Buttons to add the optional sections a resume does not have yet. */
+/** Buttons to open the sections a resume has no entries in yet. */
 export default function AddSectionBar({ available, onAdd }: AddSectionBarProps) {
   if (available.length === 0) return null
   return (

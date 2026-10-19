@@ -34,7 +34,6 @@ API / contract test::
         assert response.status_code == 201
 """
 
-import json
 from collections.abc import Generator
 from typing import Any
 
@@ -42,6 +41,7 @@ import psycopg
 import pytest
 from psycopg import Connection
 from psycopg.rows import dict_row
+from psycopg.types.json import Jsonb
 from testcontainers.postgres import PostgresContainer
 
 # ---------------------------------------------------------------------------
@@ -101,24 +101,29 @@ def db_conn(_schema_applied, pg_dsn: str) -> Generator[Connection[Any], None, No
 
 
 SAMPLE_RESUME_DATA: dict[str, Any] = {
-    "contact": {
+    "basics": {
         "name": "Jane Doe",
+        "label": "Senior Software Engineer",
+        "email": "jane@example.com",
         "phone": "+1-555-0100",
-        "location": "San Francisco, CA",
-        "fields": [
-            {"key": "Email", "value": "jane@example.com"},
-            {"key": "Website", "value": "https://janedoe.dev"},
-            {"key": "LinkedIn", "value": "https://linkedin.com/in/janedoe"},
-            {"key": "GitHub", "value": "https://github.com/janedoe"},
+        "url": "https://janedoe.dev",
+        "summary": "Experienced software engineer with 10 years of experience.",
+        "location": {"city": "San Francisco", "region": "CA"},
+        "profiles": [
+            {
+                "id": "p1",
+                "network": "LinkedIn",
+                "url": "https://linkedin.com/in/janedoe",
+            },
+            {"id": "p2", "network": "GitHub", "url": "https://github.com/janedoe"},
         ],
     },
-    "summary": "Experienced software engineer with 10 years of experience.",
-    "experience": [
+    "work": [
         {
-            "title": "Senior Software Engineer",
-            "company": "Acme Corp",
-            "start_date": "2021-01",
-            "end_date": "present",
+            "id": "w1",
+            "position": "Senior Software Engineer",
+            "name": "Acme Corp",
+            "startDate": "2021-01",
             "location": "San Francisco, CA",
             "highlights": [
                 "Led migration of monolithic application to microservices",
@@ -126,10 +131,11 @@ SAMPLE_RESUME_DATA: dict[str, Any] = {
             ],
         },
         {
-            "title": "Software Engineer",
-            "company": "StartupCo",
-            "start_date": "2018-06",
-            "end_date": "2020-12",
+            "id": "w2",
+            "position": "Software Engineer",
+            "name": "StartupCo",
+            "startDate": "2018-06",
+            "endDate": "2020-12",
             "location": "New York, NY",
             "highlights": [
                 "Built real-time data pipeline processing 1M events/day",
@@ -139,31 +145,38 @@ SAMPLE_RESUME_DATA: dict[str, Any] = {
     ],
     "education": [
         {
+            "id": "e1",
             "institution": "Stanford University",
-            "degree": "M.S. Computer Science",
-            "field": None,
-            "start_date": "2016-09",
-            "end_date": "2018-05",
-            "honors": "Dean's List",
+            "studyType": "M.S.",
+            "area": "Computer Science",
+            "startDate": "2016-09",
+            "endDate": "2018-05",
         },
         {
+            "id": "e2",
             "institution": "UC Berkeley",
-            "degree": "B.S. Computer Science",
-            "field": None,
-            "start_date": "2012-09",
-            "end_date": "2016-05",
-            "honors": None,
+            "studyType": "B.S.",
+            "area": "Computer Science",
+            "startDate": "2012-09",
+            "endDate": "2016-05",
         },
     ],
     "skills": [
-        {"name": "Python", "category": "Programming Languages"},
-        {"name": "TypeScript", "category": "Programming Languages"},
-        {"name": "Go", "category": "Programming Languages"},
-        {"name": "FastAPI", "category": "Frameworks"},
-        {"name": "React", "category": "Frameworks"},
-        {"name": "Kubernetes", "category": "Frameworks"},
-        {"name": "Technical Leadership", "category": "Soft Skills"},
-        {"name": "Mentoring", "category": "Soft Skills"},
+        {
+            "id": "s1",
+            "name": "Programming Languages",
+            "keywords": ["Python", "TypeScript", "Go"],
+        },
+        {
+            "id": "s2",
+            "name": "Frameworks",
+            "keywords": ["FastAPI", "React", "Kubernetes"],
+        },
+        {
+            "id": "s3",
+            "name": "Soft Skills",
+            "keywords": ["Technical Leadership", "Mentoring"],
+        },
     ],
 }
 
@@ -176,7 +189,7 @@ def populate_sample_data(conn: Connection[Any]) -> None:
     """
     conn.execute(
         "UPDATE resume_version SET resume_data = %s WHERE is_default = 1",
-        (json.dumps(SAMPLE_RESUME_DATA),),
+        (Jsonb(SAMPLE_RESUME_DATA),),
     )
 
 
@@ -264,12 +277,12 @@ def two_users(db_conn: Connection[Any]) -> dict[str, Any]:
     resumes = ResumeService(db_conn)  # type: ignore[arg-type]
     r1 = resumes.create_resume(f"{m} resume", user_id=ALICE, tags=tags)
     r2 = resumes.create_resume(f"{m} resume two", user_id=ALICE, tags=tags)
-    resumes.set_default(r1["id"], user_id=ALICE)
-    resumes.update_section("summary", {"text": f"{m} summary"}, r1["id"], user_id=ALICE)
-    resumes.add_entry(
-        "experience",
-        {"title": f"{m} title", "company": f"{m} co"},
+    resumes.update_resume(r1["id"], user_id=ALICE, is_default=True)
+    resumes.update_basics(r1["id"], {"summary": f"{m} summary"}, user_id=ALICE)
+    entry = resumes.add_entry(
         r1["id"],
+        "work",
+        {"position": f"{m} title", "name": f"{m} co"},
         user_id=ALICE,
     )
 
@@ -305,6 +318,7 @@ def two_users(db_conn: Connection[Any]) -> dict[str, Any]:
         "conn": db_conn,
         "resume_id": r1["id"],
         "resume2_id": r2["id"],
+        "entry_id": entry["id"],
         "app_id": app["id"],
         "acc_id": acc["id"],
         "note_id": note["id"],

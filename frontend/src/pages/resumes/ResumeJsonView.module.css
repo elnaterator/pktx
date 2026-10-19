@@ -1,0 +1,100 @@
+.container {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.title {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.save,
+.revert {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
+  border: none;
+  border-radius: var(--radius-none);
+  font-family: var(--font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color var(--transition-fast), color var(--transition-fast);
+}
+
+.save {
+  background-color: var(--accent-green);
+  color: var(--bg-primary);
+}
+
+.save:hover:not(:disabled) {
+  background-color: var(--accent-green-dim);
+}
+
+.revert {
+  background-color: var(--bg-hover);
+  color: var(--text-secondary);
+}
+
+.revert:hover:not(:disabled) {
+  color: var(--text-primary);
+}
+
+.save:disabled,
+.revert:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.editor {
+  width: 100%;
+  min-height: 60vh;
+  box-sizing: border-box;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-none);
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  tab-size: 2;
+  resize: vertical;
+  white-space: pre;
+  overflow: auto;
+}
+
+.editor:focus {
+  outline: none;
+  border-color: var(--accent-green);
+}
+
+.editorInvalid,
+.editorInvalid:focus {
+  border-color: var(--status-error);
+}
+
+.problem {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--status-error);
+}

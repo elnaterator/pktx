@@ -34,7 +34,7 @@ def two_user_db(db_conn: Connection[Any]) -> Connection[Any]:
 
     # Give Alice a default resume
     create_resume_version(
-        conn, "Alice CV", {"contact": {"name": "Alice"}}, user_id="user_alice"
+        conn, "Alice CV", {"basics": {"name": "Alice"}}, user_id="user_alice"
     )
     rows = db_conn.execute(
         "SELECT id FROM resume_version WHERE user_id = 'user_alice'"
@@ -43,7 +43,7 @@ def two_user_db(db_conn: Connection[Any]) -> Connection[Any]:
 
     # Give Bob a default resume
     create_resume_version(
-        conn, "Bob CV", {"contact": {"name": "Bob"}}, user_id="user_bob"
+        conn, "Bob CV", {"basics": {"name": "Bob"}}, user_id="user_bob"
     )
     rows = db_conn.execute(
         "SELECT id FROM resume_version WHERE user_id = 'user_bob'"
@@ -187,7 +187,7 @@ class TestResumeToolUserScoping:
 
         # Create a second resume for Alice
         new = svc.create_resume("Alice v2", user_id="user_alice")
-        svc.set_default(new["id"], user_id="user_alice")
+        svc.update_resume(new["id"], user_id="user_alice", is_default=True)
 
         # Alice's default changed; Bob's default unchanged
         alice_default = load_default_resume_version(two_user_db, user_id="user_alice")  # type: ignore[arg-type]
