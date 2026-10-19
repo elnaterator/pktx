@@ -44,11 +44,7 @@
 }
 
 .metaLabel {
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-1);
+  composes: fieldLabel from '../../components/text.module.css';
 }
 
 .metaInput {

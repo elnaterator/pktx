@@ -53,12 +53,12 @@
 
 /* Quiet filled: neutral actions (cancel, set default, add). */
 .secondary {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   color: var(--text-secondary);
 }
 
 .secondary:hover:not(:disabled) {
-  background-color: var(--bg-active);
+  background-color: var(--bg-raised-hover);
   color: var(--text-primary);
 }
 

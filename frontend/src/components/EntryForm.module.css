@@ -3,7 +3,7 @@
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
 }
 
 .fieldGroup {
@@ -13,11 +13,7 @@
 }
 
 .label {
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-3);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-1);
+  composes: fieldLabel from './text.module.css';
 }
 
 .required {
@@ -74,7 +70,7 @@
 
 .addButton {
   padding: var(--space-3) var(--space-6);
-  background-color: var(--bg-active);
+  background-color: var(--bg-raised-hover);
   color: var(--accent-green);
   border: none;
   cursor: pointer;

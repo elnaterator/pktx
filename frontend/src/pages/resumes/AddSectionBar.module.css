@@ -9,11 +9,7 @@
 }
 
 .label {
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-4);
-  text-transform: uppercase;
-  color: var(--text-secondary);
+  composes: sectionLabel from '../../components/text.module.css';
 }
 
 .options {

@@ -10,12 +10,7 @@
 }
 
 .title {
-  font-size: var(--font-size-5);
-  font-weight: var(--font-weight-bold);
-  color: var(--accent-green);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-1);
-  margin: 0;
+  composes: panelTitle from './text.module.css';
 }
 
 .empty {

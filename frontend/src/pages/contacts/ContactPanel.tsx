@@ -12,6 +12,7 @@ import type { Contact } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
 import { PanelHeader } from '../../components/PanelHeader'
 import panelHeaderStyles from '../../components/PanelHeader.module.css'
+import { formatDate } from '../../utils/formatDate'
 import styles from './ContactPanel.module.css'
 
 const RELATIONSHIP_SUGGESTIONS = [
@@ -281,7 +282,7 @@ export function ContactPanel({
               )}
             </div>
             {contact?.updated_at && (
-              <span className={styles.updatedDate}>Updated {new Date(contact.updated_at).toLocaleDateString()}</span>
+              <span className={styles.updatedDate}>Updated {formatDate(contact.updated_at)}</span>
             )}
           </div>
           <SectionCard>

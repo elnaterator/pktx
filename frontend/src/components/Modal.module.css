@@ -9,7 +9,7 @@
 }
 
 .dialog {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   box-shadow: var(--shadow-card);
 }
 

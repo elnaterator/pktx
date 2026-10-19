@@ -15,7 +15,7 @@
 
 .title {
   margin: 0;
-  font-size: var(--font-size-9);
+  font-size: var(--heading-page);
   font-weight: var(--font-weight-bold);
   color: var(--text-primary);
 }

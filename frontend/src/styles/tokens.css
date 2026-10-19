@@ -40,6 +40,13 @@
   --font-size-11: 2rem;      /* 32 */
   --font-size-12: 2.5rem;    /* 40 — logo / hero */
 
+  /* Type — semantic sizes. Use these for headings so the hierarchy is set
+     here (and shrinks on phones via the media query at the end). */
+  --heading-display: var(--font-size-11); /* app logo */
+  --heading-page: var(--font-size-9);     /* page titles */
+  --heading-panel: var(--font-size-8);    /* detail / panel titles */
+  --label-size: var(--font-size-3);       /* uppercase labels */
+
   /* Type — weights */
   --font-weight-regular: 400;
   --font-weight-medium: 500;
@@ -88,14 +95,15 @@
   --z-modal: 1000;     /* dialogs and their overlay */
   --z-toast: 9999;     /* always on top */
 
-  /* Colors — Backgrounds. One surface colour today; secondary/surface are
-     aliases so an elevation ladder can be introduced here alone. */
-  --bg-primary: #1a1a1a;
-  --bg-secondary: var(--bg-primary);
-  --bg-surface: var(--bg-primary);
+  /* Colors — Surfaces. Elevation ladder, darkest to lightest:
+     sunken (inputs) < primary (page) < raised (cards, rows, panels, menus,
+     dialogs) < raised-hover (hover/selected on a raised surface).
+     --bg-hover is the hover fill for items sitting on the page itself. */
   --bg-input: #141414;
-  --bg-hover: #222222;
-  --bg-active: #202020;
+  --bg-primary: #1a1a1a;
+  --bg-raised: #222222;
+  --bg-raised-hover: #2a2a2a;
+  --bg-hover: var(--bg-raised);
   --bg-modal-overlay: rgba(0, 0, 0, 0.7);
   --bg-spinner-track: rgba(255, 255, 255, 0.08);
 
@@ -158,4 +166,12 @@
   /* Clerk component theming — matches app dark theme */
   --clerk-color-primary: var(--accent-green);
   --clerk-color-foreground: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --heading-display: var(--font-size-9);
+    --heading-page: var(--font-size-8);
+    --heading-panel: var(--font-size-7);
+  }
 }

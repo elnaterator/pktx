@@ -8,6 +8,7 @@
 export const palette = {
   'bg-primary': '#1a1a1a',
   'bg-input': '#141414',
+  'bg-raised-hover': '#2a2a2a',
   'bg-modal-overlay': 'rgba(0, 0, 0, 0.7)',
   'text-primary': '#e0e0e0',
   'text-secondary': '#b3b3b3',
@@ -20,7 +21,7 @@ export const palette = {
 
 /** Colours used only inside Clerk's own UI (no CSS token counterpart). */
 export const clerkPalette = {
-  border: '#2a2a2a',
+  border: palette['bg-raised-hover'],
   neutral: '#888888',
   faint: '#555555',
 } as const

@@ -16,7 +16,7 @@
   flex: 1;
   min-width: 0;
   margin: 0;
-  font-size: var(--font-size-8);
+  font-size: var(--heading-panel);
   font-weight: var(--font-weight-bold);
   line-height: var(--leading-tight);
   color: var(--text-primary);
@@ -26,7 +26,7 @@
 .titleInput {
   composes: input from './inlineEdit.module.css';
   flex: 1;
-  font-size: var(--font-size-8);
+  font-size: var(--heading-panel);
   font-weight: var(--font-weight-bold);
   line-height: var(--leading-tight);
   color: var(--text-primary);

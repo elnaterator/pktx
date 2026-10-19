@@ -8,7 +8,7 @@
 }
 
 .item {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   padding: var(--space-4) var(--space-7);
   cursor: pointer;
   transition: background-color var(--transition-fast);
@@ -18,7 +18,7 @@
 }
 
 .item:hover {
-  background-color: var(--bg-active);
+  background-color: var(--bg-raised-hover);
 }
 
 .itemLink {
@@ -79,6 +79,7 @@
 
   .itemMeta {
     flex-direction: column;
+    align-items: flex-start;
     gap: var(--space-1);
     white-space: normal;
   }

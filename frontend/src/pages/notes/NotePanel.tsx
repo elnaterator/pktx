@@ -8,6 +8,7 @@ import { noteCreateSchema, type NoteCreateInput } from '../../schemas/note'
 import type { Note } from '../../types'
 import { PanelHeader } from '../../components/PanelHeader'
 import panelHeaderStyles from '../../components/PanelHeader.module.css'
+import { formatDate } from '../../utils/formatDate'
 import styles from './NotePanel.module.css'
 
 interface NotePanelProps {
@@ -91,7 +92,7 @@ export function NotePanel({
       ) : (
         <div className={styles.meta}>
           {note?.updated_at && (
-            <span className={styles.updatedDate}>Updated {new Date(note.updated_at).toLocaleDateString()}</span>
+            <span className={styles.updatedDate}>Updated {formatDate(note.updated_at)}</span>
           )}
         </div>
       )}

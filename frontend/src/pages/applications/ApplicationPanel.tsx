@@ -12,6 +12,7 @@ import { ExternalLink } from '../../components/ExternalLink'
 import { PanelHeader } from '../../components/PanelHeader'
 import panelHeaderStyles from '../../components/PanelHeader.module.css'
 import { StatusBadge } from './StatusBadge'
+import { formatDate } from '../../utils/formatDate'
 import styles from './ApplicationPanel.module.css'
 
 export type ApplicationPanelInput = ApplicationCreateInput
@@ -132,7 +133,7 @@ export function ApplicationPanel({
         <div className={styles.meta}>
           {application?.updated_at && (
             <span className={styles.updatedDate}>
-              Updated {new Date(application.updated_at).toLocaleDateString()}
+              Updated {formatDate(application.updated_at)}
             </span>
           )}
         </div>

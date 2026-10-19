@@ -33,12 +33,7 @@
 }
 
 .eyebrow {
-  margin: 0;
-  font-size: var(--font-size-2);
-  font-weight: var(--font-weight-semibold);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-4);
-  color: var(--accent-green);
+  composes: eyebrow from '../text.module.css';
 }
 
 .urlRow {
@@ -111,7 +106,7 @@
 
 .copyBtnIcon:hover {
   color: var(--text-primary);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised-hover);
   border-color: transparent;
 }
 
@@ -201,10 +196,7 @@
 }
 
 .pickerLabel {
-  font-size: var(--font-size-2);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-3);
+  composes: fieldLabel from '../text.module.css';
 }
 
 .pickerButton {
@@ -236,7 +228,7 @@
   height: 2rem;
   flex-shrink: 0;
   color: var(--text-primary);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
 }
 
 .pickerName {
@@ -264,7 +256,7 @@
   padding: var(--space-1);
   overflow-y: auto;
   list-style: none;
-  background-color: var(--bg-surface);
+  background-color: var(--bg-raised);
   border: 1px solid var(--accent-green-dim);
   box-shadow: var(--shadow-card);
 }
@@ -285,7 +277,7 @@
 
 .pickerOptionActive {
   color: var(--text-primary);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised-hover);
 }
 
 .pickerOption[aria-selected='true'] .pickerName {
@@ -389,7 +381,7 @@
   justify-content: space-between;
   gap: var(--space-4);
   padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
 }
 
 .snippetLabel {

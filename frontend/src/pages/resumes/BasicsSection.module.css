@@ -63,11 +63,7 @@
 }
 
 .formLabel {
-  font-weight: var(--font-weight-medium);
-  font-size: var(--font-size-3);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-1);
+  composes: fieldLabel from '../../components/text.module.css';
 }
 
 .inputName {
@@ -110,11 +106,7 @@
 }
 
 .sectionLabel {
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-4);
-  text-transform: uppercase;
-  color: var(--text-secondary);
+  composes: sectionLabel from '../../components/text.module.css';
   border-bottom: 1px solid var(--border-primary);
   padding-bottom: var(--space-2);
   margin: 0 0 var(--space-6) 0;
@@ -170,11 +162,7 @@
 }
 
 .subLabel {
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: var(--tracking-1);
-  text-transform: uppercase;
-  color: var(--text-muted);
+  composes: fieldLabel from '../../components/text.module.css';
   margin: 0 0 var(--space-1) 0;
 }
 

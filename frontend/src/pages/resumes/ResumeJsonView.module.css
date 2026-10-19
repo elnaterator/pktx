@@ -12,12 +12,7 @@
 }
 
 .title {
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-4);
-  text-transform: uppercase;
-  color: var(--text-secondary);
-  margin: 0;
+  composes: sectionLabel from '../../components/text.module.css';
 }
 
 .actions {
@@ -50,7 +45,7 @@
 }
 
 .revert {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   color: var(--text-secondary);
 }
 
@@ -70,7 +65,7 @@
   box-sizing: border-box;
   padding: var(--space-3) var(--space-4);
   border: 1px solid var(--border-primary);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: var(--font-size-3);

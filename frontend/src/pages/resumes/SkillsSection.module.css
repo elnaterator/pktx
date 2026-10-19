@@ -1,5 +1,5 @@
 .container {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   padding: var(--space-6) var(--space-7);
 }
 

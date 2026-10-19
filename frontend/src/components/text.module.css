@@ -1,0 +1,44 @@
+/*
+ * Shared text styles. Compose instead of restyling:
+ *   .label { composes: fieldLabel from '../../components/text.module.css'; }
+ * Keep only layout (margins, flex) in the composing class.
+ */
+
+/* Small caps label above a form field or value. */
+.fieldLabel {
+  font-size: var(--label-size);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-1);
+}
+
+/* Heading of a section or card (EXPERIENCE, DETAILS, …). */
+.sectionLabel {
+  margin: 0;
+  font-size: var(--label-size);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-4);
+}
+
+/* Accent title of a sidebar panel (TAGS, LINKS). */
+.panelTitle {
+  margin: 0;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-bold);
+  color: var(--accent-green);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-1);
+}
+
+/* Small accent kicker above a page heading. */
+.eyebrow {
+  margin: 0;
+  font-size: var(--font-size-2);
+  font-weight: var(--font-weight-semibold);
+  color: var(--accent-green);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-4);
+}

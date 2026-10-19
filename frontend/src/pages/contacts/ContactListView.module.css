@@ -35,7 +35,7 @@
   font-size: var(--font-size-4);
   font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-3);
-  background-color: var(--bg-surface);
+  background-color: var(--bg-primary);
   color: var(--text-secondary);
   white-space: nowrap;
   flex-shrink: 0;
@@ -78,7 +78,7 @@
 /* Communication Search Panel */
 
 .commSearchCard {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   margin-bottom: var(--space-6);
   overflow: hidden;
 }
@@ -119,14 +119,14 @@
   width: 100%;
   text-align: left;
   color: inherit;
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: background-color var(--transition-fast);
 }
 
 .commResultItem:hover {
-  background-color: var(--bg-active);
+  background-color: var(--bg-raised-hover);
 }
 
 .commResultHeader {

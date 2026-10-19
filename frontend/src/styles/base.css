@@ -24,11 +24,11 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 h2 {
-  font-size: var(--font-size-9);
+  font-size: var(--heading-page);
 }
 
 h3 {
-  font-size: var(--font-size-8);
+  font-size: var(--heading-panel);
 }
 
 p {
@@ -124,13 +124,5 @@ li {
 @media (max-width: 640px) {
   body {
     font-size: var(--font-size-4);
-  }
-
-  h2 {
-    font-size: var(--font-size-8);
-  }
-
-  h3 {
-    font-size: var(--font-size-7);
   }
 }

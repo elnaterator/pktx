@@ -1,5 +1,5 @@
 .container {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   padding: var(--space-6) var(--space-7);
 }
 
@@ -24,7 +24,7 @@
 }
 
 .form {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   padding: var(--space-5);
   margin-bottom: var(--space-5);
 }
@@ -53,11 +53,7 @@
 }
 
 .label {
-  font-size: var(--font-size-3);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: var(--tracking-1);
+  composes: fieldLabel from './text.module.css';
 }
 
 .input {
@@ -112,13 +108,13 @@
 }
 
 .timelineItem {
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   transition: background-color var(--transition-fast);
   scroll-margin-top: calc(var(--header-h, 64px) + var(--space-6));
 }
 
 .timelineItem:hover {
-  background-color: var(--bg-active);
+  background-color: var(--bg-raised-hover);
 }
 
 /* Card wraps the two-row layout */
@@ -152,7 +148,7 @@
 .commType {
   color: var(--text-muted);
   font-size: var(--font-size-4);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   padding: var(--space-1) var(--space-2);
   white-space: nowrap;
 }
@@ -160,7 +156,7 @@
 .commDirection {
   color: var(--text-muted);
   font-size: var(--font-size-4);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   padding: var(--space-1) var(--space-2);
   white-space: nowrap;
 }
@@ -173,7 +169,7 @@
 }
 
 .statusDraft {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   color: var(--text-muted);
 }
 
@@ -188,7 +184,7 @@
 }
 
 .statusArchived {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   color: var(--text-muted);
 }
 
@@ -272,7 +268,7 @@
   border-radius: var(--radius-pill);
   font-size: var(--font-size-4);
   font-family: var(--font-mono);
-  background-color: var(--bg-active);
+  background-color: var(--bg-raised-hover);
   color: var(--accent-green);
   white-space: nowrap;
 }

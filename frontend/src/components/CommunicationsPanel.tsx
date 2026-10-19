@@ -25,6 +25,7 @@ import {
 import { Button } from './Button'
 import { EditActions } from './EditActions'
 import { IconButton } from './IconButton'
+import { formatDate } from '../utils/formatDate'
 import styles from './CommunicationsPanel.module.css'
 
 const STATUS_CLASS: Record<string, string> = {
@@ -156,13 +157,6 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
       setDeleteTarget(null)
     }
   }
-
-  const formatDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
 
   return (
     <div className={styles.container} id="communications" style={{ scrollMarginTop: 'var(--header-h, 64px)' }}>

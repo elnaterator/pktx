@@ -7,7 +7,7 @@
 
 .header {
   padding: var(--space-7) var(--space-9);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   border-bottom: 1px solid var(--border-primary);
   box-shadow: none;
 }
@@ -65,7 +65,7 @@
 }
 
 .feature {
-  background-color: var(--bg-surface);
+  background-color: var(--bg-raised);
   border: 1px solid var(--border-primary);
   padding: var(--space-9) var(--space-8);
   display: flex;

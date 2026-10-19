@@ -4,7 +4,7 @@
   align-self: flex-start;
   height: 100vh;
   flex-shrink: 0;
-  background-color: var(--bg-surface);
+  background-color: var(--bg-primary);
   border-right: 1px solid var(--bg-hover);
   overflow-y: auto;
   transition: width var(--transition-default);

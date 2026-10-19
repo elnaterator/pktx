@@ -6,7 +6,7 @@
 }
 
 .heading {
-  font-size: var(--font-size-9);
+  font-size: var(--heading-page);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   margin-bottom: var(--space-4);
