@@ -11,20 +11,10 @@ import type { Application } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
 import { PanelHeader } from '../../components/PanelHeader'
 import panelHeaderStyles from '../../components/PanelHeader.module.css'
+import { StatusBadge } from './StatusBadge'
 import styles from './ApplicationPanel.module.css'
 
 export type ApplicationPanelInput = ApplicationCreateInput
-
-const STATUS_COLORS: Record<string, { bg: string; color: string }> = {
-  Interested:     { bg: 'rgba(136,136,220,0.12)', color: '#9898d8' },
-  Applied:        { bg: 'rgba(86,156,214,0.12)',  color: '#76c0f0' },
-  'Phone Screen': { bg: 'rgba(220,180,80,0.12)',  color: '#d4b060' },
-  Interview:      { bg: 'rgba(180,120,220,0.12)', color: '#c080e0' },
-  Offer:          { bg: 'rgba(82,183,136,0.12)',  color: '#52b788' },
-  Rejected:       { bg: 'rgba(255,68,68,0.10)',   color: '#ff6868' },
-  Withdrawn:      { bg: 'rgba(120,120,120,0.10)', color: '#888888' },
-  Accepted:       { bg: 'rgba(82,183,136,0.22)',  color: '#52b788' },
-}
 
 interface ApplicationPanelProps {
   mode: 'view' | 'edit' | 'create'
@@ -69,10 +59,6 @@ export function ApplicationPanel({
   const handleFormSave = handleSubmit(async (data) => {
     await onSave?.(data)
   })
-
-  const statusStyle = application
-    ? (STATUS_COLORS[application.status] ?? { bg: 'rgba(120,120,120,0.10)', color: '#888888' })
-    : null
 
   return (
     <div className={mode === 'create' ? styles.panelCreate : undefined}>
@@ -169,12 +155,7 @@ export function ApplicationPanel({
               ) : (
                 <>
                   <span className={styles.detailsLabel}>Status</span>
-                  <span
-                    className={styles.statusBadgeInline}
-                    style={statusStyle ? { background: statusStyle.bg, color: statusStyle.color } : undefined}
-                  >
-                    {application?.status}
-                  </span>
+                  {application && <StatusBadge status={application.status} />}
                 </>
               )}
             </div>

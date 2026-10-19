@@ -388,6 +388,7 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
 
       {deletingId && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message="Are you sure you want to delete this skill?"
           onConfirm={() => void deleteGroup(deletingId)}
           onCancel={() => setDeletingId(null)}

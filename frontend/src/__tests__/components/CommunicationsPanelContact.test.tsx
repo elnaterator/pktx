@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CommunicationsPanel from '../../components/CommunicationsPanel'
 import * as api from '../../services/api'
@@ -88,7 +88,7 @@ describe('CommunicationsPanel', () => {
     await waitFor(() => expect(screen.getByText('Hello')).toBeInTheDocument())
 
     await user.click(screen.getByRole('button', { name: /Delete communication/i }))
-    await user.click(screen.getByRole('button', { name: /Confirm/i }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
 
     await waitFor(() => {
       expect(api.removeContactCommunication).toHaveBeenCalledWith(42, 1)

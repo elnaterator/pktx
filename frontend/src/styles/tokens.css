@@ -132,10 +132,24 @@
   --status-error-bg-strong: rgba(255, 68, 68, 0.25);
   --status-warning: #ffaa00;
   --status-warning-bg: rgba(255, 170, 0, 0.08);
-  /* Green tint ladder (application status badges) — same hue as --accent-green */
-  --status-green-dim-bg: rgba(82, 183, 136, 0.06);
-  --status-green-bg: rgba(82, 183, 136, 0.1);
-  --status-green-bg-strong: rgba(82, 183, 136, 0.15);
+
+  /* Application status badges — one hue per pipeline stage (text + tint) */
+  --app-status-interested: #9898d8;
+  --app-status-interested-bg: rgba(136, 136, 220, 0.12);
+  --app-status-applied: #76c0f0;
+  --app-status-applied-bg: rgba(86, 156, 214, 0.12);
+  --app-status-phone-screen: #d4b060;
+  --app-status-phone-screen-bg: rgba(220, 180, 80, 0.12);
+  --app-status-interview: #c080e0;
+  --app-status-interview-bg: rgba(180, 120, 220, 0.12);
+  --app-status-offer: var(--accent-green);
+  --app-status-offer-bg: rgba(82, 183, 136, 0.12);
+  --app-status-accepted: var(--accent-green);
+  --app-status-accepted-bg: rgba(82, 183, 136, 0.22);
+  --app-status-rejected: #ff6868;
+  --app-status-rejected-bg: rgba(255, 68, 68, 0.1);
+  --app-status-withdrawn: #888888;
+  --app-status-withdrawn-bg: rgba(120, 120, 120, 0.1);
 
   /* Transitions */
   --transition-fast: 150ms ease;

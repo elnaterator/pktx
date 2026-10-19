@@ -1,68 +1,7 @@
-.container {
-  padding: var(--space-6) 0;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-8);
-}
-
-.heading {
-  font-size: var(--font-size-9);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.filters {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-.empty {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.list {
-  composes: list from '../../components/listRow.module.css';
-}
-
-.item {
-  composes: item from '../../components/listRow.module.css';
-}
-
-.itemLink {
-  composes: itemLink from '../../components/listRow.module.css';
-}
-
-.itemMain {
-  composes: itemMain from '../../components/listRow.module.css';
-}
-
-.label {
-  composes: title from '../../components/listRow.module.css';
-}
-
 .defaultBadge {
-  color: var(--accent-green-dim);
+  padding: var(--space-1) 0;
   font-size: var(--font-size-4);
   font-weight: var(--font-weight-medium);
-  padding: var(--space-1) 0;
+  color: var(--accent-green-dim);
   white-space: nowrap;
-}
-
-.itemMeta {
-  composes: itemMeta from '../../components/listRow.module.css';
-}
-
-.metaItem {
-  composes: metaItem from '../../components/listRow.module.css';
-}
-
-.linkCount {
-  composes: linkCount from '../../components/listRow.module.css';
 }

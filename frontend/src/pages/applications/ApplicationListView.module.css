@@ -1,57 +1,5 @@
-.container {
-  padding: var(--space-6) 0;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-7);
-}
-
-.heading {
-  font-size: var(--font-size-9);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  margin: 0;
-}
-
-/* Filters */
-.filters {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-/* List */
-.empty {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.list {
-  composes: list from '../../components/listRow.module.css';
-}
-
-.item {
-  composes: item from '../../components/listRow.module.css';
-}
-
-.itemLink {
-  composes: itemLink from '../../components/listRow.module.css';
-}
-
-.itemMain {
-  composes: itemMain from '../../components/listRow.module.css';
-}
-
 .position {
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  font-size: var(--font-size-6);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  composes: title from '../../components/listRow.module.css';
   min-width: 0;
 }
 
@@ -66,73 +14,9 @@
   white-space: nowrap;
 }
 
-.statusBadge {
+.postingLink {
+  color: var(--accent-green);
   font-size: var(--font-size-4);
-  font-weight: var(--font-weight-semibold);
-  padding: var(--space-1) var(--space-4);
-  white-space: nowrap;
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-}
-
-/* Status badge colors */
-.statusInterested {
-  background-color: var(--status-green-dim-bg);
-  color: var(--accent-green-dim);
-}
-
-.statusApplied {
-  background-color: var(--status-green-bg);
-  color: var(--accent-green);
-}
-
-.statusPhoneScreen {
-  background-color: var(--status-warning-bg);
-  color: var(--status-warning);
-}
-
-.statusInterview {
-  background-color: var(--accent-purple-bg);
-  color: var(--accent-purple);
-}
-
-.statusOffer {
-  background-color: var(--status-green-bg);
-  color: var(--accent-green);
-}
-
-.statusRejected {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-}
-
-.statusWithdrawn {
-  background-color: var(--bg-hover);
-  color: var(--text-muted);
-}
-
-.statusAccepted {
-  background-color: var(--status-green-bg-strong);
-  color: var(--accent-green);
-}
-
-.itemMeta {
-  composes: itemMeta from '../../components/listRow.module.css';
-}
-
-.linkCount {
-  composes: linkCount from '../../components/listRow.module.css';
-}
-
-.metaLink {
-  color: var(--accent-green);
   text-decoration: none;
   white-space: nowrap;
-  font-size: var(--font-size-4);
-}
-
-@media (max-width: 640px) {
-  .filters {
-    flex-direction: column;
-  }
 }

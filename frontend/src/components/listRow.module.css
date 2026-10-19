@@ -57,10 +57,6 @@
   align-items: center;
 }
 
-.metaItem {
-  white-space: nowrap;
-}
-
 .linkCount {
   display: inline-flex;
   align-items: center;

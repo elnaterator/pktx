@@ -99,14 +99,6 @@
   letter-spacing: var(--tracking-1);
 }
 
-.statusBadgeInline {
-  font-size: var(--font-size-4);
-  font-weight: var(--font-weight-semibold);
-  padding: var(--space-1) var(--space-3);
-  font-family: var(--font-mono);
-  letter-spacing: var(--tracking-1);
-}
-
 .urlLink {
   color: var(--text-secondary);
   font-size: var(--font-size-4);

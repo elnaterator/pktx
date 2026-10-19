@@ -1,37 +1,32 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate, useLocation } from 'react-router'
-import { ApiClientError } from '../../types'
+import { useState } from 'react'
+import { useNavigate, useLocation } from 'react-router'
 import { mapGroupedLinks } from '../../services/api'
 import { useAllTags, useContactDetail, useContactMutations } from '../../hooks/queries'
 import { LinksPanel } from '../../components/LinksPanel'
 import { TagsPanel } from '../../components/TagsPanel'
 import DetailLayout from '../../components/DetailLayout'
 import Breadcrumb from '../../components/Breadcrumb'
-import NotFound from '../../components/NotFound'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useToast } from '../../components/toast'
 import CommunicationsPanel from '../../components/CommunicationsPanel'
 import { ContactPanel } from './ContactPanel'
 import type { ContactCreateInput } from '../../schemas/contact'
+import { useResourceId } from '../../hooks/useResourceId'
+import { DetailFallback, type ResourceRoute } from '../../components/DetailFallback'
 import styles from './ContactDetailView.module.css'
 
+const ROUTE: ResourceRoute = { listPath: '/contacts', singular: 'Contact', plural: 'Contacts' }
+
 export default function ContactDetailView() {
-  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const location = useLocation()
   const expandCommId = (location.state as { expandCommId?: number } | null)?.expandCommId
 
-  const numericId = id && /^\d+$/.test(id) ? Number(id) : null
+  const numericId = useResourceId(ROUTE.listPath)
 
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const { success, error } = useToast()
-
-  useEffect(() => {
-    if (numericId === null) {
-      navigate('/contacts', { replace: true })
-    }
-  }, [numericId, navigate])
 
   const detailQuery = useContactDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
@@ -39,23 +34,10 @@ export default function ContactDetailView() {
 
   const contact = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
-  const errStatus = (detailQuery.error as ApiClientError | undefined)?.status
-  const notFound = errStatus === 404
-  const forbidden = errStatus === 403
   const reloadContact = () => detailQuery.refetch()
 
   if (numericId === null) return null
-  if (notFound) return <NotFound entityName="Contact" backTo="/contacts" backLabel="Back to Contacts" />
-  if (forbidden) return (
-    <NotFound
-      entityName="Contact"
-      backTo="/contacts"
-      backLabel="Back to Contacts"
-      heading="This contact isn't yours"
-      message="This contact belongs to another account and cannot be accessed."
-    />
-  )
-  if (!contact) return <div>Loading...</div>
+  if (!contact) return <DetailFallback query={detailQuery} route={ROUTE} />
 
   const handleSave = async (data: ContactCreateInput) => {
     await update.mutateAsync({
@@ -141,6 +123,7 @@ export default function ContactDetailView() {
 
       {confirmDelete && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message="Delete this contact? This cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}

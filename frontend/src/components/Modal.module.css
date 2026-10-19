@@ -1,0 +1,18 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-modal-overlay);
+}
+
+.dialog {
+  background-color: var(--bg-hover);
+  box-shadow: var(--shadow-card);
+}
+
+.dialog:focus {
+  outline: none;
+}

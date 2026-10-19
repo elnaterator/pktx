@@ -1,0 +1,29 @@
+.container {
+  padding: var(--space-6) 0;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-7);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--font-size-9);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .filters {
+    flex-direction: column;
+  }
+}

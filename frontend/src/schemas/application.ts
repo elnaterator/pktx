@@ -21,6 +21,8 @@ export const APPLICATION_STATUSES = [
   'Accepted',
 ] as const
 
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number]
+
 export const applicationCreateSchema = z.object({
   company: trimmed(200).min(1, 'Company is required'),
   position: trimmed(200).min(1, 'Position is required'),

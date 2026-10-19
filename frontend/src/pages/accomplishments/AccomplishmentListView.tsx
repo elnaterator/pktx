@@ -1,40 +1,29 @@
-import { useState, useRef } from 'react'
-import { Link } from 'react-router'
-import { Link2 } from 'lucide-react'
-import { ICON_SIZE } from '../../theme'
+import { useState } from 'react'
 import {
   useAccomplishmentList,
   useAccomplishmentMutations,
   useAllTags,
 } from '../../hooks/queries'
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
+import { Button } from '../../components/Button'
+import { ListPage } from '../../components/ListPage'
+import { LinkCount, ListRow, ListRowMain, ListRowMeta, ListRowTitle } from '../../components/ListRow'
 import { SearchBar } from '../../components/SearchBar'
+import { TagList } from '../../components/TagList'
 import { useToast } from '../../components/toast'
 import { AccomplishmentPanel } from './AccomplishmentPanel'
 import type { AccomplishmentCreateInput } from '../../schemas/accomplishment'
-import type { SearchValue } from '../../types'
-import { Button } from '../../components/Button'
-import { TagList } from '../../components/TagList'
-import styles from './AccomplishmentListView.module.css'
 
 export default function AccomplishmentListView() {
-  const [search, setSearch] = useState<SearchValue>({ tags: [], text: '' })
-  const [debouncedQ, setDebouncedQ] = useState('')
+  const { search, setSearch, debounced, isFiltered } = useDebouncedSearch()
   const [showForm, setShowForm] = useState(false)
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const listQuery = useAccomplishmentList({ tags: search.tags, q: debouncedQ || undefined })
+  const listQuery = useAccomplishmentList({ tags: search.tags, q: debounced.text || undefined })
   const tagsQuery = useAllTags()
   const { create } = useAccomplishmentMutations()
   const { success, error } = useToast()
 
-  const accomplishments = listQuery.data ?? []
   const allTags = tagsQuery.data ?? []
-
-  const handleSearchChange = (v: SearchValue) => {
-    setSearch(v)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => setDebouncedQ(v.text), 300)
-  }
 
   const handleCreate = async (data: AccomplishmentCreateInput) => {
     try {
@@ -56,59 +45,49 @@ export default function AccomplishmentListView() {
   }
 
   return (
-    <div className={styles.container}>
-      <div className={styles.header}>
-        <h2 className={styles.heading}>Accomplishments</h2>
-        <Button
-          variant="link"
-          onClick={() => setShowForm((v) => !v)}
-        >
+    <ListPage
+      title="Accomplishments"
+      noun="accomplishments"
+      action={
+        <Button variant="link" onClick={() => setShowForm((v) => !v)}>
           {showForm ? 'Cancel' : 'New Accomplishment'}
         </Button>
-      </div>
-
-      {showForm && (
-        <AccomplishmentPanel
-          mode="create"
-          allTags={allTags}
-          onSave={handleCreate}
-          onCancel={() => setShowForm(false)}
-        />
-      )}
-
-      <div className={styles.filters}>
+      }
+      createForm={
+        showForm && (
+          <AccomplishmentPanel
+            mode="create"
+            allTags={allTags}
+            onSave={handleCreate}
+            onCancel={() => setShowForm(false)}
+          />
+        )
+      }
+      filters={
         <SearchBar
           value={search}
-          onChange={handleSearchChange}
+          onChange={setSearch}
           availableTags={allTags}
           placeholder="Search accomplishments..."
         />
-      </div>
-
-      {accomplishments.length === 0 ? (
-        <p className={styles.empty}>No accomplishments yet. Click &quot;New Accomplishment&quot; to add one.</p>
-      ) : (
-        <ul className={styles.list}>
-          {accomplishments.map((acc) => (
-            <li key={acc.id} className={styles.item}>
-              <Link to={`/accomplishments/${acc.id}`} className={styles.itemLink}>
-                <div className={styles.itemMain}>
-                  <span className={styles.itemTitle}>{acc.title}</span>
-                </div>
-                <TagList tags={acc.tags} />
-                <div className={styles.itemMeta}>
-                  {acc.accomplishment_date && (
-                    <span>{acc.accomplishment_date}</span>
-                  )}
-                  {!!acc.link_count && (
-                    <span className={styles.linkCount}><Link2 size={ICON_SIZE.sm} />{acc.link_count}</span>
-                  )}
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+      }
+      query={listQuery}
+      items={listQuery.data ?? []}
+      getKey={(acc) => acc.id}
+      isFiltered={isFiltered}
+      emptyMessage='No accomplishments yet. Click "New Accomplishment" to add one.'
+      renderItem={(acc) => (
+        <ListRow to={`/accomplishments/${acc.id}`}>
+          <ListRowMain>
+            <ListRowTitle>{acc.title}</ListRowTitle>
+          </ListRowMain>
+          <TagList tags={acc.tags} />
+          <ListRowMeta>
+            {acc.accomplishment_date && <span>{acc.accomplishment_date}</span>}
+            <LinkCount count={acc.link_count} />
+          </ListRowMeta>
+        </ListRow>
       )}
-    </div>
+    />
   )
 }

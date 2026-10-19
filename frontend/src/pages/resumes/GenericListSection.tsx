@@ -340,6 +340,7 @@ export default function GenericListSection({
 
       {typeof mode === 'object' && mode.type === 'delete' && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message={`Are you sure you want to delete this ${noun} entry?`}
           onConfirm={handleDelete}
           onCancel={() => setMode('view')}

@@ -280,6 +280,7 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
 
       {deleteTarget !== null && (
         <ConfirmDialog
+          confirmLabel="Remove"
           message="Remove this communication?"
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}

@@ -121,7 +121,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getByText(/Delete this note/i)).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: /Confirm|Yes/i }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
     await waitFor(() => {
       expect(api.deleteNote).toHaveBeenCalledWith(1)
       expect(screen.getByTestId('note-list')).toBeInTheDocument()

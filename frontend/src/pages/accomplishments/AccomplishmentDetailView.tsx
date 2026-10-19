@@ -1,6 +1,5 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router'
-import { ApiClientError } from '../../types'
+import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { mapGroupedLinks } from '../../services/api'
 import {
   useAccomplishmentDetail,
@@ -11,28 +10,24 @@ import { LinksPanel } from '../../components/LinksPanel'
 import { TagsPanel } from '../../components/TagsPanel'
 import DetailLayout from '../../components/DetailLayout'
 import Breadcrumb from '../../components/Breadcrumb'
-import NotFound from '../../components/NotFound'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useToast } from '../../components/toast'
 import { AccomplishmentPanel } from './AccomplishmentPanel'
 import type { AccomplishmentCreateInput } from '../../schemas/accomplishment'
+import { useResourceId } from '../../hooks/useResourceId'
+import { DetailFallback, type ResourceRoute } from '../../components/DetailFallback'
 import styles from './AccomplishmentDetailView.module.css'
 
+const ROUTE: ResourceRoute = { listPath: '/accomplishments', singular: 'Accomplishment', plural: 'Accomplishments' }
+
 export default function AccomplishmentDetailView() {
-  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const numericId = id && /^\d+$/.test(id) ? Number(id) : null
+  const numericId = useResourceId(ROUTE.listPath)
 
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const { success, error } = useToast()
-
-  useEffect(() => {
-    if (numericId === null) {
-      navigate('/accomplishments', { replace: true })
-    }
-  }, [numericId, navigate])
 
   const detailQuery = useAccomplishmentDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
@@ -40,16 +35,9 @@ export default function AccomplishmentDetailView() {
 
   const acc = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
-  const errStatus = (detailQuery.error as ApiClientError | undefined)?.status
-  const notFound = errStatus === 404
-  const forbidden = errStatus === 403
 
   if (numericId === null) return null
-  if (notFound) return <NotFound entityName="Accomplishment" backTo="/accomplishments" backLabel="Back to Accomplishments" />
-  if (forbidden) return <NotFound entityName="Accomplishment" backTo="/accomplishments" backLabel="Back to Accomplishments" heading="This accomplishment isn't yours" message="This accomplishment belongs to another account and cannot be accessed." />
-  if (!acc) {
-    return <div>Loading…</div>
-  }
+  if (!acc) return <DetailFallback query={detailQuery} route={ROUTE} />
 
   const handleSave = async (data: AccomplishmentCreateInput) => {
     await update.mutateAsync({
@@ -127,6 +115,7 @@ export default function AccomplishmentDetailView() {
 
       {confirmDelete && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message="Delete this accomplishment? This cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}

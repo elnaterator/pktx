@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import AccomplishmentDetailView from '../../pages/accomplishments/AccomplishmentDetailView'
@@ -144,7 +144,7 @@ describe('AccomplishmentDetailView', () => {
     await waitFor(() => {
       expect(screen.getByText(/Delete this accomplishment/i)).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: /Confirm|Yes/i }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
     await waitFor(() => {
       expect(api.deleteAccomplishment).toHaveBeenCalledWith(1)
       expect(screen.getByTestId('acc-list')).toBeInTheDocument()

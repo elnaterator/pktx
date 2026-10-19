@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router'
+import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -21,23 +21,24 @@ import GenericListSection from './GenericListSection'
 import AddSectionBar from './AddSectionBar'
 import ResumeJsonView from './ResumeJsonView'
 import Breadcrumb from '../../components/Breadcrumb'
-import NotFound from '../../components/NotFound'
-import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { useToast } from '../../components/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LinksPanel } from '../../components/LinksPanel'
 import DetailLayout from '../../components/DetailLayout'
-import { ApiClientError, type ListEntry, type ListSectionKey } from '../../types'
+import type { ListEntry, ListSectionKey } from '../../types'
 import { Button } from '../../components/Button'
 import { EditActions } from '../../components/EditActions'
 import { IconButton } from '../../components/IconButton'
+import { useResourceId } from '../../hooks/useResourceId'
+import { DetailFallback, type ResourceRoute } from '../../components/DetailFallback'
 import styles from './ResumeDetailView.module.css'
 
+const ROUTE: ResourceRoute = { listPath: '/resumes', singular: 'Resume', plural: 'Resumes' }
+
 export default function ResumeDetailView() {
-  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const numericId = id && /^\d+$/.test(id) ? Number(id) : null
+  const numericId = useResourceId(ROUTE.listPath)
 
   const qc = useQueryClient()
   const { success, error } = useToast()
@@ -59,12 +60,6 @@ export default function ResumeDetailView() {
     mode: 'onSubmit',
   })
 
-  useEffect(() => {
-    if (numericId === null) {
-      navigate('/resumes', { replace: true })
-    }
-  }, [numericId, navigate])
-
   const detailQuery = useResumeDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
   const schemaQuery = useResumeSchema()
@@ -72,9 +67,6 @@ export default function ResumeDetailView() {
 
   const version = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
-  const errStatus = (detailQuery.error as ApiClientError | undefined)?.status
-  const notFound = errStatus === 404
-  const forbidden = errStatus === 403
 
   const reloadResume = () => {
     if (numericId !== null) {
@@ -115,10 +107,7 @@ export default function ResumeDetailView() {
   })
 
   if (numericId === null) return null
-  if (detailQuery.isPending) return <LoadingSpinner />
-  if (notFound) return <NotFound entityName="Resume" backTo="/resumes" backLabel="Back to Resumes" />
-  if (forbidden) return <NotFound entityName="Resume" backTo="/resumes" backLabel="Back to Resumes" heading="This resume isn't yours" message="This resume belongs to another account and cannot be accessed." />
-  if (!version) return null
+  if (!version) return <DetailFallback query={detailQuery} route={ROUTE} />
 
   const resume = version.data
   const sections = (schemaQuery.data ?? []).filter((m) => m.kind === 'list')
@@ -283,6 +272,7 @@ export default function ResumeDetailView() {
 
       {confirmDelete && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message="Delete this resume version? This cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}

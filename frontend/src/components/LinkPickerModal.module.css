@@ -1,16 +1,4 @@
-.overlay {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-modal-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: var(--z-modal);
-}
-
 .modal {
-  background: var(--bg-hover);
-  border: none;
   width: min(560px, 92vw);
   max-height: 72vh;
   display: flex;

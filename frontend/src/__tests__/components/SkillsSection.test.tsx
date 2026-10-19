@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SkillsSection from '../../pages/resumes/SkillsSection'
 import * as api from '../../services/api'
@@ -372,7 +372,7 @@ describe('SkillsSection — delete', () => {
     const onUpdate = renderSection()
     await user.click(screen.getByRole('button', { name: 'Delete Frameworks skill' }))
     expect(api.removeEntry).not.toHaveBeenCalled()
-    await user.click(screen.getByRole('button', { name: 'Confirm' }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
     await waitFor(() => expect(api.removeEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-fw'))
     await waitFor(() => expect(onUpdate).toHaveBeenCalled())
   })

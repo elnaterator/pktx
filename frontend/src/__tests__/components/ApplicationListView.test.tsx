@@ -95,7 +95,7 @@ describe('ApplicationListView', () => {
     vi.mocked(api.listApplications).mockResolvedValue([])
     renderView()
     await waitFor(() => {
-      expect(screen.getByText(/no applications found/i)).toBeInTheDocument()
+      expect(screen.getByText(/no applications yet/i)).toBeInTheDocument()
     })
   })
 
@@ -103,8 +103,9 @@ describe('ApplicationListView', () => {
     vi.mocked(api.listApplications).mockRejectedValue(new Error('Server error'))
     renderView()
     await waitFor(() => {
-      expect(screen.getByText(/failed to load applications/i)).toBeInTheDocument()
+      expect(screen.getByText(/couldn't load applications/i)).toBeInTheDocument()
     })
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
   })
 
   it('shows New Application button', async () => {

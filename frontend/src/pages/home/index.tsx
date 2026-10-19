@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useUser } from '@clerk/clerk-react'
 import { Briefcase, FileText, Trophy, StickyNote, Users, Bot } from 'lucide-react'
@@ -13,7 +13,8 @@ import {
   useAllTags,
 } from '../../hooks/queries'
 import { SearchBar } from '../../components/SearchBar'
-import type { SearchResult, SearchValue } from '../../types'
+import type { SearchResult } from '../../types'
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
 import styles from './HomeView.module.css'
 
 // ─── Search results ────────────────────────────────────────────────────────────
@@ -158,9 +159,11 @@ export default function HomeView() {
   const { user } = useUser()
   const firstName = user?.firstName ?? null
 
-  const [searchValue, setSearchValue] = useState<SearchValue>({ tags: [], text: '' })
-  const [debouncedSearch, setDebouncedSearch] = useState<SearchValue>({ tags: [], text: '' })
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const {
+    search: searchValue,
+    setSearch: handleSearchChange,
+    debounced: debouncedSearch,
+  } = useDebouncedSearch()
 
   const tagsQuery = useAllTags()
   const allTags = tagsQuery.data ?? []
@@ -171,12 +174,6 @@ export default function HomeView() {
     tags: debouncedSearch.tags.length > 0 ? debouncedSearch.tags : undefined,
     enabled: hasSearch,
   })
-
-  const handleSearchChange = (v: SearchValue) => {
-    setSearchValue(v)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => setDebouncedSearch(v), 300)
-  }
 
   const resumes = useResumeList()
   const applications = useApplicationList()

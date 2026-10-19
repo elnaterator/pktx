@@ -136,7 +136,7 @@ describe('ContactDetailView', () => {
       expect(screen.getAllByText('Jane Doe').length).toBeGreaterThan(0)
     })
     await user.click(screen.getByRole('button', { name: /Delete/i }))
-    const confirmBtn = screen.getByRole('button', { name: /^Confirm$/i })
+    const confirmBtn = within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' })
     await user.click(confirmBtn)
     await waitFor(() => {
       expect(api.deleteContact).toHaveBeenCalledWith(1)

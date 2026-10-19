@@ -1,55 +1,8 @@
-.container {
-  padding: var(--space-6) 0;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-7);
-}
-
-.heading {
-  font-size: var(--font-size-9);
-  font-weight: var(--font-weight-bold);
-  color: var(--text-primary);
-  margin: 0;
-}
-
-/* Filters */
-.filters {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-/* List */
-.empty {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.list {
-  composes: list from '../../components/listRow.module.css';
-}
-
-.item {
-  background-color: var(--bg-hover);
-  padding: var(--space-4) var(--space-7);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.item:hover {
-  background-color: var(--bg-active);
-}
-
-.itemLink {
-  display: flex;
+/* Two-line row: name + badge | tags + date, then title · company, follow-up, links */
+.twoLine {
   flex-direction: column;
+  align-items: stretch;
   gap: var(--space-2);
-  text-decoration: none;
-  color: inherit;
 }
 
 /* Row 1: name+badge left, tags+date right */
@@ -122,10 +75,6 @@
   white-space: nowrap;
 }
 
-.linkCount {
-  composes: linkCount from '../../components/listRow.module.css';
-}
-
 /* Communication Search Panel */
 
 .commSearchCard {
@@ -166,6 +115,10 @@
 }
 
 .commResultItem {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: inherit;
   background-color: var(--bg-secondary);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
@@ -198,12 +151,14 @@
 }
 
 .commResultParent {
+  display: block;
   font-size: var(--font-size-4);
   color: var(--text-secondary);
   font-weight: var(--font-weight-medium);
 }
 
 .commResultSubject {
+  display: block;
   font-size: var(--font-size-4);
   color: var(--text-primary);
   white-space: nowrap;
@@ -212,10 +167,6 @@
 }
 
 @media (max-width: 640px) {
-  .filters {
-    flex-direction: column;
-  }
-
   .itemRow1 {
     flex-wrap: wrap;
   }
