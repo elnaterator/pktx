@@ -1,9 +1,16 @@
+/* Top-aligned so the actions stay on the title's first line even when
+   field errors appear under the edit inputs. */
 .header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
   gap: var(--space-6);
   margin-bottom: var(--space-7);
+}
+
+/* One title line tall, so the icons centre on the title text. */
+.actions {
+  min-height: calc(var(--heading-panel) * var(--leading-tight));
 }
 
 .main {

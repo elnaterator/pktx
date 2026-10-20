@@ -21,8 +21,8 @@
 }
 
 .titleEdit .titleAt {
-  padding-top: var(--space-1);
   font-size: var(--heading-panel);
+  line-height: var(--leading-tight);
 }
 
 .panelCreate {

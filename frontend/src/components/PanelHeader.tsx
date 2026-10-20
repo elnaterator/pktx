@@ -43,6 +43,7 @@ export function PanelHeader({
         onSave={onSave}
         onCancel={onCancel}
         saving={saving}
+        className={styles.actions}
         editLabel={`Edit ${entity}`}
         deleteLabel={`Delete ${entity}`}
       />
