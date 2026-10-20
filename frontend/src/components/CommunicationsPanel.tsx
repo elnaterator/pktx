@@ -1,8 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Pencil, Trash2, ChevronDown } from 'lucide-react'
-import { ICON_SIZE } from '../theme'
-import { useForm, Controller, type UseFormRegister, type Control } from 'react-hook-form'
+import { useEffect, useId, useMemo, useState, type ReactNode } from 'react'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronDown,
+  Mail,
+  MessageSquare,
+  NotebookPen,
+  Pencil,
+  Phone,
+  Plus,
+  Trash2,
+  type LucideIcon,
+} from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import type { Communication } from '../types'
 import { ApiClientError } from '../services/api'
 import {
@@ -10,37 +22,60 @@ import {
   useCommunicationMutations,
   useContactCommunications,
 } from '../hooks/queries'
-import { TagInput } from './TagInput'
-import { ConfirmDialog } from './ConfirmDialog'
-import { useToast } from './toast'
-import { AutoResizeTextarea } from './AutoResizeTextarea'
-import { MarkdownContent } from './MarkdownContent'
 import {
   communicationCreateSchema,
-  COMM_TYPES,
+  commDirectionLabel,
+  commLabel,
+  COMM_DIRECTION_LABELS,
   COMM_DIRECTIONS,
+  COMM_STATUS_LABELS,
   COMM_STATUSES,
+  COMM_TYPE_LABELS,
+  COMM_TYPES,
   type CommunicationCreateInput,
 } from '../schemas/communication'
-import { Button } from './Button'
-import { EditActions } from './EditActions'
-import { IconButton } from './IconButton'
+import { cx } from '../utils/cx'
 import { formatDate } from '../utils/formatDate'
+import { AutoResizeTextarea } from './AutoResizeTextarea'
+import { Button } from './Button'
+import { CommStatusBadge } from './CommStatusBadge'
+import { ConfirmDialog } from './ConfirmDialog'
+import { DateInput } from './DateInput'
+import { EditActions } from './EditActions'
+import { EmptyState } from './EmptyState'
+import { FieldError } from './FieldError'
+import { IconButton } from './IconButton'
+import { LoadingSpinner } from './LoadingSpinner'
+import { MarkdownContent } from './MarkdownContent'
+import { SectionCard } from './SectionCard'
+import { TagInput } from './TagInput'
+import { TagList } from './TagList'
+import { useToast } from './toast'
 import styles from './CommunicationsPanel.module.css'
 
-const STATUS_CLASS: Record<string, string> = {
-  draft: styles.statusDraft,
-  ready: styles.statusReady,
-  sent: styles.statusSent,
-  archived: styles.statusArchived,
+const TYPE_ICON: Record<string, LucideIcon> = {
+  email: Mail,
+  phone: Phone,
+  interview_note: NotebookPen,
+  other: MessageSquare,
+}
+
+const DIRECTION_ICON: Record<string, LucideIcon> = {
+  sent: ArrowUpRight,
+  received: ArrowDownLeft,
 }
 
 export interface CommunicationsPanelProps {
   contactId: number
+  /** Used for "To Jane" / "From Jane" direction labels. */
+  contactName?: string
   initialExpandId?: number
 }
 
-const today = () => new Date().toISOString().slice(0, 10)
+const today = () => {
+  const d = new Date()
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
 
 const emptyDefaults = (): CommunicationCreateInput => ({
   type: 'email',
@@ -52,12 +87,35 @@ const emptyDefaults = (): CommunicationCreateInput => ({
   tags: [],
 })
 
-export default function CommunicationsPanel({ contactId, initialExpandId }: CommunicationsPanelProps) {
-  const [showAddForm, setShowAddForm] = useState(false)
-  const [editTarget, setEditTarget] = useState<Communication | null>(null)
+const fromCommunication = (comm: Communication): CommunicationCreateInput => ({
+  type: comm.type as CommunicationCreateInput['type'],
+  direction: comm.direction as CommunicationCreateInput['direction'],
+  subject: comm.subject || undefined,
+  body: comm.body || undefined,
+  date: comm.date.slice(0, 10),
+  status: comm.status as CommunicationCreateInput['status'],
+  tags: comm.tags ?? [],
+})
+
+const toPayload = (data: CommunicationCreateInput) => ({
+  ...data,
+  subject: data.subject ?? '',
+  body: data.body ?? '',
+})
+
+const errorMessage = (err: unknown, fallback: string) =>
+  err instanceof ApiClientError ? err.detail ?? err.message : fallback
+
+export default function CommunicationsPanel({
+  contactId,
+  contactName,
+  initialExpandId,
+}: CommunicationsPanelProps) {
+  const [adding, setAdding] = useState(false)
+  const [editingId, setEditingId] = useState<number | null>(null)
   const [deleteTarget, setDeleteTarget] = useState<number | null>(null)
   const [expandedIds, setExpandedIds] = useState<Set<number>>(
-    initialExpandId !== undefined ? new Set([initialExpandId]) : new Set()
+    initialExpandId !== undefined ? new Set([initialExpandId]) : new Set(),
   )
   const { success, error: toastError } = useToast()
 
@@ -66,211 +124,148 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
   const { add, update, remove } = useCommunicationMutations()
 
   const allTags = tagsQuery.data ?? []
-  const submitting = add.isPending || update.isPending
-
-  const { register, handleSubmit, reset, control, formState: { isSubmitting } } = useForm<CommunicationCreateInput>({
-    resolver: zodResolver(communicationCreateSchema),
-    mode: 'onSubmit',
-    defaultValues: emptyDefaults(),
-  })
 
   const communications = useMemo<Communication[]>(() => {
     const data = commsQuery.data ?? []
-    return [...data].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-    )
+    return [...data].sort((a, b) => b.date.localeCompare(a.date))
   }, [commsQuery.data])
 
   useEffect(() => {
     if (commsQuery.isSuccess && initialExpandId !== undefined) {
       requestAnimationFrame(() => {
         requestAnimationFrame(() => {
-          document.getElementById(`comm-${initialExpandId}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          document
+            .getElementById(`comm-${initialExpandId}`)
+            ?.scrollIntoView({ behavior: 'smooth', block: 'center' })
         })
       })
     }
   }, [commsQuery.isSuccess, initialExpandId])
 
-  useEffect(() => {
-    if (commsQuery.isError) {
-      const err = commsQuery.error
-      const msg = err instanceof ApiClientError ? err.detail ?? err.message : 'Failed to load communications'
-      toastError(msg)
-    }
-  }, [commsQuery.isError, commsQuery.error, toastError])
-
   const toggleExpand = (id: number) =>
     setExpandedIds((prev) => {
       const next = new Set(prev)
-      if (next.has(id)) { next.delete(id) } else { next.add(id) }
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
       return next
     })
 
-  const onAddSubmit = handleSubmit(async (data) => {
+  const startAdding = () => {
+    setEditingId(null)
+    setAdding(true)
+  }
+
+  const startEditing = (id: number) => {
+    setAdding(false)
+    setEditingId(id)
+  }
+
+  const handleAdd = async (data: CommunicationCreateInput) => {
     try {
-      await add.mutateAsync({ contactId, data: { ...data, subject: data.subject ?? '', body: data.body ?? '' } })
-      reset(emptyDefaults())
-      setShowAddForm(false)
+      await add.mutateAsync({ contactId, data: toPayload(data) })
+      setAdding(false)
       success('Communication added')
     } catch (err) {
-      const msg = err instanceof ApiClientError ? (err as ApiClientError).detail ?? err.message : 'Failed to add communication'
-      toastError(msg)
+      toastError(errorMessage(err, 'Failed to add communication'))
     }
-  })
+  }
 
-  const onEditSubmit = handleSubmit(async (data) => {
-    if (!editTarget) return
+  const handleUpdate = async (commId: number, data: CommunicationCreateInput) => {
     try {
-      await update.mutateAsync({ contactId, commId: editTarget.id, data: { ...data, subject: data.subject ?? '', body: data.body ?? '' } })
-      setEditTarget(null)
-      reset(emptyDefaults())
+      await update.mutateAsync({ contactId, commId, data: toPayload(data) })
+      setEditingId(null)
       success('Communication updated')
     } catch (err) {
-      const msg = err instanceof ApiClientError ? (err as ApiClientError).detail ?? err.message : 'Failed to update communication'
-      toastError(msg)
+      toastError(errorMessage(err, 'Failed to update communication'))
     }
-  })
-
-  const startEdit = (comm: Communication) => {
-    reset({
-      type: comm.type as CommunicationCreateInput['type'],
-      direction: comm.direction as CommunicationCreateInput['direction'],
-      subject: comm.subject || undefined,
-      body: comm.body || undefined,
-      date: comm.date.slice(0, 10),
-      status: comm.status as CommunicationCreateInput['status'],
-      tags: comm.tags ?? [],
-    })
-    setEditTarget(comm)
-    setShowAddForm(false)
   }
 
   const handleDelete = async () => {
     if (deleteTarget === null) return
     try {
       await remove.mutateAsync({ contactId, commId: deleteTarget })
-      setDeleteTarget(null)
       success('Communication removed')
     } catch (err) {
-      const msg = err instanceof ApiClientError ? (err as ApiClientError).detail ?? err.message : 'Failed to remove communication'
-      toastError(msg)
+      toastError(errorMessage(err, 'Failed to remove communication'))
+    } finally {
       setDeleteTarget(null)
     }
   }
 
-  return (
-    <div className={styles.container} id="communications" style={{ scrollMarginTop: 'var(--header-h, 64px)' }}>
-      <div className={styles.panelHeader}>
-        <h3 className={styles.panelTitle}>Communications</h3>
-        {!showAddForm && (
-          <Button
-            size="sm"
-            onClick={() => { reset(emptyDefaults()); setShowAddForm(true); setEditTarget(null) }}
-          >
-            Add Communication
+  let body: ReactNode
+  if (commsQuery.isPending) {
+    body = <LoadingSpinner />
+  } else if (commsQuery.isError) {
+    body = (
+      <EmptyState
+        action={
+          <Button variant="link" size="sm" onClick={() => void commsQuery.refetch()}>
+            Retry
           </Button>
-        )}
-      </div>
+        }
+      >
+        {errorMessage(commsQuery.error, "Couldn't load communications.")}
+      </EmptyState>
+    )
+  } else if (communications.length === 0) {
+    body = adding ? null : <EmptyState>No communications yet.</EmptyState>
+  } else {
+    body = (
+      <ul className={styles.list}>
+        {communications.map((comm) => (
+          <li
+            key={comm.id}
+            id={`comm-${comm.id}`}
+            className={cx(styles.item, editingId === comm.id && styles.itemEditing)}
+          >
+            {editingId === comm.id ? (
+              <CommunicationForm
+                initial={fromCommunication(comm)}
+                allTags={allTags}
+                onSubmit={(data) => handleUpdate(comm.id, data)}
+                onCancel={() => setEditingId(null)}
+              />
+            ) : (
+              <CommunicationRow
+                comm={comm}
+                contactName={contactName}
+                expanded={expandedIds.has(comm.id)}
+                onToggle={() => toggleExpand(comm.id)}
+                onEdit={() => startEditing(comm.id)}
+                onDelete={() => setDeleteTarget(comm.id)}
+              />
+            )}
+          </li>
+        ))}
+      </ul>
+    )
+  }
 
-      {showAddForm && (
-        <form className={styles.form} onSubmit={onAddSubmit} noValidate>
-          <div className={styles.formHeader}>
-            <EditActions
-              editing
-              saveType="submit"
-              saving={isSubmitting || submitting}
-              onCancel={() => { setShowAddForm(false); reset(emptyDefaults()) }}
+  return (
+    <div className={styles.panel} id="communications">
+      <SectionCard
+        label="Communications"
+        action={
+          !adding && (
+            <Button variant="link" size="sm" onClick={startAdding}>
+              <Plus size={ICON_SIZE.sm} aria-hidden="true" />
+              Add communication
+            </Button>
+          )
+        }
+      >
+        {adding && (
+          <div className={cx(styles.item, styles.itemEditing, styles.addItem)}>
+            <CommunicationForm
+              initial={emptyDefaults()}
+              allTags={allTags}
+              onSubmit={handleAdd}
+              onCancel={() => setAdding(false)}
             />
           </div>
-          <CommFormFields register={register} control={control} allTags={allTags} />
-        </form>
-      )}
-
-      {communications.length === 0 && !showAddForm ? (
-        <p className={styles.empty}>No communications yet.</p>
-      ) : (
-        <ul className={styles.timeline}>
-          {communications.map((comm) => (
-            <li key={comm.id} id={`comm-${comm.id}`} className={styles.timelineItem}>
-              {editTarget?.id === comm.id ? (
-                <form className={styles.form} onSubmit={onEditSubmit} noValidate>
-                  <div className={styles.formHeader}>
-                    <EditActions
-                      editing
-                      saveType="submit"
-                      saving={isSubmitting || submitting}
-                      onCancel={() => { setEditTarget(null); reset(emptyDefaults()) }}
-                    />
-                  </div>
-                  <CommFormFields register={register} control={control} allTags={allTags} />
-                </form>
-              ) : (
-                <div
-                  className={styles.commCard}
-                  onClick={() => comm.body && toggleExpand(comm.id)}
-                  style={{ cursor: comm.body ? 'pointer' : 'default' }}
-                >
-                  <div className={styles.commTopRow}>
-                    <div className={styles.commMeta}>
-                      <span className={styles.commDate}>{formatDate(comm.date)}</span>
-                      <span className={styles.commType}>{comm.type}</span>
-                      <span className={styles.commDirection}>{comm.direction}</span>
-                      <span className={`${styles.statusBadge} ${STATUS_CLASS[comm.status] || ''}`}>
-                        {comm.status}
-                      </span>
-                    </div>
-                    <div className={styles.commRight}>
-                      {comm.tags && comm.tags.length > 0 && (
-                        <div className={styles.tagRow}>
-                          {comm.tags.map((tag) => (
-                            <span key={tag} className={styles.tagChip}>{tag}</span>
-                          ))}
-                        </div>
-                      )}
-                      <div className={styles.commActions}>
-                        <IconButton
-                          icon={Pencil}
-                          label="Edit communication"
-                          onClick={(e) => { e.stopPropagation(); startEdit(comm) }}
-                        />
-                        <IconButton
-                          icon={Trash2}
-                          label="Delete communication"
-                          tone="danger"
-                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(comm.id) }}
-                        />
-                      </div>
-                      {comm.body && (
-                        <ChevronDown
-                          size={ICON_SIZE.md}
-                          className={expandedIds.has(comm.id) ? styles.chevronOpen : styles.chevron}
-                        />
-                      )}
-                    </div>
-                  </div>
-                  {(comm.subject || comm.body) && !expandedIds.has(comm.id) && (
-                    <p className={styles.commSummaryRow}>
-                      {comm.subject && <strong className={styles.commSubject}>{comm.subject}</strong>}
-                      {comm.subject && comm.body && <span className={styles.commSep}> · </span>}
-                      {comm.body && <span className={styles.commBodyPreview}>{comm.body}</span>}
-                    </p>
-                  )}
-                  {expandedIds.has(comm.id) && (
-                    <>
-                      {comm.subject && <p className={styles.commSubjectExpanded}>{comm.subject}</p>}
-                      {comm.body && (
-                        <div className={styles.commBodyFull}>
-                          <MarkdownContent>{comm.body}</MarkdownContent>
-                        </div>
-                      )}
-                    </>
-                  )}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+        )}
+        {body}
+      </SectionCard>
 
       {deleteTarget !== null && (
         <ConfirmDialog
@@ -278,55 +273,199 @@ export default function CommunicationsPanel({ contactId, initialExpandId }: Comm
           message="Remove this communication?"
           onConfirm={handleDelete}
           onCancel={() => setDeleteTarget(null)}
+          busy={remove.isPending}
         />
       )}
     </div>
   )
 }
 
-interface CommFormFieldsProps {
-  register: UseFormRegister<CommunicationCreateInput>
-  control: Control<CommunicationCreateInput>
-  allTags: string[]
+// ─── Row ──────────────────────────────────────────────────────────────────────
+
+interface CommunicationRowProps {
+  comm: Communication
+  contactName?: string
+  expanded: boolean
+  onToggle: () => void
+  onEdit: () => void
+  onDelete: () => void
 }
 
-function CommFormFields({ register, control, allTags }: CommFormFieldsProps) {
+function CommunicationRow({
+  comm,
+  contactName,
+  expanded,
+  onToggle,
+  onEdit,
+  onDelete,
+}: CommunicationRowProps) {
+  const bodyId = useId()
+  const expandable = Boolean(comm.body)
+  const TypeIcon = TYPE_ICON[comm.type] ?? MessageSquare
+  const DirectionIcon = DIRECTION_ICON[comm.direction] ?? ArrowUpRight
+  const incoming = comm.direction === 'received'
+  const directionClass = incoming ? styles.incoming : styles.outgoing
+
   return (
-    <div className={styles.formGrid}>
-      <div className={styles.formField}>
-        <label className={styles.label} htmlFor="comm-type">Type</label>
-        <select id="comm-type" className={styles.select} {...register('type')}>
-          {COMM_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-        </select>
+    <>
+      {/* Clicking anywhere on the row toggles it for mouse users; the chevron
+          button is the keyboard / screen-reader control. */}
+      <div
+        className={cx(styles.row, expandable && styles.rowExpandable)}
+        onClick={expandable ? onToggle : undefined}
+      >
+        {/* Direction at a glance: a coloured arrow tile leads every row. */}
+        <span className={cx(styles.directionTile, directionClass)} aria-hidden="true">
+          <DirectionIcon size={ICON_SIZE.md} />
+        </span>
+        <div className={styles.rowMain}>
+          <div className={styles.meta}>
+            <span className={styles.date}>{formatDate(comm.date)}</span>
+            <span className={cx(styles.directionLabel, directionClass)}>
+              {commDirectionLabel(comm.direction, contactName)}
+            </span>
+            <span className={styles.metaItem}>
+              <TypeIcon size={ICON_SIZE.sm} aria-hidden="true" />
+              {commLabel(COMM_TYPE_LABELS, comm.type)}
+            </span>
+            <CommStatusBadge status={comm.status} />
+          </div>
+          {!expanded && (comm.subject || comm.body) && (
+            <p className={styles.summary}>
+              {comm.subject && <strong className={styles.subject}>{comm.subject}</strong>}
+              {comm.subject && comm.body && <span className={styles.sep}> · </span>}
+              {comm.body && <span className={styles.preview}>{comm.body}</span>}
+            </p>
+          )}
+        </div>
+        <TagList tags={comm.tags ?? []} />
+        <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
+          <IconButton icon={Pencil} label="Edit communication" onClick={onEdit} />
+          <IconButton icon={Trash2} label="Delete communication" tone="danger" onClick={onDelete} />
+          {expandable ? (
+            <IconButton
+              icon={ChevronDown}
+              label={expanded ? 'Collapse message' : 'Expand message'}
+              tone="neutral"
+              aria-expanded={expanded}
+              aria-controls={bodyId}
+              className={cx(styles.chevron, expanded && styles.chevronOpen)}
+              onClick={onToggle}
+            />
+          ) : (
+            // Keeps edit/delete in the same place on every row.
+            <span className={styles.chevronSlot} aria-hidden="true" />
+          )}
+        </div>
       </div>
-      <div className={styles.formField}>
-        <label className={styles.label} htmlFor="comm-direction">Direction</label>
-        <select id="comm-direction" className={styles.select} {...register('direction')}>
-          {COMM_DIRECTIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-        </select>
+      {expanded && expandable && (
+        <div id={bodyId} className={styles.body}>
+          {comm.subject && <p className={styles.bodySubject}>{comm.subject}</p>}
+          <MarkdownContent>{comm.body}</MarkdownContent>
+        </div>
+      )}
+    </>
+  )
+}
+
+// ─── Form ─────────────────────────────────────────────────────────────────────
+
+interface CommunicationFormProps {
+  initial: CommunicationCreateInput
+  allTags: string[]
+  onSubmit: (data: CommunicationCreateInput) => Promise<void>
+  onCancel: () => void
+}
+
+/**
+ * Add / edit form in the app's inline-edit style: the subject is the title row
+ * with save/cancel beside it (like PanelHeader), then the metadata, body and tags.
+ */
+function CommunicationForm({ initial, allTags, onSubmit, onCancel }: CommunicationFormProps) {
+  const id = useId()
+  const {
+    register,
+    handleSubmit,
+    control,
+    formState: { errors, isSubmitting },
+  } = useForm<CommunicationCreateInput>({
+    resolver: zodResolver(communicationCreateSchema),
+    mode: 'onSubmit',
+    defaultValues: initial,
+  })
+
+  return (
+    <form
+      className={styles.form}
+      onSubmit={handleSubmit(onSubmit)}
+      noValidate
+      onKeyDown={(e) => {
+        if (e.key === 'Escape' && !e.defaultPrevented) {
+          e.preventDefault()
+          onCancel()
+        }
+      }}
+    >
+      <div className={styles.formTitle}>
+        <input
+          className={styles.subjectInput}
+          placeholder="Subject line"
+          aria-label="Subject"
+          autoFocus
+          {...register('subject')}
+        />
+        <EditActions editing saveType="submit" saving={isSubmitting} onCancel={onCancel} />
       </div>
-      <div className={styles.formField}>
-        <label className={styles.label} htmlFor="comm-date">Date</label>
-        <input id="comm-date" type="date" className={styles.input} {...register('date')} />
+
+      <div className={styles.formMeta}>
+        <Field label="Type" htmlFor={`${id}-type`}>
+          <select id={`${id}-type`} className={styles.select} {...register('type')}>
+            {COMM_TYPES.map((t) => (
+              <option key={t} value={t}>{COMM_TYPE_LABELS[t]}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Direction" htmlFor={`${id}-direction`}>
+          <select id={`${id}-direction`} className={styles.select} {...register('direction')}>
+            {COMM_DIRECTIONS.map((d) => (
+              <option key={d} value={d}>{COMM_DIRECTION_LABELS[d]}</option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Date" htmlFor={`${id}-date`} className={styles.dateField}>
+          <Controller
+            control={control}
+            name="date"
+            render={({ field }) => (
+              <DateInput
+                id={`${id}-date`}
+                className={styles.input}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                placeholder="YYYY-MM-DD"
+                invalid={!!errors.date}
+                days
+              />
+            )}
+          />
+          <FieldError error={errors.date} />
+        </Field>
+        <Field label="Status" htmlFor={`${id}-status`}>
+          <select id={`${id}-status`} className={styles.select} {...register('status')}>
+            {COMM_STATUSES.map((s) => (
+              <option key={s} value={s}>{COMM_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        </Field>
       </div>
-      <div className={styles.formField}>
-        <label className={styles.label} htmlFor="comm-status">Status</label>
-        <select id="comm-status" className={styles.select} {...register('status')}>
-          {COMM_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-      </div>
-      <div className={`${styles.formField} ${styles.fullWidth}`}>
-        <label className={styles.label} htmlFor="comm-subject">Subject</label>
-        <input id="comm-subject" className={styles.input} placeholder="Subject line" {...register('subject')} />
-      </div>
-      <div className={`${styles.formField} ${styles.fullWidth}`}>
-        <label className={styles.label} htmlFor="comm-body">Body</label>
+
+      <Field label="Body" htmlFor={`${id}-body`}>
         <Controller
           control={control}
           name="body"
           render={({ field }) => (
             <AutoResizeTextarea
-              id="comm-body"
+              id={`${id}-body`}
               className={styles.textarea}
               value={field.value ?? ''}
               onChange={field.onChange}
@@ -334,21 +473,36 @@ function CommFormFields({ register, control, allTags }: CommFormFieldsProps) {
             />
           )}
         />
-      </div>
-      <div className={`${styles.formField} ${styles.fullWidth}`}>
-        <label className={styles.label}>Tags</label>
+      </Field>
+
+      <Field label="Tags">
         <Controller
           control={control}
           name="tags"
           render={({ field }) => (
-            <TagInput
-              value={field.value ?? []}
-              onChange={field.onChange}
-              availableTags={allTags}
-            />
+            <TagInput value={field.value ?? []} onChange={field.onChange} availableTags={allTags} allowCreate />
           )}
         />
-      </div>
+      </Field>
+    </form>
+  )
+}
+
+function Field({
+  label,
+  htmlFor,
+  className,
+  children,
+}: {
+  label: string
+  htmlFor?: string
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <div className={cx(styles.field, className)}>
+      <label className={styles.label} htmlFor={htmlFor}>{label}</label>
+      {children}
     </div>
   )
 }

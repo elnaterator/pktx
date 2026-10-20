@@ -1,284 +1,236 @@
-.container {
-  background-color: var(--bg-raised);
-  padding: var(--space-6) var(--space-7);
+.panel {
+  scroll-margin-top: calc(var(--header-h, 64px) + var(--space-6));
 }
 
-.panelHeader {
+/* ── Timeline ───────────────────────────────────────────────────── */
+
+.list {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-5);
-}
-
-.panelTitle {
-  font-size: var(--font-size-6);
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
+  flex-direction: column;
+  gap: var(--space-3);
   margin: 0;
+  padding: 0;
+  list-style: none;
 }
 
-.empty {
-  color: var(--text-muted);
-  font-size: var(--font-size-5);
-  font-style: italic;
-}
-
-.form {
+/* One frame for every row state: view, edit and the add form. */
+.item {
+  margin: 0;
+  padding: var(--space-4) var(--space-5);
   background-color: var(--bg-primary);
-  padding: var(--space-5);
-  margin-bottom: var(--space-5);
+  transition: background-color var(--transition-fast);
+  scroll-margin-top: calc(var(--header-h, 64px) + var(--space-6));
 }
 
-.formHeader {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-1);
+/* .itemEditing marks a row holding a form: no hover fill then. */
+.item:hover:not(.itemEditing) {
+  background-color: var(--bg-raised-hover);
+}
+
+.addItem {
   margin-bottom: var(--space-3);
 }
 
-.formGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4) var(--space-5);
+.row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-4);
 }
 
-.formField {
+/* Direction tile + label share these colour classes. */
+.outgoing {
+  color: var(--comm-direction-out);
+}
+
+.incoming {
+  color: var(--comm-direction-in);
+}
+
+.directionTile {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.directionTile.outgoing {
+  background-color: var(--comm-direction-out-bg);
+}
+
+.directionTile.incoming {
+  background-color: var(--comm-direction-in-bg);
+}
+
+.directionLabel {
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.rowExpandable {
+  cursor: pointer;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
-.fullWidth {
-  grid-column: 1 / -1;
+.meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-size-4);
+  color: var(--text-muted);
+}
+
+.date {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.metaItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  white-space: nowrap;
+}
+
+.summary {
+  margin: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: var(--font-size-4);
+  color: var(--text-muted);
+}
+
+.subject {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.sep,
+.preview {
+  color: var(--text-muted);
+}
+
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-shrink: 0;
+}
+
+.chevron svg {
+  transition: transform var(--transition-default);
+}
+
+.chevronOpen svg {
+  transform: rotate(180deg);
+}
+
+/* Same footprint as an IconButton with an ICON_SIZE.md (14px) icon. */
+.chevronSlot {
+  width: calc(14px + 2 * var(--space-2));
+  flex-shrink: 0;
+}
+
+.body {
+  margin-top: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--bg-raised-hover);
+  font-size: var(--font-size-4);
+  color: var(--text-secondary);
+}
+
+.bodySubject {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+/* ── Form (inline-edit style, like the resource panels) ─────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.formTitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.subjectInput {
+  composes: input from './inlineEdit.module.css';
+  flex: 1;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.formMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-7);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.dateField {
+  width: 11rem;
 }
 
 .label {
   composes: fieldLabel from './text.module.css';
 }
 
-.input {
-  padding: var(--space-2) var(--space-3);
-  font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-}
-
-.input:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
-
 .select {
-  padding: var(--space-2) var(--space-3);
+  composes: select from './inlineEdit.module.css';
   font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
   color: var(--text-primary);
 }
 
-.select:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
+.input {
+  composes: input from './inlineEdit.module.css';
+  font-size: var(--font-size-4);
+  color: var(--text-primary);
 }
 
 .textarea {
-  padding: var(--space-2) var(--space-3);
+  composes: textarea from './inlineEdit.module.css';
   font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
   color: var(--text-primary);
-  resize: vertical;
-  min-height: 5rem;
-}
-
-.textarea:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
-
-/* Timeline */
-.timeline {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.timelineItem {
-  background-color: var(--bg-primary);
-  transition: background-color var(--transition-fast);
-  scroll-margin-top: calc(var(--header-h, 64px) + var(--space-6));
-}
-
-.timelineItem:hover {
-  background-color: var(--bg-raised-hover);
-}
-
-/* Card wraps the two-row layout */
-.commCard {
-  padding: var(--space-4) var(--space-5);
-}
-
-/* Row 1: meta badges + right controls */
-.commTopRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-4);
-  margin-bottom: var(--space-1);
-}
-
-.commMeta {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex-wrap: wrap;
-}
-
-.commDate {
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-secondary);
-  font-size: var(--font-size-4);
-  white-space: nowrap;
-}
-
-.commType {
-  color: var(--text-muted);
-  font-size: var(--font-size-4);
-  background-color: var(--bg-raised);
-  padding: var(--space-1) var(--space-2);
-  white-space: nowrap;
-}
-
-.commDirection {
-  color: var(--text-muted);
-  font-size: var(--font-size-4);
-  background-color: var(--bg-raised);
-  padding: var(--space-1) var(--space-2);
-  white-space: nowrap;
-}
-
-.statusBadge {
-  font-size: var(--font-size-4);
-  font-weight: var(--font-weight-semibold);
-  padding: var(--space-1) var(--space-2);
-  white-space: nowrap;
-}
-
-.statusDraft {
-  background-color: var(--bg-raised);
-  color: var(--text-muted);
-}
-
-.statusReady {
-  background-color: var(--status-warning-bg);
-  color: var(--status-warning);
-}
-
-.statusSent {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-}
-
-.statusArchived {
-  background-color: var(--bg-raised);
-  color: var(--text-muted);
-}
-
-/* Right side of top row: tags + actions + chevron */
-.commRight {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-shrink: 0;
-}
-
-.commActions {
-  display: flex;
-  gap: var(--space-1);
-  flex-shrink: 0;
-}
-
-.chevron {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  transition: transform var(--transition-default);
-}
-
-.chevronOpen {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  transform: rotate(180deg);
-  transition: transform var(--transition-default);
-}
-
-/* Row 2: subject + body preview (collapsed) */
-.commSummaryRow {
-  margin: 0;
-  overflow: hidden;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  font-size: var(--font-size-4);
-  padding-right: var(--space-9); /* ensure ellipsis has room */
-}
-
-.commSubject {
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-}
-
-.commSep {
-  color: var(--text-muted);
-}
-
-.commBodyPreview {
-  color: var(--text-muted);
-}
-
-/* Expanded state */
-.commSubjectExpanded {
-  font-weight: var(--font-weight-semibold);
-  color: var(--text-primary);
-  font-size: var(--font-size-5);
-  margin: 0 0 var(--space-2);
-}
-
-.commBodyFull {
-  color: var(--text-secondary);
-  font-size: var(--font-size-4);
-  margin: 0;
-  white-space: pre-wrap;
-  border-left: 2px solid var(--border-primary);
-  padding: var(--space-4);
-}
-
-.tagRow {
-  display: flex;
-  flex-wrap: nowrap;
-  gap: var(--space-1);
-}
-
-.tagChip {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  font-size: var(--font-size-4);
-  font-family: var(--font-mono);
-  background-color: var(--bg-raised-hover);
-  color: var(--accent-green);
-  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
-  .formGrid {
-    grid-template-columns: 1fr;
+  .row {
+    flex-wrap: wrap;
   }
 
-  .commTopRow {
-    flex-wrap: wrap;
+  /* Tile + text fill the first line; tags and actions wrap below. */
+  .rowMain {
+    flex-basis: calc(100% - 1.75rem - var(--space-4));
+  }
+
+  /* Tags (if any) on the left, actions always at the right. */
+  .actions {
+    margin-left: auto;
   }
 }

@@ -159,6 +159,22 @@
   --app-status-withdrawn: #888888;
   --app-status-withdrawn-bg: rgba(120, 120, 120, 0.1);
 
+  /* Communication direction (contact timeline): outgoing vs incoming */
+  --comm-direction-out: var(--accent-green);
+  --comm-direction-out-bg: var(--accent-green-bg);
+  --comm-direction-in: var(--app-status-applied);       /* same blue as "Applied" */
+  --comm-direction-in-bg: var(--app-status-applied-bg);
+
+  /* Communication status badges (contact timeline) */
+  --comm-status-draft: var(--text-secondary);
+  --comm-status-draft-bg: var(--bg-raised-hover);
+  --comm-status-ready: var(--status-warning);
+  --comm-status-ready-bg: var(--status-warning-bg);
+  --comm-status-sent: var(--accent-green);
+  --comm-status-sent-bg: var(--accent-green-bg);
+  --comm-status-archived: var(--text-muted);
+  --comm-status-archived-bg: transparent;
+
   /* Transitions */
   --transition-fast: 150ms ease;
   --transition-default: 200ms ease;

@@ -116,7 +116,11 @@ export default function ContactDetailView() {
               onEdit={() => setEditing(true)}
               onDelete={() => setConfirmDelete(true)}
             />
-            <CommunicationsPanel contactId={contact.id} initialExpandId={expandCommId} />
+            <CommunicationsPanel
+              contactId={contact.id}
+              contactName={contact.name}
+              initialExpandId={expandCommId}
+            />
           </>
         )}
       </DetailLayout>

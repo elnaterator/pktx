@@ -1,11 +1,6 @@
 /* Colours come from the --app-status-* tokens in styles/tokens.css. */
 .badge {
-  flex-shrink: 0;
-  padding: var(--space-1) var(--space-3);
-  font-family: var(--font-mono);
-  font-size: var(--font-size-4);
-  font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
+  composes: badge from '../../components/badge.module.css';
   color: var(--app-status-withdrawn);
   background-color: var(--app-status-withdrawn-bg);
 }

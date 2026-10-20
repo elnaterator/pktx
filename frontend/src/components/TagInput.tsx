@@ -104,6 +104,9 @@ export function TagInput({
       e.preventDefault()
       commitTag(inputText)
     } else if (e.key === 'Escape') {
+      // Consume Escape only when it closes the dropdown, so an enclosing
+      // form or dialog can still use it to cancel.
+      if (dropdownOpen) e.preventDefault()
       setDropdownOpen(false)
       setActiveIndex(-1)
     }

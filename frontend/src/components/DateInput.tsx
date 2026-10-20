@@ -187,7 +187,18 @@ export function DateInput({
   }, [open])
 
   return (
-    <div className={styles.wrap} ref={wrap}>
+    <div
+      className={styles.wrap}
+      ref={wrap}
+      onKeyDown={(e) => {
+        // Escape closes the calendar first; mark it handled so an enclosing
+        // form or dialog doesn't also cancel.
+        if (e.key === 'Escape' && open) {
+          e.preventDefault()
+          setOpen(false)
+        }
+      }}
+    >
       <input
         id={id}
         type="text"
