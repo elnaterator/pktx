@@ -3,7 +3,7 @@ import { BrowserRouter, Link } from 'react-router'
 import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-react'
 import Navigation from './components/Navigation'
 import UserMenu from './components/UserMenu'
-import ConnectAssistantPanel from './components/ConnectAssistantPanel'
+import ConnectButton from './components/ConnectButton'
 import { setTokenGetter } from './services/api'
 import LandingPage from './components/LandingPage'
 import AppRoutes from './router'
@@ -21,7 +21,6 @@ function AuthenticatedApp() {
 
   return (
     <div className="app">
-      <ConnectAssistantPanel />
       <div className="app-shell">
         <header className="app-header">
           <div className="app-header-inner">
@@ -31,7 +30,10 @@ function AuthenticatedApp() {
               </Link>
             </h1>
             <Navigation />
-            <UserMenu />
+            <div className="app-header-actions">
+              <ConnectButton />
+              <UserMenu />
+            </div>
           </div>
         </header>
         <main>

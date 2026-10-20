@@ -24,6 +24,12 @@
   margin: 0 auto;
 }
 
+.app-header-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-5);
+}
+
 .app-header h1.logo {
   font-size: var(--heading-display);
   font-weight: var(--font-weight-black);
@@ -61,10 +67,16 @@ main {
     padding: var(--space-4) var(--space-6);
   }
 
+  /* Logo and actions share the first row; the nav wraps below. */
   .app-header-inner {
-    flex-direction: column;
-    align-items: flex-start;
+    flex-wrap: wrap;
     gap: var(--space-3);
+  }
+
+  .app-header-inner > nav {
+    order: 3;
+    flex-basis: 100%;
+    min-width: 0;
   }
 
   main {
