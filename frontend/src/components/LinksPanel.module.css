@@ -6,35 +6,11 @@
 }
 
 .title {
-  font-size: 0.875rem;
-  font-weight: 600;
-  color: var(--text-secondary);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  margin: 0;
-}
-
-.addButton {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  background: none;
-  border: none;
-  color: var(--text-secondary);
-  padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.addButton:hover {
-  color: var(--accent-green);
+  composes: panelTitle from './text.module.css';
 }
 
 .empty {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
   font-style: italic;
 }
@@ -47,8 +23,8 @@
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
   margin-bottom: var(--space-1);
 }
@@ -64,7 +40,6 @@
   align-items: center;
   justify-content: space-between;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
   gap: var(--space-3);
   transition: background-color var(--transition-fast);
 }
@@ -74,7 +49,7 @@
 }
 
 .linkName {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--accent-green);
   cursor: pointer;
   flex: 1;
@@ -95,10 +70,9 @@
   color: var(--text-secondary);
   cursor: pointer;
   padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-none);
   display: flex;
   align-items: center;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   transition: color var(--transition-fast);
   opacity: 0;
 }

@@ -8,9 +8,8 @@
   background: none;
   border: none;
   padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-none);
-  font-size: 0.9375rem;
-  font-weight: 500;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
   color: var(--text-secondary);
   cursor: pointer;
@@ -26,29 +25,32 @@
   background-color: var(--bg-hover);
 }
 
-.navItem:focus {
-  outline: none;
-}
-
 .navItem.active {
   color: var(--accent-green);
   background-color: var(--bg-hover);
 }
 
-
-@media (max-width: 640px) {
-  .nav {
-    gap: 0;
-    width: 100%;
-    justify-content: center;
-    margin-top: var(--space-4);
+/* Too narrow for six labelled items beside the logo and actions (they need
+   ~1150px): icons only, labels kept for screen readers and as tooltips. */
+@media (min-width: 641px) and (max-width: 1180px) {
+  .navItem {
+    padding: var(--space-3) var(--space-4);
   }
 
-  .navItem {
-    flex: 1;
-    justify-content: center;
-    padding: var(--space-3) var(--space-3);
-    font-size: 0.875rem;
-    gap: var(--space-1);
+  .label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+}
+
+/* Phones navigate with the bottom tab bar (MobileTabBar). */
+@media (max-width: 640px) {
+  .nav {
+    display: none;
   }
 }

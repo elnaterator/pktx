@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react'
-import { useParams, useNavigate } from 'react-router'
+import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Trash2, Pencil, Check, X } from 'lucide-react'
+import { Trash2, Pencil, Star } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import { mapGroupedLinks } from '../../services/api'
 import {
   resumeKeys,
@@ -12,7 +13,7 @@ import {
   useResumeMutations,
   useResumeSchema,
 } from '../../hooks/queries'
-import { TagInput } from '../../components/TagInput'
+import { TagsPanel } from '../../components/TagsPanel'
 import { resumeUpdateSchema } from '../../schemas/resume'
 import BasicsSection from './BasicsSection'
 import SkillsSection from './SkillsSection'
@@ -20,25 +21,27 @@ import GenericListSection from './GenericListSection'
 import AddSectionBar from './AddSectionBar'
 import ResumeJsonView from './ResumeJsonView'
 import Breadcrumb from '../../components/Breadcrumb'
-import NotFound from '../../components/NotFound'
-import { LoadingSpinner } from '../../components/LoadingSpinner'
 import { useToast } from '../../components/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { LinksPanel } from '../../components/LinksPanel'
 import DetailLayout from '../../components/DetailLayout'
-import { ApiClientError, type ListEntry, type ListSectionKey } from '../../types'
+import type { ListEntry, ListSectionKey } from '../../types'
+import { Button } from '../../components/Button'
+import { EditActions } from '../../components/EditActions'
+import { IconButton } from '../../components/IconButton'
+import { useResourceId } from '../../hooks/useResourceId'
+import { DetailFallback, type ResourceRoute } from '../../components/DetailFallback'
 import styles from './ResumeDetailView.module.css'
 
+const ROUTE: ResourceRoute = { listPath: '/resumes', singular: 'Resume', plural: 'Resumes' }
+
 export default function ResumeDetailView() {
-  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const numericId = id && /^\d+$/.test(id) ? Number(id) : null
+  const numericId = useResourceId(ROUTE.listPath)
 
   const qc = useQueryClient()
   const { success, error } = useToast()
-  const [editingTags, setEditingTags] = useState(false)
-  const [tagsForm, setTagsForm] = useState<string[]>([])
   const [editingLabel, setEditingLabel] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   /** Sections opened from "Add section" but not yet holding an entry. */
@@ -57,12 +60,6 @@ export default function ResumeDetailView() {
     mode: 'onSubmit',
   })
 
-  useEffect(() => {
-    if (numericId === null) {
-      navigate('/resumes', { replace: true })
-    }
-  }, [numericId, navigate])
-
   const detailQuery = useResumeDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
   const schemaQuery = useResumeSchema()
@@ -70,9 +67,6 @@ export default function ResumeDetailView() {
 
   const version = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
-  const errStatus = (detailQuery.error as ApiClientError | undefined)?.status
-  const notFound = errStatus === 404
-  const forbidden = errStatus === 403
 
   const reloadResume = () => {
     if (numericId !== null) {
@@ -112,31 +106,8 @@ export default function ResumeDetailView() {
     }
   })
 
-  const handleTagsEdit = () => {
-    if (!version) return
-    setTagsForm(version.tags ?? [])
-    setEditingTags(true)
-  }
-
-  const handleTagsSave = async () => {
-    if (numericId === null || !version) return
-    try {
-      await updateLabelOrTags.mutateAsync({
-        id: numericId,
-        label: version.label,
-        tags: tagsForm,
-      })
-      setEditingTags(false)
-    } catch {
-      error('Failed to update tags')
-    }
-  }
-
   if (numericId === null) return null
-  if (detailQuery.isPending) return <LoadingSpinner />
-  if (notFound) return <NotFound entityName="Resume" backTo="/resumes" backLabel="Back to Resumes" />
-  if (forbidden) return <NotFound entityName="Resume" backTo="/resumes" backLabel="Back to Resumes" heading="This resume isn't yours" message="This resume belongs to another account and cannot be accessed." />
-  if (!version) return null
+  if (!version) return <DetailFallback query={detailQuery} route={ROUTE} />
 
   const resume = version.data
   const sections = (schemaQuery.data ?? []).filter((m) => m.kind === 'list')
@@ -187,31 +158,34 @@ export default function ResumeDetailView() {
 
       <DetailLayout
         sidebar={
-          <LinksPanel
-            resourceType="resume"
-            resourceId={numericId}
-            links={mapGroupedLinks(version.links as Record<string, unknown[]>)}
-            onChange={reloadResume}
-          />
+          <>
+            <TagsPanel
+              tags={version.tags ?? []}
+              allTags={allTags}
+              onSave={(tags) => updateLabelOrTags.mutateAsync({ id: numericId, tags })}
+            />
+            <LinksPanel
+              resourceType="resume"
+              resourceId={numericId}
+              links={mapGroupedLinks(version.links as Record<string, unknown[]>)}
+              onChange={reloadResume}
+            />
+          </>
         }
       >
         <div className={styles.topBar}>
-          {version.is_default && (
-            <span className={styles.defaultBadge}>Default</span>
-          )}
           <div className={styles.topBarActions}>
             {!version.is_default && (
-              <button className={styles.setDefaultButton} onClick={handleSetDefault}>
+              <Button size="sm" onClick={handleSetDefault}>
                 Set as Default
-              </button>
+              </Button>
             )}
-            <button
-              className={styles.deleteButton}
+            <IconButton
+              icon={Trash2}
+              label="Delete resume version"
+              tone="danger"
               onClick={() => setConfirmDelete(true)}
-              aria-label="Delete resume version"
-            >
-              <Trash2 size={14} />
-            </button>
+            />
           </div>
         </div>
 
@@ -227,54 +201,29 @@ export default function ResumeDetailView() {
                 }}
                 {...registerLabel('label')}
               />
-              <button className={`${styles.iconBtn} ${styles.saveIcon}`} onClick={handleLabelSave} disabled={labelSubmitting} aria-label="Save label">
-                <Check size={14} />
-              </button>
-              <button className={`${styles.iconBtn} ${styles.cancelIcon}`} onClick={() => setEditingLabel(false)} aria-label="Cancel editing">
-                <X size={14} />
-              </button>
+              <EditActions
+                editing
+                onSave={handleLabelSave}
+                onCancel={() => setEditingLabel(false)}
+                saving={labelSubmitting}
+                saveLabel="Save label"
+                cancelLabel="Cancel editing"
+              />
             </div>
           ) : (
             <div className={styles.labelDisplay}>
               <h2 className={styles.label}>{version.label}</h2>
-              <button className={styles.iconBtn} onClick={() => { resetLabel({ label: version.label }); setEditingLabel(true) }} aria-label="Edit label">
-                <Pencil size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        <div className={styles.tagsRow}>
-          {editingTags ? (
-            <div className={styles.tagsEdit}>
-              <TagInput
-                value={tagsForm}
-                onChange={setTagsForm}
-                availableTags={allTags}
-                allowCreate={true}
-                placeholder="Add tag..."
-              />
-              <button className={`${styles.iconBtn} ${styles.saveIcon}`} onClick={handleTagsSave} aria-label="Save tags">
-                <Check size={14} />
-              </button>
-              <button className={`${styles.iconBtn} ${styles.cancelIcon}`} onClick={() => setEditingTags(false)} aria-label="Cancel">
-                <X size={14} />
-              </button>
-            </div>
-          ) : (
-            <div className={styles.tagsDisplay}>
-              {version.tags && version.tags.length > 0 ? (
-                <div className={styles.tagList}>
-                  {version.tags.map((tag) => (
-                    <span key={tag} className={styles.tagBadge}>{tag}</span>
-                  ))}
-                </div>
-              ) : (
-                <span className={styles.tagsPlaceholder}>No tags</span>
+              {version.is_default && (
+                <span className={styles.defaultBadge}>
+                  <Star size={ICON_SIZE.sm} fill="currentColor" aria-hidden="true" />
+                  Default
+                </span>
               )}
-              <button className={styles.iconBtn} onClick={handleTagsEdit} aria-label="Edit tags">
-                <Pencil size={14} />
-              </button>
+              <IconButton
+                icon={Pencil}
+                label="Edit label"
+                onClick={() => { resetLabel({ label: version.label }); setEditingLabel(true) }}
+              />
             </div>
           )}
         </div>
@@ -323,6 +272,7 @@ export default function ResumeDetailView() {
 
       {confirmDelete && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message="Delete this resume version? This cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}

@@ -1,0 +1,15 @@
+/* Colours come from the --app-status-* tokens in styles/tokens.css. */
+.badge {
+  composes: badge from '../../components/badge.module.css';
+  color: var(--app-status-withdrawn);
+  background-color: var(--app-status-withdrawn-bg);
+}
+
+.interested { color: var(--app-status-interested); background-color: var(--app-status-interested-bg); }
+.applied { color: var(--app-status-applied); background-color: var(--app-status-applied-bg); }
+.phoneScreen { color: var(--app-status-phone-screen); background-color: var(--app-status-phone-screen-bg); }
+.interview { color: var(--app-status-interview); background-color: var(--app-status-interview-bg); }
+.offer { color: var(--app-status-offer); background-color: var(--app-status-offer-bg); }
+.accepted { color: var(--app-status-accepted); background-color: var(--app-status-accepted-bg); }
+.rejected { color: var(--app-status-rejected); background-color: var(--app-status-rejected-bg); }
+.withdrawn { color: var(--app-status-withdrawn); background-color: var(--app-status-withdrawn-bg); }

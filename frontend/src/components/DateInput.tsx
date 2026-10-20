@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import styles from './DateInput.module.css'
 
 interface DateInputProps {
@@ -59,13 +60,13 @@ function Calendar({ value, days, onPick }: CalendarProps) {
       <div className={styles.calendar}>
         <div className={styles.calendarHeader}>
           <button type="button" onClick={() => step(-1)} aria-label="Previous month">
-            <ChevronLeft size={14} aria-hidden="true" />
+            <ChevronLeft size={ICON_SIZE.md} aria-hidden="true" />
           </button>
           <span className={styles.calendarTitle}>
             {MONTH_NAMES[month - 1]} {year}
           </span>
           <button type="button" onClick={() => step(1)} aria-label="Next month">
-            <ChevronRight size={14} aria-hidden="true" />
+            <ChevronRight size={ICON_SIZE.md} aria-hidden="true" />
           </button>
         </div>
         <div className={styles.weekdays} aria-hidden="true">
@@ -109,7 +110,7 @@ function Calendar({ value, days, onPick }: CalendarProps) {
     <div className={styles.calendar}>
       <div className={styles.calendarHeader}>
         <button type="button" onClick={() => setYear(year - 1)} aria-label="Previous year">
-          <ChevronLeft size={14} aria-hidden="true" />
+          <ChevronLeft size={ICON_SIZE.md} aria-hidden="true" />
         </button>
         <input
           type="number"
@@ -124,7 +125,7 @@ function Calendar({ value, days, onPick }: CalendarProps) {
           }}
         />
         <button type="button" onClick={() => setYear(year + 1)} aria-label="Next year">
-          <ChevronRight size={14} aria-hidden="true" />
+          <ChevronRight size={ICON_SIZE.md} aria-hidden="true" />
         </button>
       </div>
       <div className={styles.monthGrid}>
@@ -186,7 +187,18 @@ export function DateInput({
   }, [open])
 
   return (
-    <div className={styles.wrap} ref={wrap}>
+    <div
+      className={styles.wrap}
+      ref={wrap}
+      onKeyDown={(e) => {
+        // Escape closes the calendar first; mark it handled so an enclosing
+        // form or dialog doesn't also cancel.
+        if (e.key === 'Escape' && open) {
+          e.preventDefault()
+          setOpen(false)
+        }
+      }}
+    >
       <input
         id={id}
         type="text"
@@ -204,7 +216,7 @@ export function DateInput({
         aria-label="Choose date"
         aria-expanded={open}
       >
-        <CalendarDays size={14} aria-hidden="true" />
+        <CalendarDays size={ICON_SIZE.md} aria-hidden="true" />
       </button>
       {open && (
         <div className={styles.popover} role="dialog" aria-label="Choose date">

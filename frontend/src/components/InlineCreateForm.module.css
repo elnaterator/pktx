@@ -3,14 +3,14 @@
   flex-direction: column;
   gap: var(--space-3);
   padding: var(--space-6);
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised);
   margin-bottom: var(--space-6);
 }
 
 .input {
   padding: var(--space-3) var(--space-4);
   border: none;
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   font-family: var(--font-mono);
   color: var(--text-primary);
   background-color: var(--bg-input);
@@ -34,53 +34,4 @@
 .buttons {
   display: flex;
   gap: var(--space-3);
-}
-
-.confirmBtn {
-  padding: var(--space-2) var(--space-5);
-  background: none;
-  color: var(--accent-green);
-  border: none;
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: color var(--transition-fast);
-}
-
-.confirmBtn:hover:not(:disabled) {
-  color: var(--accent-green-dim);
-}
-
-.confirmBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancelBtn {
-  padding: var(--space-2) var(--space-5);
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.cancelBtn:hover:not(:disabled) {
-  background-color: var(--bg-surface);
-  color: var(--text-primary);
-}
-
-.cancelBtn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.error {
-  font-size: 0.875rem;
-  color: var(--status-error);
-  margin: 0;
 }

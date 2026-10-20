@@ -1,161 +1,34 @@
-.panelCreate {
-  padding-bottom: var(--space-6);
-  border-bottom: 1px solid var(--border-primary);
-  margin-bottom: var(--space-6);
-}
-
-/* Top bar — 2-row grid: labels above, values+actions below */
-.topBar {
-  display: grid;
-  grid-template-areas:
-    "labels labels"
-    "main actions";
-  grid-template-columns: 1fr auto;
-  column-gap: var(--space-4);
-  row-gap: var(--space-1);
-  margin-bottom: var(--space-6);
-  align-items: center;
-}
-
-/* Labels row: Company | Position (same column proportions as topBarMain) */
-.topBarLabels {
-  grid-area: labels;
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  gap: 3rem;
-}
-
-.topBarLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.topBarMain {
-  grid-area: main;
-  display: grid;
-  grid-template-columns: 3fr 2fr;
-  gap: 3rem;
+/* Edit-mode title: "Position @ Company" as two inline inputs. */
+.titleEdit {
+  flex: 1;
+  display: flex;
   align-items: flex-start;
+  gap: var(--space-3);
+  min-width: 0;
 }
 
-.topBarField {
+.titleField {
+  flex: 1;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
 }
 
-.topBarValue {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  line-height: 1.2;
+.titleAt {
+  color: var(--text-muted);
+  font-weight: var(--font-weight-regular);
 }
 
-.titleInput {
-  font-size: 1.25rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  padding: var(--space-1) var(--space-1);
-  background: transparent;
-  border: none;
-  border-bottom: 1px solid var(--accent-green-dim);
-  font-family: inherit;
-  width: 100%;
-  box-sizing: border-box;
-  line-height: 1.2;
+.titleEdit .titleAt {
+  font-size: var(--heading-panel);
+  line-height: var(--leading-tight);
 }
 
-.titleInput:focus {
-  outline: none;
-}
-
-.titleInput[aria-invalid='true'] {
-  border-bottom-color: var(--status-error);
-}
-
-.topBarActions {
-  grid-area: actions;
-  display: flex;
-  gap: var(--space-3);
-  align-self: center;
-}
-
-.editButton {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-  border: none;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.editButton:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.deleteButton {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-  border: none;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-
-.deleteButton:hover {
-  background-color: var(--status-error-bg-hover);
-}
-
-.saveIconButton,
-.cancelIconButton {
-  background-color: var(--bg-hover);
-  border: none;
-  border-radius: var(--radius-none);
-  padding: var(--space-2) var(--space-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.saveIconButton { color: var(--text-secondary); }
-
-.saveIconButton:hover:not(:disabled) {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.saveIconButton:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.cancelIconButton { color: var(--text-secondary); }
-
-.cancelIconButton:hover {
-  background-color: var(--bg-active);
-  color: var(--status-error);
-}
-
-.editButton:focus,
-.deleteButton:focus,
-.saveIconButton:focus,
-.cancelIconButton:focus {
-  outline: none;
+.panelCreate {
+  padding-bottom: var(--space-6);
+  border-bottom: 1px solid var(--border-primary);
+  margin-bottom: var(--space-6);
 }
 
 /* Meta row — view mode: tag badges + updated date */
@@ -164,28 +37,13 @@
   align-items: center;
   gap: var(--space-6);
   margin-bottom: var(--space-7);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   min-height: 1.5rem;
-}
-
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tagBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
 }
 
 .updatedDate {
   margin-left: auto;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
@@ -205,11 +63,7 @@
 }
 
 .metaLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
+  composes: fieldLabel from '../../components/text.module.css';
 }
 
 /* Section cards */
@@ -231,34 +85,23 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
+  min-width: 0;
+  max-width: 100%;
 }
 
 .detailsLabel {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.statusBadgeInline {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
-  font-family: var(--font-mono);
-  letter-spacing: 0.03em;
+  composes: fieldLabel from '../../components/text.module.css';
 }
 
 .urlLink {
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   text-decoration: none;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  max-width: 480px;
+  max-width: min(480px, 100%);
 }
 
 .urlLink:hover {
@@ -268,64 +111,29 @@
 
 /* Input controls inside section cards */
 .select {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
+  composes: select from '../../components/inlineEdit.module.css';
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
-  background-color: var(--bg-input);
   color: var(--text-primary);
-  min-height: 2.25rem;
-  box-sizing: border-box;
-}
-
-.select:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 .input {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
+  composes: input from '../../components/inlineEdit.module.css';
+  font-size: var(--font-size-4);
   color: var(--text-primary);
   min-width: 18rem;
-  min-height: 2.25rem;
-  box-sizing: border-box;
-}
-
-.input:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 .sectionTextarea {
-  width: 100%;
-  box-sizing: border-box;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
-  font-size: 0.9375rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
+  composes: textarea from '../../components/inlineEdit.module.css';
+  font-size: var(--font-size-5);
   color: var(--text-primary);
-  resize: none;
-  overflow: hidden;
-  min-height: 4rem;
-  line-height: 1.5;
-}
-
-.sectionTextarea:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
 }
 
 .emptyText {
   margin: 0;
   color: var(--text-muted);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   font-style: italic;
 }
 
@@ -335,27 +143,7 @@
   font-style: italic;
 }
 
-.bodyText {
-  margin: 0;
-  font-size: 0.9375rem;
-  color: var(--text-primary);
-}
-
 @media (max-width: 640px) {
-  .topBar {
-    row-gap: var(--space-3);
-  }
-
-  .topBarLabels {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
-  }
-
-  .topBarMain {
-    grid-template-columns: 1fr 1fr;
-    gap: var(--space-4);
-  }
-
   .detailsRow {
     flex-direction: column;
   }

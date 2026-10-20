@@ -1,162 +1,22 @@
-.container {
-  padding: var(--space-6) 0;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-7);
-}
-
-.heading {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.newButton {
-  background: none;
-  color: var(--accent-green);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-none);
-  font-weight: 500;
-  border: none;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-  font-family: var(--font-mono);
-}
-
-.newButton:hover {
-  color: var(--accent-green-dim);
-}
-
-.newButton:focus {
-  outline: none;
-}
-
-/* Filters */
-.filters {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-/* List */
-.empty {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.list {
-  composes: list from '../../components/listRow.module.css';
-}
-
-.item {
-  composes: item from '../../components/listRow.module.css';
-}
-
-.itemLink {
-  composes: itemLink from '../../components/listRow.module.css';
-}
-
-.itemMain {
-  composes: itemMain from '../../components/listRow.module.css';
-}
-
 .position {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 1rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  composes: title from '../../components/listRow.module.css';
   min-width: 0;
+}
+
+.at {
+  color: var(--text-muted);
+  font-size: var(--font-size-5);
 }
 
 .company {
   color: var(--text-secondary);
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   white-space: nowrap;
 }
 
-.statusBadge {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-none);
-  white-space: nowrap;
-  flex-shrink: 0;
-  font-family: var(--font-mono);
-}
-
-/* Status badge colors */
-.statusInterested {
-  background-color: var(--status-green-dim-bg);
-  color: var(--accent-green-dim);
-}
-
-.statusApplied {
-  background-color: var(--status-green-bg);
+.postingLink {
   color: var(--accent-green);
-}
-
-.statusPhoneScreen {
-  background-color: var(--status-warning-bg);
-  color: var(--status-warning);
-}
-
-.statusInterview {
-  background-color: var(--accent-purple-bg);
-  color: var(--accent-purple);
-}
-
-.statusOffer {
-  background-color: var(--status-green-bg);
-  color: var(--accent-green);
-}
-
-.statusRejected {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-}
-
-.statusWithdrawn {
-  background-color: var(--bg-hover);
-  color: var(--text-muted);
-}
-
-.statusAccepted {
-  background-color: var(--status-green-bg-strong);
-  color: var(--accent-green);
-}
-
-.tagList {
-  composes: tagList from '../../components/listRow.module.css';
-}
-
-.tagBadge {
-  composes: tagBadge from '../../components/listRow.module.css';
-}
-
-.itemMeta {
-  composes: itemMeta from '../../components/listRow.module.css';
-}
-
-.linkCount {
-  composes: linkCount from '../../components/listRow.module.css';
-}
-
-.metaLink {
-  color: var(--accent-green);
+  font-size: var(--font-size-4);
   text-decoration: none;
   white-space: nowrap;
-  font-size: 0.875rem;
-}
-
-@media (max-width: 640px) {
-  .filters {
-    flex-direction: column;
-  }
 }

@@ -32,11 +32,11 @@
   position: absolute;
   top: 100%;
   right: 0;
-  z-index: 20;
+  z-index: var(--z-dropdown);
   margin-top: var(--space-1);
   min-width: 15rem;
   padding: var(--space-3);
-  background-color: var(--bg-secondary);
+  background-color: var(--bg-primary);
   border: 1px solid var(--border-primary);
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
 }
@@ -46,7 +46,7 @@
   flex-direction: column;
   gap: var(--space-2);
   font-family: var(--font-mono);
-  font-size: 0.8125rem;
+  font-size: var(--font-size-3);
 }
 
 .calendar button {
@@ -76,7 +76,7 @@
 
 .calendarTitle {
   color: var(--text-primary);
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
 }
 
 .year {
@@ -84,11 +84,10 @@
   text-align: center;
   padding: var(--space-1);
   font: inherit;
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
   background-color: var(--bg-input);
   border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
   appearance: textfield;
 }
 

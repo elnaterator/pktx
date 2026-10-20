@@ -9,17 +9,20 @@ import {
   Plus,
   X,
 } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import type { GroupedLinks, ResourceRef, ResourceType } from '../types'
 import { useLinkMutations } from '../hooks/queries'
 import { LinkPickerModal } from './LinkPickerModal'
+import { Button } from './Button'
+import { IconButton } from './IconButton'
 import styles from './LinksPanel.module.css'
 
 const TYPE_ICON: Record<ResourceType, React.ReactNode> = {
-  application: <Briefcase size={12} />,
-  accomplishment: <Trophy size={12} />,
-  resume: <FileText size={12} />,
-  note: <StickyNote size={12} />,
-  contact: <User size={12} />,
+  application: <Briefcase size={ICON_SIZE.sm} />,
+  accomplishment: <Trophy size={ICON_SIZE.sm} />,
+  resume: <FileText size={ICON_SIZE.sm} />,
+  note: <StickyNote size={ICON_SIZE.sm} />,
+  contact: <User size={ICON_SIZE.sm} />,
 }
 
 const TYPE_LABEL: Record<ResourceType, string> = {
@@ -109,10 +112,10 @@ export function LinksPanel({
     <div className={styles.panel}>
       <div className={styles.header}>
         <h4 className={styles.title}>Links ({count})</h4>
-        <button className={styles.addButton} onClick={() => setShowPicker(true)}>
-          <Plus size={12} />
+        <Button variant="link" size="sm" onClick={() => setShowPicker(true)}>
+          <Plus size={ICON_SIZE.sm} aria-hidden="true" />
           Link
-        </button>
+        </Button>
       </div>
 
       {nonEmptyTypes.length === 0 ? (
@@ -135,14 +138,15 @@ export function LinksPanel({
                     >
                       {ref.name}
                     </button>
-                    <button
+                    <IconButton
+                      icon={X}
+                      iconSize={ICON_SIZE.sm}
+                      label={`Unlink ${ref.name}`}
+                      tone="danger"
                       className={styles.unlinkButton}
                       onClick={() => handleUnlink(ref)}
                       disabled={unlinking === key}
-                      aria-label={`Unlink ${ref.name}`}
-                    >
-                      <X size={12} />
-                    </button>
+                    />
                   </li>
                 )
               })}

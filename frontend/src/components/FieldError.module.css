@@ -1,6 +1,6 @@
 .fieldError {
   margin: var(--space-1) 0 0;
-  font-size: var(--text-xs);
+  font-size: var(--font-size-4);
   color: var(--status-error);
   line-height: var(--leading-normal);
 }

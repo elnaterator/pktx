@@ -398,7 +398,7 @@ describe('GenericListSection', () => {
 
       await user.click(screen.getAllByRole('button', { name: /delete/i })[1])
       expect(screen.getByText(/are you sure/i)).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: /confirm/i }))
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
 
       await waitFor(() => {
         expect(api.removeEntry).toHaveBeenCalledWith(7, 'work', 'id-2')
@@ -420,7 +420,7 @@ describe('GenericListSection', () => {
       vi.mocked(api.removeEntry).mockRejectedValue(new Error('boom'))
       renderSection()
       await user.click(screen.getAllByRole('button', { name: /delete/i })[0])
-      await user.click(screen.getByRole('button', { name: /confirm/i }))
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
       expect(await screen.findByText(/failed to delete/i)).toBeInTheDocument()
     })
   })

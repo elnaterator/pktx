@@ -1,386 +1,238 @@
-.container {
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
-  padding: var(--space-6) var(--space-7);
+.panel {
+  scroll-margin-top: calc(var(--header-h, 64px) + var(--space-6));
 }
 
-.panelHeader {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-5);
-}
+/* ── Timeline ───────────────────────────────────────────────────── */
 
-.panelTitle {
-  font-size: 1rem;
-  font-weight: 600;
-  color: var(--text-primary);
+/* Plain rows on the card's own surface, split by hairlines (like resume
+   section entries) — no boxes inside the box. */
+.list {
   margin: 0;
-}
-
-.addBtn {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-  padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.addBtn:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.addBtn:focus {
-  outline: none;
-}
-
-.empty {
-  color: var(--text-muted);
-  font-size: 0.9375rem;
-  font-style: italic;
-}
-
-.form {
-  background-color: var(--bg-secondary);
-  border-radius: var(--radius-none);
-  padding: var(--space-5);
-  margin-bottom: var(--space-5);
-}
-
-.formHeader {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-1);
-  margin-bottom: var(--space-3);
-}
-
-.saveIconBtn,
-.cancelIconBtn {
-  background-color: var(--bg-input);
-  border: none;
-  border-radius: var(--radius-none);
-  padding: var(--space-1) var(--space-2);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: var(--text-secondary);
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.saveIconBtn:hover:not(:disabled) {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.saveIconBtn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.cancelIconBtn:hover {
-  background-color: var(--bg-active);
-  color: var(--status-error);
-}
-
-.saveIconBtn:focus,
-.cancelIconBtn:focus {
-  outline: none;
-}
-
-.formGrid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: var(--space-4) var(--space-5);
-}
-
-.formField {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.fullWidth {
-  grid-column: 1 / -1;
-}
-
-.label {
-  font-size: 0.8125rem;
-  font-weight: 500;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-}
-
-.input {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
-  font-size: 0.9rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-}
-
-.input:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
-
-.select {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
-  font-size: 0.9rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-}
-
-.select:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
-
-.textarea {
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-none);
-  font-size: 0.9rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  resize: vertical;
-  min-height: 5rem;
-}
-
-.textarea:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
-
-
-/* Timeline */
-.timeline {
-  list-style: none;
   padding: 0;
-  margin: 0;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
+  list-style: none;
 }
 
-.timelineItem {
-  border-radius: var(--radius-none);
-  background-color: var(--bg-secondary);
+/* Same row for every state: view, edit and the add form. The negative
+   margin lets the hover fill reach the card edges while text stays
+   aligned with the section label. */
+.item {
+  margin: 0 calc(-1 * var(--space-4));
+  padding: var(--space-4);
+  border-top: 1px solid var(--bg-raised-hover);
   transition: background-color var(--transition-fast);
   scroll-margin-top: calc(var(--header-h, 64px) + var(--space-6));
 }
 
-.timelineItem:hover {
-  background-color: var(--bg-active);
+.item:first-child {
+  border-top: none;
 }
 
-/* Card wraps the two-row layout */
-.commCard {
-  padding: var(--space-4) var(--space-5);
+/* .itemEditing marks a row holding a form: no hover fill then. */
+.item:hover:not(.itemEditing) {
+  background-color: var(--bg-raised-hover);
 }
 
-/* Row 1: meta badges + right controls */
-.commTopRow {
+.row {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
+  align-items: flex-start;
   gap: var(--space-4);
-  margin-bottom: var(--space-1);
 }
 
-.commMeta {
+/* Direction tile + label share these colour classes. */
+.outgoing {
+  color: var(--comm-direction-out);
+}
+
+.incoming {
+  color: var(--comm-direction-in);
+}
+
+.directionTile {
+  flex-shrink: 0;
+  width: 1.75rem;
+  height: 1.75rem;
   display: flex;
   align-items: center;
+  justify-content: center;
+}
+
+.directionTile.outgoing {
+  background-color: var(--comm-direction-out-bg);
+}
+
+.directionTile.incoming {
+  background-color: var(--comm-direction-in-bg);
+}
+
+.directionLabel {
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.rowExpandable {
+  cursor: pointer;
+}
+
+.rowMain {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
   gap: var(--space-2);
+}
+
+.meta {
+  display: flex;
+  align-items: center;
   flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
+  font-size: var(--font-size-4);
+  color: var(--text-muted);
 }
 
-.commDate {
-  font-weight: 600;
+.date {
+  font-weight: var(--font-weight-semibold);
   color: var(--text-secondary);
-  font-size: 0.875rem;
   white-space: nowrap;
 }
 
-.commType {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  background-color: var(--bg-hover);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
-  white-space: nowrap;
-}
-
-.commDirection {
-  color: var(--text-muted);
-  font-size: 0.875rem;
-  background-color: var(--bg-hover);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
-  white-space: nowrap;
-}
-
-.statusBadge {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
-  white-space: nowrap;
-}
-
-.statusDraft {
-  background-color: var(--bg-hover);
-  color: var(--text-muted);
-}
-
-.statusReady {
-  background-color: var(--status-warning-bg);
-  color: var(--status-warning);
-}
-
-.statusSent {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-}
-
-.statusArchived {
-  background-color: var(--bg-hover);
-  color: var(--text-muted);
-}
-
-/* Right side of top row: tags + actions + chevron */
-.commRight {
-  display: flex;
+.metaItem {
+  display: inline-flex;
   align-items: center;
-  gap: var(--space-3);
-  flex-shrink: 0;
-}
-
-.commActions {
-  display: flex;
   gap: var(--space-1);
-  flex-shrink: 0;
+  white-space: nowrap;
 }
 
-.editBtn {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.editBtn:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.deleteBtn {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-1);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.deleteBtn:hover {
-  background-color: var(--status-error-bg-hover);
-  color: var(--status-error);
-}
-
-.chevron {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  transition: transform var(--transition-default);
-}
-
-.chevronOpen {
-  color: var(--text-muted);
-  flex-shrink: 0;
-  transform: rotate(180deg);
-  transition: transform var(--transition-default);
-}
-
-/* Row 2: subject + body preview (collapsed) */
-.commSummaryRow {
+.summary {
   margin: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
-  font-size: 0.875rem;
-  padding-right: var(--space-9); /* ensure ellipsis has room */
-}
-
-.commSubject {
-  font-weight: 600;
-  color: var(--text-primary);
-}
-
-.commSep {
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
-.commBodyPreview {
+.subject {
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.sep,
+.preview {
   color: var(--text-muted);
 }
 
-/* Expanded state */
-.commSubjectExpanded {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 0.9375rem;
-  margin: 0 0 var(--space-2);
-}
-
-.commBodyFull {
-  color: var(--text-secondary);
-  font-size: 0.875rem;
-  margin: 0;
-  white-space: pre-wrap;
-  border-left: 2px solid var(--border-primary);
-  padding: var(--space-4);
-}
-
-.tagRow {
+.actions {
   display: flex;
-  flex-wrap: nowrap;
+  align-items: center;
   gap: var(--space-1);
+  flex-shrink: 0;
 }
 
-.tagChip {
-  display: inline-flex;
+.chevron svg {
+  transition: transform var(--transition-default);
+}
+
+.chevronOpen svg {
+  transform: rotate(180deg);
+}
+
+/* Same footprint as an IconButton with an ICON_SIZE.md (14px) icon. */
+.chevronSlot {
+  width: calc(14px + 2 * var(--space-2));
+  flex-shrink: 0;
+}
+
+.body {
+  margin-top: var(--space-3);
+  padding-left: var(--space-4);
+  border-left: 2px solid var(--bg-raised-hover);
+  font-size: var(--font-size-4);
+  color: var(--text-secondary);
+}
+
+.bodySubject {
+  margin: 0 0 var(--space-2);
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+/* ── Form (inline-edit style, like the resource panels) ─────────── */
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+.formTitle {
+  display: flex;
   align-items: center;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-  white-space: nowrap;
+  gap: var(--space-4);
+}
+
+.subjectInput {
+  composes: input from './inlineEdit.module.css';
+  flex: 1;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+.formMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4) var(--space-7);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.dateField {
+  width: 11rem;
+}
+
+.label {
+  composes: fieldLabel from './text.module.css';
+}
+
+.select {
+  composes: select from './inlineEdit.module.css';
+  padding-right: var(--space-4); /* room for the native arrow */
+  font-size: var(--font-size-4);
+  color: var(--text-primary);
+}
+
+.input {
+  composes: input from './inlineEdit.module.css';
+  font-size: var(--font-size-4);
+  color: var(--text-primary);
+}
+
+.textarea {
+  composes: textarea from './inlineEdit.module.css';
+  font-size: var(--font-size-4);
+  color: var(--text-primary);
 }
 
 @media (max-width: 640px) {
-  .formGrid {
-    grid-template-columns: 1fr;
+  .row {
+    flex-wrap: wrap;
   }
 
-  .commTopRow {
-    flex-wrap: wrap;
+  /* Tile + text fill the first line; tags and actions wrap below. */
+  .rowMain {
+    flex-basis: calc(100% - 1.75rem - var(--space-4));
+  }
+
+  /* Tags (if any) on the left, actions always at the right. */
+  .actions {
+    margin-left: auto;
   }
 }

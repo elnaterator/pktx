@@ -15,14 +15,14 @@
 
 .title {
   margin: 0;
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--heading-page);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
 }
 
 .lede {
   margin: 0;
-  font-size: 0.9375rem;
-  line-height: 1.6;
+  font-size: var(--font-size-5);
+  line-height: var(--leading-relaxed);
   color: var(--text-secondary);
 }

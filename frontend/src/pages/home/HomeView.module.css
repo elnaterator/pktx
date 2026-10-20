@@ -12,7 +12,7 @@
 }
 
 .searchHint {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   margin: 0;
   font-style: italic;
@@ -31,18 +31,14 @@
 }
 
 .searchGroupHeader {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  composes: sectionLabel from '../../components/text.module.css';
   display: flex;
   align-items: center;
   gap: var(--space-2);
 }
 
 .searchGroupCount {
-  font-weight: 400;
+  font-weight: var(--font-weight-regular);
   color: var(--text-muted);
 }
 
@@ -60,7 +56,7 @@
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-surface);
+  background-color: var(--bg-raised);
   border: 1px solid var(--border-primary);
   text-decoration: none;
   color: inherit;
@@ -68,22 +64,22 @@
 }
 
 .searchResultRow:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised-hover);
 }
 
 .searchResultTitle {
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   color: var(--text-primary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .searchResultSub {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
 }
 
 .searchResultSnippet {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -100,14 +96,14 @@
 }
 
 .introWelcome {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--heading-page);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
 }
 
 .introSlogan {
-  font-size: 0.9375rem;
+  font-size: var(--font-size-5);
   color: var(--text-muted);
   margin: 0;
 }
@@ -142,7 +138,7 @@
   justify-content: center;
   gap: var(--space-3);
   padding: var(--space-9) var(--space-8);
-  background-color: var(--bg-surface);
+  background-color: var(--bg-raised);
   border: 1px solid var(--border-primary);
   border-top: 2px solid var(--accent-green);
   text-align: center;
@@ -154,16 +150,16 @@
 }
 
 .ideaTitle {
-  font-size: 0.9375rem;
-  font-weight: 700;
+  font-size: var(--font-size-5);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
 }
 
 .ideaBody {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
   margin: 0;
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   max-width: 36ch;
 }
 
@@ -194,11 +190,12 @@
 }
 
 .statCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-7) var(--space-8);
-  background-color: var(--bg-surface);
+  background-color: var(--bg-raised);
   border: 1px solid var(--border-primary);
   color: inherit;
   text-decoration: none;
@@ -206,38 +203,59 @@
 }
 
 .statCard:hover {
-  background-color: var(--bg-hover);
+  background-color: var(--bg-raised-hover);
   color: inherit;
 }
 
 .statLabel {
-  font-size: 0.8125rem;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
+  composes: fieldLabel from '../../components/text.module.css';
 }
 
 .statValue {
-  font-size: 2rem;
-  font-weight: 700;
+  font-size: var(--font-size-11);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
-  line-height: 1.1;
+  line-height: var(--leading-tight);
 }
 
-.statSub {
-  font-size: 0.875rem;
-  color: var(--accent-green);
+/* Card with more than one link: this one covers the whole card. */
+.statCardLink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: inherit;
+  text-decoration: none;
+}
+
+.statCardLink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.statCardLink:hover {
+  color: inherit;
+}
+
+/* Secondary link inside a card ("3 active"); stacks above the card link. */
+.statSubLink {
+  position: relative;
+  z-index: var(--z-raised);
+  align-self: flex-start;
   margin-top: var(--space-1);
+  font-size: var(--font-size-4);
+  color: var(--accent-green);
+}
+
+.statSubLink:hover {
+  color: var(--accent-green-dim);
+  text-decoration: underline;
 }
 
 /* Responsive */
 @media (max-width: 640px) {
   .statsGrid {
     grid-template-columns: 1fr;
-  }
-
-  .introWelcome {
-    font-size: 1.25rem;
   }
 }
 

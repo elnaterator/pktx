@@ -1,38 +1,22 @@
 import { NavLink } from 'react-router'
-import { House, FileText, Briefcase, Trophy, StickyNote, Users } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
+import { NAV_ITEMS } from './navItems'
 import styles from './Navigation.module.css'
 
 function navClass({ isActive }: { isActive: boolean }) {
   return `${styles.navItem}${isActive ? ` ${styles.active}` : ''}`
 }
 
+/** Top navigation for tablet and desktop; phones use MobileTabBar instead. */
 export default function Navigation() {
   return (
     <nav className={styles.nav} aria-label="Main navigation">
-      <NavLink to="/" end className={navClass}>
-        <House size={16} />
-        Home
-      </NavLink>
-      <NavLink to="/applications" className={navClass} end={false}>
-        <Briefcase size={16} />
-        Applications
-      </NavLink>
-      <NavLink to="/resumes" className={navClass} end={false}>
-        <FileText size={16} />
-        Resumes
-      </NavLink>
-      <NavLink to="/accomplishments" className={navClass} end={false}>
-        <Trophy size={16} />
-        Accomplishments
-      </NavLink>
-      <NavLink to="/notes" className={navClass} end={false}>
-        <StickyNote size={16} />
-        Notes
-      </NavLink>
-      <NavLink to="/contacts" className={navClass} end={false}>
-        <Users size={16} />
-        Contacts
-      </NavLink>
+      {NAV_ITEMS.map(({ to, label, icon: Icon, end }) => (
+        <NavLink key={to} to={to} end={end ?? false} className={navClass} title={label}>
+          <Icon size={ICON_SIZE.lg} aria-hidden="true" />
+          <span className={styles.label}>{label}</span>
+        </NavLink>
+      ))}
     </nav>
   )
 }

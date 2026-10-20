@@ -1,33 +1,29 @@
-import { useState, useEffect } from 'react'
-import { useParams, useNavigate } from 'react-router'
-import { ApiClientError } from '../../types'
+import { useState } from 'react'
+import { useNavigate } from 'react-router'
 import { mapGroupedLinks } from '../../services/api'
 import { useAllTags, useNoteDetail, useNoteMutations } from '../../hooks/queries'
 import { LinksPanel } from '../../components/LinksPanel'
+import { TagsPanel } from '../../components/TagsPanel'
 import DetailLayout from '../../components/DetailLayout'
 import Breadcrumb from '../../components/Breadcrumb'
-import NotFound from '../../components/NotFound'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { useToast } from '../../components/toast'
 import { NotePanel } from './NotePanel'
 import type { NoteCreateInput } from '../../schemas/note'
+import { useResourceId } from '../../hooks/useResourceId'
+import { DetailFallback, type ResourceRoute } from '../../components/DetailFallback'
 import styles from './NoteDetailView.module.css'
 
+const ROUTE: ResourceRoute = { listPath: '/notes', singular: 'Note', plural: 'Notes' }
+
 export default function NoteDetailView() {
-  const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
 
-  const numericId = id && /^\d+$/.test(id) ? Number(id) : null
+  const numericId = useResourceId(ROUTE.listPath)
 
   const [editing, setEditing] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
   const { success, error } = useToast()
-
-  useEffect(() => {
-    if (numericId === null) {
-      navigate('/notes', { replace: true })
-    }
-  }, [numericId, navigate])
 
   const detailQuery = useNoteDetail(numericId ?? undefined)
   const tagsQuery = useAllTags()
@@ -35,17 +31,10 @@ export default function NoteDetailView() {
 
   const note = detailQuery.data ?? null
   const allTags = tagsQuery.data ?? []
-  const errStatus = (detailQuery.error as ApiClientError | undefined)?.status
-  const notFound = errStatus === 404
-  const forbidden = errStatus === 403
   const reloadNote = () => detailQuery.refetch()
 
   if (numericId === null) return null
-  if (notFound) return <NotFound entityName="Note" backTo="/notes" backLabel="Back to Notes" />
-  if (forbidden) return <NotFound entityName="Note" backTo="/notes" backLabel="Back to Notes" heading="This note isn't yours" message="This note belongs to another account and cannot be accessed." />
-  if (!note) {
-    return <div>Loading...</div>
-  }
+  if (!note) return <DetailFallback query={detailQuery} route={ROUTE} />
 
   const handleSave = async (data: NoteCreateInput) => {
     await update.mutateAsync({
@@ -53,7 +42,7 @@ export default function NoteDetailView() {
       data: {
         title: data.title,
         content: data.content,
-        tags: data.tags ?? [],
+        tags: note.tags ?? [],
       },
     })
     setEditing(false)
@@ -82,12 +71,19 @@ export default function NoteDetailView() {
 
       <DetailLayout
         sidebar={
-          <LinksPanel
-            resourceType="note"
-            resourceId={numericId}
-            links={mapGroupedLinks(note.links as Record<string, unknown[]>)}
-            onChange={reloadNote}
-          />
+          <>
+            <TagsPanel
+              tags={note.tags ?? []}
+              allTags={allTags}
+              onSave={(tags) => update.mutateAsync({ id: numericId, data: { tags } })}
+            />
+            <LinksPanel
+              resourceType="note"
+              resourceId={numericId}
+              links={mapGroupedLinks(note.links as Record<string, unknown[]>)}
+              onChange={reloadNote}
+            />
+          </>
         }
       >
         {editing ? (
@@ -112,6 +108,7 @@ export default function NoteDetailView() {
 
       {confirmDelete && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message="Delete this note? This cannot be undone."
           onConfirm={handleDelete}
           onCancel={() => setConfirmDelete(false)}

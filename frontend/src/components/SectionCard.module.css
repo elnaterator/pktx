@@ -1,6 +1,5 @@
 .section {
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
+  background-color: var(--bg-raised);
   padding: var(--space-6) var(--space-7);
 }
 
@@ -12,10 +11,5 @@
 }
 
 .label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 0;
+  composes: sectionLabel from './text.module.css';
 }

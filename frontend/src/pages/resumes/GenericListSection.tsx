@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { ListEntry, SectionField, SectionMeta } from '../../types'
 import { EntryForm, type FieldConfig } from '../../components/EntryForm'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -10,6 +11,7 @@ import { useResumeMutations } from '../../hooks/queries'
 import { buildEntrySchema } from '../../schemas/resumeEntry'
 import SectionHeader from './SectionHeader'
 import { OWN_LINE_FIELDS, dateRange, fieldsOf, hasDateRange } from './sectionFields'
+import { IconButton } from '../../components/IconButton'
 import styles from './GenericListSection.module.css'
 
 interface GenericListSectionProps {
@@ -265,7 +267,7 @@ export default function GenericListSection({
               </button>
             )}
             <button type="button" onClick={() => setMode('add')}>
-              <Plus size={12} aria-hidden="true" /> Add {title}
+              <Plus size={ICON_SIZE.sm} aria-hidden="true" /> Add {title}
             </button>
           </>
         )}
@@ -313,20 +315,17 @@ export default function GenericListSection({
                   <EntryView meta={meta} fields={fields} entry={entry} />
                   <div className={styles.entryActions}>
                     {row.handle}
-                    <button
-                      className={styles.editButton}
+                    <IconButton
+                      icon={Pencil}
+                      label={`Edit ${noun}`}
                       onClick={() => setMode({ type: 'edit', id: entryId })}
-                      aria-label={`Edit ${noun}`}
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      className={styles.deleteButton}
+                    />
+                    <IconButton
+                      icon={Trash2}
+                      label={`Delete ${noun}`}
+                      tone="danger"
                       onClick={() => setMode({ type: 'delete', id: entryId })}
-                      aria-label={`Delete ${noun}`}
-                    >
-                      <Trash2 size={13} />
-                    </button>
+                    />
                   </div>
                 </div>
               </div>
@@ -341,6 +340,7 @@ export default function GenericListSection({
 
       {typeof mode === 'object' && mode.type === 'delete' && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message={`Are you sure you want to delete this ${noun} entry?`}
           onConfirm={handleDelete}
           onCancel={() => setMode('view')}

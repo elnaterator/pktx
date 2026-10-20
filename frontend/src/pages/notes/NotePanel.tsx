@@ -1,12 +1,14 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Pencil, Trash2, Check, X } from 'lucide-react'
 import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
 import { TagInput } from '../../components/TagInput'
 import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
 import { noteCreateSchema, type NoteCreateInput } from '../../schemas/note'
 import type { Note } from '../../types'
+import { PanelHeader } from '../../components/PanelHeader'
+import panelHeaderStyles from '../../components/PanelHeader.module.css'
+import { formatDate } from '../../utils/formatDate'
 import styles from './NotePanel.module.css'
 
 interface NotePanelProps {
@@ -46,57 +48,31 @@ export function NotePanel({
 
   return (
     <div className={mode === 'create' ? styles.panelCreate : undefined}>
-      <div className={styles.topBar}>
-        {isEditable ? (
+      <PanelHeader
+        editing={isEditable}
+        entity="note"
+        title={note?.title}
+        titleEditor={
           <input
-            className={styles.titleInput}
+            className={panelHeaderStyles.titleInput}
             type="text"
             autoFocus
             placeholder="Note title"
             aria-label="Title"
             {...register('title')}
           />
-        ) : (
-          <h2 className={styles.topBarTitle}>{note?.title}</h2>
-        )}
-        <div className={styles.topBarActions}>
-          {isEditable ? (
-            <>
-              <button
-                type="button"
-                className={styles.saveIconButton}
-                onClick={handleFormSave}
-                disabled={isSubmitting}
-                aria-label="Save"
-              >
-                <Check size={14} />
-              </button>
-              <button
-                type="button"
-                className={styles.cancelIconButton}
-                onClick={onCancel}
-                aria-label="Cancel"
-              >
-                <X size={14} />
-              </button>
-            </>
-          ) : (
-            <>
-              <button type="button" className={styles.editButton} onClick={onEdit} aria-label="Edit note">
-                <Pencil size={14} />
-              </button>
-              <button type="button" className={styles.deleteButton} onClick={onDelete} aria-label="Delete note">
-                <Trash2 size={14} />
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+        }
+        onEdit={onEdit}
+        onDelete={onDelete}
+        onSave={handleFormSave}
+        onCancel={onCancel}
+        saving={isSubmitting}
+      />
 
       {errors.title && <p className={styles.formError}>{errors.title.message}</p>}
 
       {isEditable ? (
-        <div className={styles.metaEdit}>
+        mode === 'create' && <div className={styles.metaEdit}>
           <div className={styles.metaField}>
             <label className={styles.metaLabel}>Tags</label>
             <Controller
@@ -115,15 +91,8 @@ export function NotePanel({
         </div>
       ) : (
         <div className={styles.meta}>
-          {note?.tags && note.tags.length > 0 && (
-            <div className={styles.tagList}>
-              {note.tags.map((tag) => (
-                <span key={tag} className={styles.tagBadge}>{tag}</span>
-              ))}
-            </div>
-          )}
           {note?.updated_at && (
-            <span className={styles.updatedDate}>Updated {new Date(note.updated_at).toLocaleDateString()}</span>
+            <span className={styles.updatedDate}>Updated {formatDate(note.updated_at)}</span>
           )}
         </div>
       )}

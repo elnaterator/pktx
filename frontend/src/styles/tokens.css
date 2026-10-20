@@ -1,0 +1,196 @@
+/*
+ * Design tokens — terminal dark theme. The single source of truth for
+ * colour, type, spacing, radius, elevation, motion and stacking.
+ * Use tokens, not literals, in every CSS module. JS-side values that must
+ * mirror these (Clerk appearance, icon sizes) live in src/theme.ts.
+ *
+ * Breakpoints (CSS variables cannot be used in @media, so these are the
+ * canonical literals — reuse them rather than inventing new ones):
+ *   sm  max-width: 640px   phones (single column, stacked rows)
+ *   md  max-width: 900px   detail sidebar drops below the main column
+ *   lg  max-width: 1024px  tablet padding
+ * Component-specific ones (ConnectAssistantPanel, Toast) are derived from
+ * their own geometry and documented in place.
+ */
+:root {
+  /* Spacing — 11-step scale */
+  --space-0: 0;
+  --space-1: 0.25rem;
+  --space-2: 0.375rem;
+  --space-3: 0.5rem;
+  --space-4: 0.75rem;
+  --space-5: 0.875rem;
+  --space-6: 1rem;
+  --space-7: 1.25rem;
+  --space-8: 1.5rem;
+  --space-9: 2rem;
+  --space-10: 3rem;
+
+  /* Type — font sizes (px at the default 16px root) */
+  --font-size-1: 0.6875rem;  /* 11 */
+  --font-size-2: 0.75rem;    /* 12 */
+  --font-size-3: 0.8125rem;  /* 13 */
+  --font-size-4: 0.875rem;   /* 14 — default UI text */
+  --font-size-5: 0.9375rem;  /* 15 */
+  --font-size-6: 1rem;       /* 16 — body */
+  --font-size-7: 1.125rem;   /* 18 */
+  --font-size-8: 1.25rem;    /* 20 — panel title */
+  --font-size-9: 1.5rem;     /* 24 — page title */
+  --font-size-10: 1.75rem;   /* 28 */
+  --font-size-11: 2rem;      /* 32 */
+  --font-size-12: 2.5rem;    /* 40 — logo / hero */
+
+  /* Type — semantic sizes. Use these for headings so the hierarchy is set
+     here (and shrinks on phones via the media query at the end). */
+  --heading-display: var(--font-size-11); /* app logo */
+  --heading-page: var(--font-size-9);     /* page titles */
+  --heading-panel: var(--font-size-8);    /* detail / panel titles */
+  --label-size: var(--font-size-3);       /* uppercase labels */
+
+  /* Type — weights */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+  --font-weight-black: 900;
+
+  /* Type — letter spacing (uppercase labels, logo) */
+  --tracking-1: 0.04em;
+  --tracking-2: 0.06em;
+  --tracking-3: 0.08em;
+  --tracking-4: 0.1em;
+
+  /* Type — line height */
+  --leading-none: 1;
+  --leading-tight: 1.2;
+  --leading-snug: 1.35;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.6;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', ui-monospace, monospace;
+
+  /* Radii */
+  --radius-none: 0;
+  --radius-sm: 2px;
+  --radius-md: 4px;
+  --radius-lg: 8px;
+  --radius-pill: 999px;
+
+  /* Shadows */
+  --shadow-none: none;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
+  --shadow-focus: none;
+  --shadow-focus-error: inset 0 -1px 0 var(--status-error);
+
+  /* Focus — keyboard focus ring (applied globally via :focus-visible) */
+  --focus-ring-color: var(--accent-green);
+  --focus-ring: 2px solid var(--focus-ring-color);
+  --focus-ring-offset: 2px;
+
+  /* Layout */
+  --tabbar-h: 3.5rem; /* phone bottom tab bar, excluding the safe-area inset */
+
+  /* Stacking */
+  --z-raised: 1;       /* above siblings in the same component */
+  --z-panel: 20;       /* docked side panels */
+  --z-dropdown: 100;   /* menus, popovers, autocomplete lists */
+  --z-modal: 1000;     /* dialogs and their overlay */
+  --z-toast: 9999;     /* always on top */
+
+  /* Colors — Surfaces. Elevation ladder, darkest to lightest:
+     sunken (inputs) < primary (page) < raised (cards, rows, panels, menus,
+     dialogs) < raised-hover (hover/selected on a raised surface).
+     --bg-hover is the hover fill for items sitting on the page itself. */
+  --bg-input: #141414;
+  --bg-primary: #1a1a1a;
+  --bg-raised: #222222;
+  --bg-raised-hover: #2a2a2a;
+  --bg-hover: var(--bg-raised);
+  --bg-modal-overlay: rgba(0, 0, 0, 0.7);
+  --bg-spinner-track: rgba(255, 255, 255, 0.08);
+
+  /* Soft fill that marks a value as editable (inline edit mode). */
+  --edit-tint: rgba(255, 255, 255, 0.04);
+  --edit-tint-strong: rgba(255, 255, 255, 0.08);
+
+  /* Colors — Text */
+  /* Contrast against --bg-primary (#1a1a1a): 13.2:1 / 8.4:1 / 5.7:1 —
+     all clear AA for normal text, with a legible three-step hierarchy. */
+  --text-primary: #e0e0e0;
+  --text-secondary: #b3b3b3;
+  --text-muted: #949494;
+
+  /* Colors — Borders (transparent today, but still reserve 1px of layout) */
+  --border-primary: transparent;
+  --border-hover: transparent;
+
+  /* Colors — Accents */
+  --accent-green: #52b788;
+  --accent-green-dim: #40916c;
+  --accent-green-bg: rgba(82, 183, 136, 0.07);
+  --accent-purple: #aa78ff;
+  --accent-purple-bg: rgba(170, 120, 255, 0.08);
+  --accent-blue: #3b82f6;
+  --accent-blue-bg: rgba(59, 130, 246, 0.1);
+
+  /* Colors — Status */
+  --status-success: #52b788;
+  --status-success-bg: rgba(82, 183, 136, 0.1);
+  --status-error: #ff4444;
+  --status-error-bg: rgba(255, 68, 68, 0.08);
+  --status-error-bg-hover: rgba(255, 68, 68, 0.15);
+  --status-error-bg-strong: rgba(255, 68, 68, 0.25);
+  --status-warning: #ffaa00;
+  --status-warning-bg: rgba(255, 170, 0, 0.08);
+
+  /* Application status badges — one hue per pipeline stage (text + tint) */
+  --app-status-interested: #9898d8;
+  --app-status-interested-bg: rgba(136, 136, 220, 0.12);
+  --app-status-applied: #76c0f0;
+  --app-status-applied-bg: rgba(86, 156, 214, 0.12);
+  --app-status-phone-screen: #d4b060;
+  --app-status-phone-screen-bg: rgba(220, 180, 80, 0.12);
+  --app-status-interview: #c080e0;
+  --app-status-interview-bg: rgba(180, 120, 220, 0.12);
+  --app-status-offer: var(--accent-green);
+  --app-status-offer-bg: rgba(82, 183, 136, 0.12);
+  --app-status-accepted: var(--accent-green);
+  --app-status-accepted-bg: rgba(82, 183, 136, 0.22);
+  --app-status-rejected: #ff6868;
+  --app-status-rejected-bg: rgba(255, 68, 68, 0.1);
+  --app-status-withdrawn: #888888;
+  --app-status-withdrawn-bg: rgba(120, 120, 120, 0.1);
+
+  /* Communication direction (contact timeline): outgoing vs incoming */
+  --comm-direction-out: var(--accent-green);
+  --comm-direction-out-bg: var(--accent-green-bg);
+  --comm-direction-in: var(--app-status-applied);       /* same blue as "Applied" */
+  --comm-direction-in-bg: var(--app-status-applied-bg);
+
+  /* Communication status badges (contact timeline) */
+  --comm-status-draft: var(--text-secondary);
+  --comm-status-draft-bg: var(--bg-raised-hover);
+  --comm-status-ready: var(--status-warning);
+  --comm-status-ready-bg: var(--status-warning-bg);
+  --comm-status-sent: var(--accent-green);
+  --comm-status-sent-bg: var(--accent-green-bg);
+  --comm-status-archived: var(--text-muted);
+  --comm-status-archived-bg: transparent;
+
+  /* Transitions */
+  --transition-fast: 150ms ease;
+  --transition-default: 200ms ease;
+
+  /* Clerk component theming — matches app dark theme */
+  --clerk-color-primary: var(--accent-green);
+  --clerk-color-foreground: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  :root {
+    --heading-display: var(--font-size-9);
+    --heading-page: var(--font-size-8);
+    --heading-panel: var(--font-size-7);
+  }
+}

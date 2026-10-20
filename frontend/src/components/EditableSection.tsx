@@ -1,6 +1,6 @@
 import { ReactNode, useState } from 'react';
-import { Pencil, Check, X } from 'lucide-react';
 import { useToast } from './toast';
+import { EditActions } from './EditActions';
 import styles from './EditableSection.module.css';
 
 type EditState = 'viewing' | 'editing' | 'saving';
@@ -39,41 +39,21 @@ export function EditableSection({ children, onSave, title, placeholderContent }:
 
   return (
     <div className={styles.container}>
-      {editState === 'viewing' && (
-        <button
-          onClick={handleEdit}
-          className={styles.editIcon}
-          aria-label={`Edit ${title}`}
-        >
-          <Pencil size={14} />
-        </button>
-      )}
-
-      {(editState === 'editing' || editState === 'saving') && (
-        <div className={styles.editActions}>
-          {editState === 'editing' && (
-            <>
-              <button
-                onClick={handleSave}
-                className={`${styles.actionButton} ${styles.saveIcon}`}
-                aria-label={`Save ${title}`}
-              >
-                <Check size={14} />
-              </button>
-              <button
-                onClick={handleCancel}
-                className={`${styles.actionButton} ${styles.cancelIcon}`}
-                aria-label={`Cancel editing ${title}`}
-              >
-                <X size={14} />
-              </button>
-            </>
-          )}
-          {editState === 'saving' && (
-            <span className={styles.saving}>Saving...</span>
-          )}
-        </div>
-      )}
+      <div className={styles.actions}>
+        {editState === 'saving' ? (
+          <span className={styles.saving}>Saving...</span>
+        ) : (
+          <EditActions
+            editing={editState === 'editing'}
+            onEdit={handleEdit}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            editLabel={`Edit ${title}`}
+            saveLabel={`Save ${title}`}
+            cancelLabel={`Cancel editing ${title}`}
+          />
+        )}
+      </div>
 
       <div className={styles.content}>
         {children({ isEditing: editState === 'editing' })}

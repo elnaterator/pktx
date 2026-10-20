@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import NoteDetailView from '../../pages/notes/NoteDetailView'
@@ -49,10 +49,9 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    const tagBadges = document.querySelectorAll('[class*="tagBadge"]')
-    const tagTexts = Array.from(tagBadges).map((el) => el.textContent)
-    expect(tagTexts).toContain('python')
-    expect(tagTexts).toContain('async')
+    const tagsPanel = within(screen.getByTestId('tags-panel'))
+    expect(tagsPanel.getByText('python')).toBeInTheDocument()
+    expect(tagsPanel.getByText('async')).toBeInTheDocument()
   })
 
   it('edit button switches to edit mode with pre-populated fields', async () => {
@@ -64,7 +63,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const titleInput = screen.getByDisplayValue('Python async patterns')
     expect(titleInput).toBeInTheDocument()
   })
@@ -78,7 +77,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     await user.click(screen.getByRole('button', { name: /Cancel/i }))
     expect(screen.queryByDisplayValue('Python async patterns')).not.toBeInTheDocument()
     expect(api.updateNote).not.toHaveBeenCalled()
@@ -97,7 +96,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Python async patterns').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const contentField = screen.getByDisplayValue(/Key learnings/)
     await user.clear(contentField)
     await user.type(contentField, 'Updated content.')
@@ -122,7 +121,7 @@ describe('NoteDetailView', () => {
     await waitFor(() => {
       expect(screen.getByText(/Delete this note/i)).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: /Confirm|Yes/i }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
     await waitFor(() => {
       expect(api.deleteNote).toHaveBeenCalledWith(1)
       expect(screen.getByTestId('note-list')).toBeInTheDocument()

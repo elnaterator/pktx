@@ -1,0 +1,52 @@
+/* Top-aligned so the actions stay on the title's first line even when
+   field errors appear under the edit inputs. */
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-6);
+  margin-bottom: var(--space-7);
+}
+
+/* One title line tall, so the icons centre on the title text. */
+.actions {
+  min-height: calc(var(--heading-panel) * var(--leading-tight));
+}
+
+.main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+}
+
+.title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: var(--heading-panel);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+/* Compose from panel modules for the edit-mode title input. */
+.titleInput {
+  composes: input from './inlineEdit.module.css';
+  flex: 1;
+  font-size: var(--heading-panel);
+  font-weight: var(--font-weight-bold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+@media (max-width: 640px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+  }
+
+  .main {
+    width: 100%;
+  }
+}

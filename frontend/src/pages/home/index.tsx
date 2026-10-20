@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router'
 import { useUser } from '@clerk/clerk-react'
 import { Briefcase, FileText, Trophy, StickyNote, Users, Bot } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import {
   useAccomplishmentList,
   useApplicationList,
@@ -12,7 +13,13 @@ import {
   useAllTags,
 } from '../../hooks/queries'
 import { SearchBar } from '../../components/SearchBar'
-import type { SearchResult, SearchValue } from '../../types'
+import type { SearchResult } from '../../types'
+import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
+import {
+  ACTIVE_APPLICATION_STATUSES,
+  applicationsPath,
+  isActiveApplicationStatus,
+} from '../../schemas/application'
 import styles from './HomeView.module.css'
 
 // ─── Search results ────────────────────────────────────────────────────────────
@@ -127,7 +134,7 @@ function IdeaScroller() {
   return (
     <div className={styles.ideaScroller}>
       <div className={styles.ideaCard} key={index}>
-        <Icon size={24} className={styles.ideaIcon} />
+        <Icon size={ICON_SIZE['2xl']} className={styles.ideaIcon} />
         <span className={styles.ideaTitle}>{title}</span>
         <p className={styles.ideaBody}>{body}</p>
       </div>
@@ -149,17 +156,17 @@ function IdeaScroller() {
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
-const TERMINAL_STATUSES = new Set(['Rejected', 'Withdrawn', 'Accepted'])
-
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
 export default function HomeView() {
   const { user } = useUser()
   const firstName = user?.firstName ?? null
 
-  const [searchValue, setSearchValue] = useState<SearchValue>({ tags: [], text: '' })
-  const [debouncedSearch, setDebouncedSearch] = useState<SearchValue>({ tags: [], text: '' })
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const {
+    search: searchValue,
+    setSearch: handleSearchChange,
+    debounced: debouncedSearch,
+  } = useDebouncedSearch()
 
   const tagsQuery = useAllTags()
   const allTags = tagsQuery.data ?? []
@@ -170,12 +177,6 @@ export default function HomeView() {
     tags: debouncedSearch.tags.length > 0 ? debouncedSearch.tags : undefined,
     enabled: hasSearch,
   })
-
-  const handleSearchChange = (v: SearchValue) => {
-    setSearchValue(v)
-    if (debounceRef.current) clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => setDebouncedSearch(v), 300)
-  }
 
   const resumes = useResumeList()
   const applications = useApplicationList()
@@ -194,8 +195,8 @@ export default function HomeView() {
     ? {
         resumes: resumes.data.length,
         applications: applications.data.length,
-        activeApplications: applications.data.filter(
-          (a) => !TERMINAL_STATUSES.has(a.status),
+        activeApplications: applications.data.filter((a) =>
+          isActiveApplicationStatus(a.status),
         ).length,
         notes: notes.data.length,
         accomplishments: accomplishments.data.length,
@@ -206,13 +207,19 @@ export default function HomeView() {
   return (
     <div className={styles.container}>
       <div className={styles.statsGrid}>
-        <Link to="/applications" className={styles.statCard}>
-          <span className={styles.statLabel}>Applications</span>
-          <span className={styles.statValue}>{stats === null ? '—' : stats.applications}</span>
+        {/* Not one big link: the card holds a second link ("N active"). The
+            main link stretches over the card; the sub-link sits above it. */}
+        <div className={styles.statCard}>
+          <Link to="/applications" className={styles.statCardLink}>
+            <span className={styles.statLabel}>Applications</span>
+            <span className={styles.statValue}>{stats === null ? '—' : stats.applications}</span>
+          </Link>
           {stats !== null && stats.activeApplications > 0 && (
-            <span className={styles.statSub}>{stats.activeApplications} active</span>
+            <Link to={applicationsPath(ACTIVE_APPLICATION_STATUSES)} className={styles.statSubLink}>
+              {stats.activeApplications} active
+            </Link>
           )}
-        </Link>
+        </div>
 
         <Link to="/resumes" className={styles.statCard}>
           <span className={styles.statLabel}>Resumes</span>

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CommunicationsPanel from '../../components/CommunicationsPanel'
 import * as api from '../../services/api'
@@ -88,10 +88,63 @@ describe('CommunicationsPanel', () => {
     await waitFor(() => expect(screen.getByText('Hello')).toBeInTheDocument())
 
     await user.click(screen.getByRole('button', { name: /Delete communication/i }))
-    await user.click(screen.getByRole('button', { name: /Confirm/i }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Remove' }))
 
     await waitFor(() => {
       expect(api.removeContactCommunication).toHaveBeenCalledWith(42, 1)
     })
+  })
+
+  it('shows a spinner, not the empty message, while loading', () => {
+    vi.mocked(api.listContactCommunications).mockReturnValue(new Promise(() => {}))
+    renderPanel()
+    expect(screen.getByTestId('loading-spinner')).toBeInTheDocument()
+    expect(screen.queryByText('No communications yet.')).not.toBeInTheDocument()
+  })
+
+  it('shows readable labels instead of raw enum values', async () => {
+    vi.mocked(api.listContactCommunications).mockResolvedValue([
+      { ...mockComm, type: 'interview_note', direction: 'received', status: 'ready' },
+    ])
+    renderPanel()
+    expect(await screen.findByText('Interview note')).toBeInTheDocument()
+    expect(screen.getByText('Incoming')).toBeInTheDocument()
+    expect(screen.getByText('Ready')).toBeInTheDocument()
+    expect(screen.queryByText('interview_note')).not.toBeInTheDocument()
+  })
+
+  it('expands and collapses the message from a keyboard-operable button', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    const toggle = await screen.findByRole('button', { name: 'Expand message' })
+    expect(toggle).toHaveAttribute('aria-expanded', 'false')
+    toggle.focus()
+    await user.keyboard('{Enter}')
+    const collapse = screen.getByRole('button', { name: 'Collapse message' })
+    expect(collapse).toHaveAttribute('aria-expanded', 'true')
+    expect(document.getElementById(collapse.getAttribute('aria-controls')!)).toHaveTextContent('Test body')
+  })
+
+  it('opens edit mode prefilled and cancels it with Escape', async () => {
+    const user = userEvent.setup()
+    renderPanel()
+    await user.click(await screen.findByRole('button', { name: 'Edit communication' }))
+    const subject = screen.getByRole('textbox', { name: 'Subject' })
+    expect(subject).toHaveValue('Hello')
+    expect(screen.getByLabelText('Date')).toHaveValue('2025-04-01')
+    expect(screen.getByLabelText('Type')).toHaveDisplayValue('Email')
+    await user.keyboard('{Escape}')
+    expect(screen.queryByRole('textbox', { name: 'Subject' })).not.toBeInTheDocument()
+    expect(screen.getByText('Hello')).toBeInTheDocument()
+  })
+
+  it('labels direction with the contact name so sent and received read at a glance', async () => {
+    vi.mocked(api.listContactCommunications).mockResolvedValue([
+      { ...mockComm, id: 1, direction: 'sent' },
+      { ...mockComm, id: 2, direction: 'received', subject: 'Re: Hello' },
+    ])
+    render(<CommunicationsPanel contactId={42} contactName="Jane Doe" />)
+    expect(await screen.findByText('To Jane')).toBeInTheDocument()
+    expect(screen.getByText('From Jane')).toBeInTheDocument()
   })
 })

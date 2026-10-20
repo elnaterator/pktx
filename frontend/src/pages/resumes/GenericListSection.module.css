@@ -1,6 +1,5 @@
 .container {
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
+  background-color: var(--bg-raised);
   padding: var(--space-6) var(--space-7);
 }
 
@@ -35,23 +34,19 @@
 }
 
 .entryTitle {
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: var(--font-size-6);
 }
 
 .entryMeta {
   color: var(--text-secondary);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
 }
 
 .entryDates {
   color: var(--text-muted);
   font-style: italic;
-}
-
-.entryLocation {
-  color: var(--text-muted);
 }
 
 .highlights {
@@ -62,7 +57,7 @@
 .highlight {
   margin-bottom: var(--space-1);
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   word-wrap: break-word;
   overflow-wrap: break-word;
 }
@@ -70,45 +65,13 @@
 .placeholder {
   color: var(--text-muted);
   font-style: italic;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
 }
 
 .entryActions {
   display: flex;
   gap: var(--space-2);
   flex-shrink: 0;
-}
-
-.editButton {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--transition-fast);
-}
-
-.editButton:hover {
-  color: var(--accent-green);
-}
-
-.deleteButton {
-  background: none;
-  color: var(--text-muted);
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-
-.deleteButton:hover {
-  color: var(--status-error);
 }
 
 .entryLink {
@@ -124,11 +87,10 @@
 .entryText {
   margin: var(--space-2) 0 0;
   color: var(--text-secondary);
-  line-height: 1.5;
+  line-height: var(--leading-normal);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-
 
 .addForm {
   margin-bottom: var(--space-6);

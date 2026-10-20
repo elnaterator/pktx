@@ -1,12 +1,15 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { Check, Pencil, Trash2, X } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { Skill } from '../../types'
 import { useToast } from '../../components/toast'
 import { addEntry, removeEntry, reorderEntries, updateEntry } from '../../services/api'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { SkillAdder } from './SkillAdder'
 import SectionHeader from './SectionHeader'
 import SortableList from '../../components/SortableList'
+import { IconButton } from '../../components/IconButton'
 import styles from './SkillsSection.module.css'
 
 interface SkillsSectionProps {
@@ -26,6 +29,9 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
   /** Client-only skill name: exists until its first keyword is persisted. */
   const [draft, setDraft] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  /** Unsaved name + keywords of the skill being edited; written on Save, dropped on Cancel. */
+  const [edit, setEdit] = useState<{ name: string; keywords: string[] } | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const draftAdderRef = useRef<HTMLInputElement>(null)
   /**
    * Keywords as last written, per skill. A write replaces the whole list, so a
@@ -138,21 +144,6 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
     return run
   }
 
-  const renameGroup = async (group: Skill, value: string) => {
-    const name = value.trim()
-    if (!group.id || name === group.name) return
-    if (!name) {
-      warning('A skill needs a name')
-      return
-    }
-    try {
-      await updateEntry(versionId, SECTION, group.id, { name })
-      refresh()
-    } catch {
-      error('Failed to rename skill')
-    }
-  }
-
   /**
    * Enter or Tab in the draft's name field hands focus straight to its keyword
    * input, so a new skill can be filled in without leaving the keyboard.
@@ -173,36 +164,49 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
     draftAdderRef.current?.focus()
   }
 
-  // No confirm dialog for a single keyword — remove it immediately, offer Undo.
-  const removeKeyword = async (group: Skill, keyword: string) => {
-    if (!group.id) return
-    const target = { ...group, id: group.id }
-    try {
-      await writeKeywords(
-        target,
-        keywordsOf(group).filter((k) => k !== keyword),
-      )
-    } catch (err) {
-      error(err instanceof Error ? err.message : 'Failed to delete keyword')
+  const startEdit = (group: Skill) => {
+    setDraft(null)
+    setEditingId(group.id ?? null)
+    setEdit({ name: group.name ?? '', keywords: keywordsOf(group) })
+  }
+
+  const cancelEdit = () => {
+    setEditingId(null)
+    setEdit(null)
+  }
+
+  const addEditKeywords = (names: string[]) =>
+    setEdit((cur) => {
+      if (!cur) return cur
+      const seen = new Set(cur.keywords.map((k) => k.toLowerCase()))
+      const fresh = names.filter((n) => {
+        const key = n.toLowerCase()
+        if (seen.has(key)) return false
+        seen.add(key)
+        return true
+      })
+      if (fresh.length < names.length) warning(`Skipped ${names.length - fresh.length} already in ${cur.name}`)
+      return { ...cur, keywords: [...cur.keywords, ...fresh] }
+    })
+
+  const saveEdit = async (group: Skill) => {
+    if (!group.id || !edit) return
+    const name = edit.name.trim()
+    if (!name) {
+      warning('A skill needs a name')
       return
     }
-    refresh()
-
-    success(`Deleted ${keyword}`, {
-      duration: 8000,
-      action: {
-        label: 'Undo',
-        onClick: async () => {
-          try {
-            const now = keywordsOf(group)
-            if (!now.includes(keyword)) await writeKeywords(target, [...now, keyword])
-            refresh()
-          } catch {
-            error(`Failed to restore ${keyword}`)
-          }
-        },
-      },
-    })
+    setSaving(true)
+    try {
+      await updateEntry(versionId, SECTION, group.id, { name, keywords: edit.keywords })
+      success('Skill updated successfully')
+      cancelEdit()
+      refresh()
+    } catch {
+      error('Failed to update skill')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const reorderSkills = async (ids: string[]) => {
@@ -215,37 +219,15 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
     }
   }
 
-  const deleteGroup = async (group: Skill, index: number) => {
-    if (!group.id) return
+  const deleteGroup = async (id: string) => {
+    setDeletingId(null)
     try {
-      await removeEntry(versionId, SECTION, group.id)
-    } catch (err) {
-      error(err instanceof Error ? err.message : 'Failed to delete skill')
-      return
+      await removeEntry(versionId, SECTION, id)
+      success('Skill deleted successfully')
+      refresh()
+    } catch {
+      error('Failed to delete skill')
     }
-    setEditingId(null)
-    refresh()
-
-    success(`Deleted ${group.name ?? 'skill'}`, {
-      duration: 8000,
-      action: {
-        label: 'Undo',
-        onClick: async () => {
-          try {
-            // Re-created with a fresh id, at its old position.
-            await addEntry(
-              versionId,
-              SECTION,
-              { name: group.name, level: group.level, keywords: group.keywords },
-              index,
-            )
-            refresh()
-          } catch {
-            error(`Failed to restore ${group.name ?? 'skill'}`)
-          }
-        },
-      },
-    })
   }
 
   return (
@@ -261,7 +243,7 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
             <button
               type="button"
               onClick={() => {
-                setEditingId(null)
+                cancelEdit()
                 setDraft('')
               }}
             >
@@ -291,7 +273,7 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
                   onClick={() => setDraft(null)}
                   aria-label="Discard new skill"
                 >
-                  <X size={12} />
+                  <X size={ICON_SIZE.sm} />
                 </button>
               </div>
               <div className={styles.keywords}>
@@ -325,63 +307,63 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
             return (
               <div ref={row.setNodeRef} style={row.style} className={styles.skill}>
                 <div className={styles.groupHeader}>
-                  {row.handle}
                   {editing ? (
                     <input
                       className={styles.draftName}
-                      defaultValue={name}
-                      onBlur={(e) => void renameGroup(group, e.target.value)}
+                      value={edit?.name ?? ''}
+                      onChange={(e) => setEdit((cur) => (cur ? { ...cur, name: e.target.value } : cur))}
                       onKeyDown={(e) => {
-                        if (e.key === 'Enter') e.currentTarget.blur()
+                        if (e.key === 'Enter') void saveEdit(group)
+                        if (e.key === 'Escape') cancelEdit()
                       }}
                       aria-label={`${name} skill name`}
                       autoComplete="off"
+                      autoFocus
                     />
                   ) : (
                     <span className={styles.skillLabel}>{name}</span>
                   )}
-                  {editing ? (
-                    <>
-                      <button
-                        className={styles.draftCancel}
-                        onClick={() => void deleteGroup(group, skills.findIndex((s) => s.id === group.id))}
-                        aria-label={`Delete ${name} skill`}
-                      >
-                        <Trash2 size={12} />
-                      </button>
-                      <button
-                        className={styles.doneButton}
-                        onClick={() => setEditingId(null)}
-                        aria-label={`Done editing ${name}`}
-                      >
-                        <Check size={14} aria-hidden="true" />
-                      </button>
-                    </>
-                  ) : (
-                    <button
-                      className={styles.editSkillButton}
-                      onClick={() => {
-                        setDraft(null)
-                        setEditingId(group.id ?? null)
-                      }}
-                      aria-label={`Edit ${name} skill`}
-                    >
-                      <Pencil size={12} />
-                    </button>
-                  )}
+                  <div className={styles.actions}>
+                    {row.handle}
+                    {editing ? (
+                      <>
+                        <IconButton
+                          icon={Check}
+                          label="Save"
+                          onClick={() => void saveEdit(group)}
+                          disabled={saving}
+                        />
+                        <IconButton icon={X} label="Cancel" tone="danger" onClick={cancelEdit} />
+                      </>
+                    ) : (
+                      <>
+                        <IconButton icon={Pencil} label={`Edit ${name} skill`} onClick={() => startEdit(group)} />
+                        <IconButton
+                          icon={Trash2}
+                          label={`Delete ${name} skill`}
+                          tone="danger"
+                          onClick={() => setDeletingId(group.id ?? null)}
+                        />
+                      </>
+                    )}
+                  </div>
                 </div>
 
                 <div className={styles.keywords}>
-                  {(group.keywords ?? []).map((keyword) => (
+                  {(editing && edit ? edit.keywords : (group.keywords ?? [])).map((keyword) => (
                     <div key={keyword} className={styles.keyword}>
                       <span className={styles.keywordName}>{keyword}</span>
                       {editing && (
                         <button
                           className={styles.chipRemove}
-                          onClick={() => void removeKeyword(group, keyword)}
+                          onClick={() =>
+                            setEdit((cur) =>
+                              cur ? { ...cur, keywords: cur.keywords.filter((k) => k !== keyword) } : cur,
+                            )
+                          }
                           aria-label={`Remove ${keyword}`}
                         >
-                          <X size={10} />
+                          <X size={ICON_SIZE.xs} />
                         </button>
                       )}
                     </div>
@@ -390,9 +372,8 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
                   {editing && (
                     <SkillAdder
                       label={`Add keyword to ${name}`}
-                      busy={saving}
-                      onCommit={(names) => void commitKeywords(group, name, names)}
-                      onClose={() => setEditingId(null)}
+                      onCommit={addEditKeywords}
+                      onClose={cancelEdit}
                     />
                   )}
                 </div>
@@ -405,6 +386,14 @@ export default function SkillsSection({ skills, versionId, onUpdate, onClose }: 
         <p className={styles.placeholder}>Click "Add Skill" to add your first skill</p>
       )}
 
+      {deletingId && (
+        <ConfirmDialog
+          confirmLabel="Delete"
+          message="Are you sure you want to delete this skill?"
+          onConfirm={() => void deleteGroup(deletingId)}
+          onCancel={() => setDeletingId(null)}
+        />
+      )}
     </section>
   )
 }

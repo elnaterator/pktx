@@ -9,7 +9,6 @@
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
   background-color: var(--bg-input);
   border: 1px solid var(--border-primary);
   min-height: 2.25rem;
@@ -20,51 +19,12 @@
   box-shadow: var(--shadow-focus);
 }
 
-.chip {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-  white-space: nowrap;
-}
-
-.chipLabel {
-  line-height: 1;
-}
-
-.chipRemove {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  color: var(--accent-green);
-  opacity: 0.7;
-  transition: opacity var(--transition-fast);
-  line-height: 1;
-}
-
-.chipRemove:hover {
-  opacity: 1;
-}
-
-.chipRemove:focus {
-  outline: none;
-}
-
 .input {
   flex: 1;
   min-width: 8rem;
   border: none;
   background: transparent;
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   font-family: var(--font-mono);
   color: var(--text-primary);
   padding: 0;
@@ -76,31 +36,13 @@
 }
 
 .dropdown {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  background-color: var(--bg-hover);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
-  list-style: none;
-  margin: 0;
-  padding: var(--space-1) 0;
-  z-index: 100;
-  max-height: 12rem;
-  overflow-y: auto;
+  composes: menu from './menu.module.css';
 }
 
 .dropdownItem {
-  padding: var(--space-2) var(--space-4);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  color: var(--text-primary);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
+  composes: item from './menu.module.css';
 }
 
-.dropdownItem:hover,
 .dropdownItemActive {
-  background-color: var(--bg-active);
+  composes: itemActive from './menu.module.css';
 }

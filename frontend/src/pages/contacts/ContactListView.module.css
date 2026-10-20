@@ -1,76 +1,8 @@
-.container {
-  padding: var(--space-6) 0;
-}
-
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-7);
-}
-
-.heading {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.newButton {
-  background: none;
-  color: var(--accent-green);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-none);
-  font-weight: 500;
-  border: none;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-  font-family: var(--font-mono);
-}
-
-.newButton:hover {
-  color: var(--accent-green-dim);
-}
-
-.newButton:focus {
-  outline: none;
-}
-
-/* Filters */
-.filters {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-/* List */
-.empty {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.list {
-  composes: list from '../../components/listRow.module.css';
-}
-
-.item {
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
-  padding: var(--space-4) var(--space-7);
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-}
-
-.item:hover {
-  background-color: var(--bg-active);
-}
-
-.itemLink {
-  display: flex;
+/* Two-line row: name + badge | tags + date, then title · company, follow-up, links */
+.twoLine {
   flex-direction: column;
+  align-items: stretch;
   gap: var(--space-2);
-  text-decoration: none;
-  color: inherit;
 }
 
 /* Row 1: name+badge left, tags+date right */
@@ -91,20 +23,19 @@
 }
 
 .itemName {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: var(--font-size-6);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .relationshipBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
-  background-color: var(--bg-surface);
+  background-color: var(--bg-primary);
   color: var(--text-secondary);
   white-space: nowrap;
   flex-shrink: 0;
@@ -117,16 +48,8 @@
   flex-shrink: 0;
 }
 
-.tagList {
-  composes: tagList from '../../components/listRow.module.css';
-}
-
-.tagBadge {
-  composes: tagBadge from '../../components/listRow.module.css';
-}
-
 .updatedDate {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   white-space: nowrap;
 }
@@ -136,7 +59,7 @@
   display: flex;
   align-items: center;
   gap: var(--space-6);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
@@ -152,15 +75,10 @@
   white-space: nowrap;
 }
 
-.linkCount {
-  composes: linkCount from '../../components/listRow.module.css';
-}
-
 /* Communication Search Panel */
 
 .commSearchCard {
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
+  background-color: var(--bg-raised);
   margin-bottom: var(--space-6);
   overflow: hidden;
 }
@@ -173,15 +91,15 @@
 }
 
 .commSearchHeading {
-  font-size: 0.875rem;
-  font-weight: 500;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-medium);
   font-family: var(--font-mono);
   color: var(--text-secondary);
   margin: 0;
 }
 
 .commSearchHint {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   font-style: italic;
   margin: 0;
@@ -197,15 +115,18 @@
 }
 
 .commResultItem {
-  background-color: var(--bg-secondary);
-  border-radius: var(--radius-none);
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  background-color: var(--bg-primary);
   padding: var(--space-3) var(--space-4);
   cursor: pointer;
   transition: background-color var(--transition-fast);
 }
 
 .commResultItem:hover {
-  background-color: var(--bg-active);
+  background-color: var(--bg-raised-hover);
 }
 
 .commResultHeader {
@@ -217,43 +138,28 @@
 }
 
 .commResultDate {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
   font-family: var(--font-mono);
 }
 
 .commResultType,
 .commResultDir {
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
   font-family: var(--font-mono);
-}
-
-.parentBadge {
-  font-size: 0.875rem;
-  padding: var(--space-1) var(--space-2);
-  border-radius: var(--radius-pill);
-  font-family: var(--font-mono);
-}
-
-.parent_application {
-  background-color: var(--accent-blue-bg);
-  color: var(--accent-blue);
-}
-
-.parent_contact {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
 }
 
 .commResultParent {
-  font-size: 0.875rem;
+  display: block;
+  font-size: var(--font-size-4);
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .commResultSubject {
-  font-size: 0.875rem;
+  display: block;
+  font-size: var(--font-size-4);
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
@@ -261,10 +167,6 @@
 }
 
 @media (max-width: 640px) {
-  .filters {
-    flex-direction: column;
-  }
-
   .itemRow1 {
     flex-wrap: wrap;
   }

@@ -9,11 +9,7 @@
 }
 
 .label {
-  font-size: 0.8125rem;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--text-secondary);
+  composes: sectionLabel from '../../components/text.module.css';
 }
 
 .options {
@@ -29,8 +25,8 @@
   background: none;
   color: var(--accent-green);
   cursor: pointer;
-  font-size: 0.875rem;
-  font-weight: 600;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-semibold);
   font-family: var(--font-mono);
   padding: var(--space-1) 0;
 }
