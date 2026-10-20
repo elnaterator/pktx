@@ -88,6 +88,9 @@
   --focus-ring: 2px solid var(--focus-ring-color);
   --focus-ring-offset: 2px;
 
+  /* Layout */
+  --tabbar-h: 3.5rem; /* phone bottom tab bar, excluding the safe-area inset */
+
   /* Stacking */
   --z-raised: 1;       /* above siblings in the same component */
   --z-panel: 20;       /* docked side panels */

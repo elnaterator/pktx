@@ -19,6 +19,8 @@ interface ModalProps {
   className?: string
   /** Element to focus on open; defaults to an autoFocus child or the first control. */
   initialFocus?: RefObject<HTMLElement | null>
+  /** `bottom` docks the dialog to the bottom edge as a sheet (phone menus). */
+  placement?: 'center' | 'bottom'
 }
 
 /**
@@ -35,6 +37,7 @@ export function Modal({
   role = 'dialog',
   className,
   initialFocus,
+  placement = 'center',
 }: ModalProps) {
   const dialogRef = useRef<HTMLDivElement>(null)
   // Captured during render, before any autoFocus child steals focus.
@@ -76,7 +79,7 @@ export function Modal({
 
   return createPortal(
     <div
-      className={styles.overlay}
+      className={cx(styles.overlay, placement === 'bottom' && styles.overlayBottom)}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose()
       }}

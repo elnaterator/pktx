@@ -4,6 +4,7 @@ import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-react'
 import Navigation from './components/Navigation'
 import UserMenu from './components/UserMenu'
 import ConnectButton from './components/ConnectButton'
+import MobileTabBar from './components/MobileTabBar'
 import { setTokenGetter } from './services/api'
 import LandingPage from './components/LandingPage'
 import AppRoutes from './router'
@@ -39,6 +40,7 @@ function AuthenticatedApp() {
         <main>
           <AppRoutes />
         </main>
+        <MobileTabBar />
       </div>
     </div>
   )

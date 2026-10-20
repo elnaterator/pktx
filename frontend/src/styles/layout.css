@@ -1,4 +1,5 @@
-/* App shell: sidebar + header + main column, and print styles. */
+/* App shell: header + main column (+ phone tab bar), and print styles. */
+
 .app {
   min-height: 100vh;
   display: flex;
@@ -7,6 +8,9 @@
 .app-shell {
   flex: 1;
   min-width: 0;
+  /* Nothing may widen the page: on phones that zooms out and pushes the
+     fixed tab bar below the fold. Fix the overflowing element too. */
+  overflow-x: clip;
   display: flex;
   flex-direction: column;
 }
@@ -67,21 +71,16 @@ main {
     padding: var(--space-4) var(--space-6);
   }
 
-  /* Logo and actions share the first row; the nav wraps below. */
+  /* Logo left, actions right; navigation lives in the bottom tab bar. */
   .app-header-inner {
-    flex-wrap: wrap;
     gap: var(--space-3);
   }
 
-  .app-header-inner > nav {
-    order: 3;
-    flex-basis: 100%;
-    min-width: 0;
-  }
-
+  /* Clear the fixed bottom tab bar (MobileTabBar). */
   main {
     margin: 0;
     padding: var(--space-6);
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + var(--space-6));
   }
 }
 

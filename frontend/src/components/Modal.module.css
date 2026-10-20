@@ -8,6 +8,10 @@
   background-color: var(--bg-modal-overlay);
 }
 
+.overlayBottom {
+  align-items: flex-end;
+}
+
 .dialog {
   background-color: var(--bg-raised);
   box-shadow: var(--shadow-card);
