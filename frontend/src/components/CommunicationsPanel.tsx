@@ -207,11 +207,21 @@ export default function CommunicationsPanel({
         {errorMessage(commsQuery.error, "Couldn't load communications.")}
       </EmptyState>
     )
-  } else if (communications.length === 0) {
-    body = adding ? null : <EmptyState>No communications yet.</EmptyState>
+  } else if (communications.length === 0 && !adding) {
+    body = <EmptyState>No communications yet.</EmptyState>
   } else {
     body = (
       <ul className={styles.list}>
+        {adding && (
+          <li className={cx(styles.item, styles.itemEditing)}>
+            <CommunicationForm
+              initial={emptyDefaults()}
+              allTags={allTags}
+              onSubmit={handleAdd}
+              onCancel={() => setAdding(false)}
+            />
+          </li>
+        )}
         {communications.map((comm) => (
           <li
             key={comm.id}
@@ -254,16 +264,6 @@ export default function CommunicationsPanel({
           )
         }
       >
-        {adding && (
-          <div className={cx(styles.item, styles.itemEditing, styles.addItem)}>
-            <CommunicationForm
-              initial={emptyDefaults()}
-              allTags={allTags}
-              onSubmit={handleAdd}
-              onCancel={() => setAdding(false)}
-            />
-          </div>
-        )}
         {body}
       </SectionCard>
 
