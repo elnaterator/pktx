@@ -202,4 +202,20 @@ describe('ApplicationListView', () => {
       expect(api.listApplications).toHaveBeenLastCalledWith(undefined, undefined, undefined)
     })
   })
+
+  it('pre-filters by the statuses in the URL and ignores unknown ones', async () => {
+    vi.mocked(api.listApplications).mockResolvedValue(mockApplications)
+    render(
+      <MemoryRouter initialEntries={['/applications?status=Applied&status=Interview&status=Bogus']}>
+        <ApplicationListView />
+      </MemoryRouter>
+    )
+    await waitFor(() => {
+      expect(api.listApplications).toHaveBeenCalledWith(['Applied', 'Interview'], undefined, undefined)
+    })
+    // The filter shows the URL's statuses as removable chips.
+    expect(screen.getByRole('button', { name: 'Remove Applied' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove Interview' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove Bogus' })).not.toBeInTheDocument()
+  })
 })

@@ -15,6 +15,11 @@ import {
 import { SearchBar } from '../../components/SearchBar'
 import type { SearchResult } from '../../types'
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
+import {
+  ACTIVE_APPLICATION_STATUSES,
+  applicationsPath,
+  isActiveApplicationStatus,
+} from '../../schemas/application'
 import styles from './HomeView.module.css'
 
 // ─── Search results ────────────────────────────────────────────────────────────
@@ -151,8 +156,6 @@ function IdeaScroller() {
 
 // ─── Stats ────────────────────────────────────────────────────────────────────
 
-const TERMINAL_STATUSES = new Set(['Rejected', 'Withdrawn', 'Accepted'])
-
 // ─── Home ─────────────────────────────────────────────────────────────────────
 
 export default function HomeView() {
@@ -192,8 +195,8 @@ export default function HomeView() {
     ? {
         resumes: resumes.data.length,
         applications: applications.data.length,
-        activeApplications: applications.data.filter(
-          (a) => !TERMINAL_STATUSES.has(a.status),
+        activeApplications: applications.data.filter((a) =>
+          isActiveApplicationStatus(a.status),
         ).length,
         notes: notes.data.length,
         accomplishments: accomplishments.data.length,
@@ -204,13 +207,19 @@ export default function HomeView() {
   return (
     <div className={styles.container}>
       <div className={styles.statsGrid}>
-        <Link to="/applications" className={styles.statCard}>
-          <span className={styles.statLabel}>Applications</span>
-          <span className={styles.statValue}>{stats === null ? '—' : stats.applications}</span>
+        {/* Not one big link: the card holds a second link ("N active"). The
+            main link stretches over the card; the sub-link sits above it. */}
+        <div className={styles.statCard}>
+          <Link to="/applications" className={styles.statCardLink}>
+            <span className={styles.statLabel}>Applications</span>
+            <span className={styles.statValue}>{stats === null ? '—' : stats.applications}</span>
+          </Link>
           {stats !== null && stats.activeApplications > 0 && (
-            <span className={styles.statSub}>{stats.activeApplications} active</span>
+            <Link to={applicationsPath(ACTIVE_APPLICATION_STATUSES)} className={styles.statSubLink}>
+              {stats.activeApplications} active
+            </Link>
           )}
-        </Link>
+        </div>
 
         <Link to="/resumes" className={styles.statCard}>
           <span className={styles.statLabel}>Resumes</span>

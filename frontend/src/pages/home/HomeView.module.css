@@ -190,6 +190,7 @@
 }
 
 .statCard {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -217,10 +218,38 @@
   line-height: var(--leading-tight);
 }
 
-.statSub {
+/* Card with more than one link: this one covers the whole card. */
+.statCardLink {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  color: inherit;
+  text-decoration: none;
+}
+
+.statCardLink::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+}
+
+.statCardLink:hover {
+  color: inherit;
+}
+
+/* Secondary link inside a card ("3 active"); stacks above the card link. */
+.statSubLink {
+  position: relative;
+  z-index: var(--z-raised);
+  align-self: flex-start;
+  margin-top: var(--space-1);
   font-size: var(--font-size-4);
   color: var(--accent-green);
-  margin-top: var(--space-1);
+}
+
+.statSubLink:hover {
+  color: var(--accent-green-dim);
+  text-decoration: underline;
 }
 
 /* Responsive */

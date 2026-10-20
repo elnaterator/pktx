@@ -1,5 +1,5 @@
 import { useLayoutEffect } from 'react'
-import { BrowserRouter } from 'react-router'
+import { BrowserRouter, Link } from 'react-router'
 import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-react'
 import Navigation from './components/Navigation'
 import UserMenu from './components/UserMenu'
@@ -25,7 +25,11 @@ function AuthenticatedApp() {
       <div className="app-shell">
         <header className="app-header">
           <div className="app-header-inner">
-            <h1 className="logo"><span className="logo-p">p</span>ktx</h1>
+            <h1 className="logo">
+              <Link to="/" className="logo-link">
+                <span className="logo-p">p</span>ktx
+              </Link>
+            </h1>
             <Navigation />
             <UserMenu />
           </div>

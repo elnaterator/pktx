@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router'
+import { useNavigate, useSearchParams } from 'react-router'
 import {
   useAllTags,
   useApplicationList,
@@ -24,7 +24,22 @@ import styles from './ApplicationListView.module.css'
 export default function ApplicationListView() {
   const navigate = useNavigate()
   const { search, setSearch, debounced, isFiltered } = useDebouncedSearch()
-  const [statusFilter, setStatusFilter] = useState<string[]>([])
+  // Status filter lives in the URL (?status=Applied&status=Interview) so it
+  // can be linked to (e.g. "N active" on the home page) and survives back/forward.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const statusFilter = searchParams
+    .getAll('status')
+    .filter((s) => (APPLICATION_STATUSES as readonly string[]).includes(s))
+  const setStatusFilter = (statuses: string[]) =>
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('status')
+        statuses.forEach((s) => next.append('status', s))
+        return next
+      },
+      { replace: true },
+    )
   const [showNewForm, setShowNewForm] = useState(false)
   const { success, error } = useToast()
 
