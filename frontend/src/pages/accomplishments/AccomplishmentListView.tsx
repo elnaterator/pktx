@@ -5,8 +5,7 @@ import {
   useAllTags,
 } from '../../hooks/queries'
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
-import { Button } from '../../components/Button'
-import { ListPage } from '../../components/ListPage'
+import { ListPage, NewButton } from '../../components/ListPage'
 import { LinkCount, ListRow, ListRowMain, ListRowMeta, ListRowTitle } from '../../components/ListRow'
 import { SearchBar } from '../../components/SearchBar'
 import { TagList } from '../../components/TagList'
@@ -49,9 +48,7 @@ export default function AccomplishmentListView() {
       title="Accomplishments"
       noun="accomplishments"
       action={
-        <Button variant="link" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? 'Cancel' : 'New Accomplishment'}
-        </Button>
+        <NewButton noun="Accomplishment" open={showForm} onClick={() => setShowForm((v) => !v)} />
       }
       createForm={
         showForm && (

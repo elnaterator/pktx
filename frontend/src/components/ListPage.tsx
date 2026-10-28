@@ -1,4 +1,6 @@
 import { Fragment, type Key, type ReactNode } from 'react'
+import { Plus } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import { Button } from './Button'
 import { EmptyState } from './EmptyState'
 import { LoadingSpinner } from './LoadingSpinner'
@@ -92,5 +94,29 @@ export function ListPage<T>({
       {aside}
       {body}
     </div>
+  )
+}
+
+interface NewButtonProps {
+  /** Singular noun ("Note"); hidden on phones so the header fits on one line. */
+  noun: string
+  /** True while the create form is open — the button then reads "Cancel". */
+  open?: boolean
+  onClick: () => void
+}
+
+/** Header "+ New …" toggle for a list page; "+ New" on phones, same accessible name. */
+export function NewButton({ noun, open = false, onClick }: NewButtonProps) {
+  return (
+    <Button variant="link" onClick={onClick}>
+      {open ? (
+        'Cancel'
+      ) : (
+        <>
+          <Plus size={ICON_SIZE.sm} aria-hidden="true" />
+          New<span className={styles.newNoun}> {noun}</span>
+        </>
+      )}
+    </Button>
   )
 }

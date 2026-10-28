@@ -89,10 +89,10 @@
     overflow-wrap: anywhere;
   }
 
+  /* Dates and counts share one line, wrapping only when out of room. */
   .itemMeta {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: var(--space-1);
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
     white-space: normal;
   }
 }

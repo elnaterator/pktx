@@ -1,9 +1,8 @@
 import { useState } from 'react'
 import { useAllTags, useResumeList, useResumeMutations } from '../../hooks/queries'
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
-import { Button } from '../../components/Button'
 import { InlineCreateForm } from '../../components/InlineCreateForm'
-import { ListPage } from '../../components/ListPage'
+import { ListPage, NewButton } from '../../components/ListPage'
 import { LinkCount, ListRow, ListRowMain, ListRowMeta, ListRowTitle } from '../../components/ListRow'
 import { SearchBar } from '../../components/SearchBar'
 import { TagList } from '../../components/TagList'
@@ -42,9 +41,7 @@ export default function ResumeListView() {
       noun="resume versions"
       testId="resume-list-view"
       action={
-        <Button variant="link" onClick={() => setCreating(true)}>
-          New Version
-        </Button>
+        <NewButton noun="Version" onClick={() => setCreating(true)} />
       }
       createForm={
         creating && (

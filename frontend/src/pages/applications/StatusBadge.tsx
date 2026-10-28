@@ -13,7 +13,7 @@ const STATUS_CLASS: Record<ApplicationStatus, string> = {
   Accepted: styles.accepted,
 }
 
-/** Application status pill, coloured per pipeline stage (unknown → neutral). */
+/** Application status as a coloured dot + label per pipeline stage (unknown → neutral). */
 export function StatusBadge({ status }: { status: string }) {
   return (
     <span className={cx(styles.badge, STATUS_CLASS[status as ApplicationStatus])}>{status}</span>

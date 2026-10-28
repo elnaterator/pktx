@@ -36,8 +36,8 @@ export function ListRowTitle({ children }: { children: ReactNode }) {
 }
 
 /** Right-hand muted metadata (dates, counts). */
-export function ListRowMeta({ children }: { children: ReactNode }) {
-  return <div className={styles.itemMeta}>{children}</div>
+export function ListRowMeta({ children, className }: { children: ReactNode; className?: string }) {
+  return <div className={cx(styles.itemMeta, className)}>{children}</div>
 }
 
 /** "🔗 3" — number of linked resources; renders nothing for zero. */

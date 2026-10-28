@@ -6,10 +6,9 @@ import {
   useApplicationMutations,
 } from '../../hooks/queries'
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
-import { Button } from '../../components/Button'
 import { ExternalLink } from '../../components/ExternalLink'
-import { ListPage } from '../../components/ListPage'
-import { LinkCount, ListRow, ListRowMain, ListRowMeta } from '../../components/ListRow'
+import { ListPage, NewButton } from '../../components/ListPage'
+import { LinkCount, ListRow, ListRowMeta } from '../../components/ListRow'
 import { SearchBar } from '../../components/SearchBar'
 import { TagList } from '../../components/TagList'
 import { useToast } from '../../components/toast'
@@ -78,9 +77,7 @@ export default function ApplicationListView() {
       noun="applications"
       testId="application-list-view"
       action={
-        <Button variant="link" onClick={() => setShowNewForm((v) => !v)}>
-          {showNewForm ? 'Cancel' : 'New Application'}
-        </Button>
+        <NewButton noun="Application" open={showNewForm} onClick={() => setShowNewForm((v) => !v)} />
       }
       createForm={
         showNewForm && (
@@ -116,6 +113,7 @@ export default function ApplicationListView() {
       renderItem={(app) => (
         <ListRow
           to={`/applications/${app.id}`}
+          linkClassName={styles.twoLine}
           after={
             app.url && (
               <ExternalLink href={app.url} className={styles.postingLink}>
@@ -124,14 +122,17 @@ export default function ApplicationListView() {
             )
           }
         >
-          <ListRowMain>
-            <span className={styles.position}>{app.position}</span>
-            <span className={styles.at}>@</span>
+          <span className={styles.position}>{app.position}</span>
+          <div className={styles.sub}>
             <span className={styles.company}>{app.company}</span>
             <StatusBadge status={app.status} />
-          </ListRowMain>
-          <TagList tags={app.tags ?? []} />
-          <ListRowMeta>
+          </div>
+          {!!app.tags?.length && (
+            <div className={styles.tags}>
+              <TagList tags={app.tags} />
+            </div>
+          )}
+          <ListRowMeta className={styles.meta}>
             <span>Updated {formatDate(app.updated_at)}</span>
             <LinkCount count={app.link_count} />
           </ListRowMeta>

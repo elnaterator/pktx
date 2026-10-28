@@ -1,8 +1,7 @@
 import { useState } from 'react'
 import { useAllTags, useNoteList, useNoteMutations } from '../../hooks/queries'
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
-import { Button } from '../../components/Button'
-import { ListPage } from '../../components/ListPage'
+import { ListPage, NewButton } from '../../components/ListPage'
 import { LinkCount, ListRow, ListRowMain, ListRowMeta, ListRowTitle } from '../../components/ListRow'
 import { SearchBar } from '../../components/SearchBar'
 import { TagList } from '../../components/TagList'
@@ -42,9 +41,7 @@ export default function NoteListView() {
       title="Notes"
       noun="notes"
       action={
-        <Button variant="link" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? 'Cancel' : 'New Note'}
-        </Button>
+        <NewButton noun="Note" open={showForm} onClick={() => setShowForm((v) => !v)} />
       }
       createForm={
         showForm && (

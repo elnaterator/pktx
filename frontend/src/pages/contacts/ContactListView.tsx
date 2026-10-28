@@ -8,8 +8,7 @@ import {
   useContactMutations,
 } from '../../hooks/queries'
 import { useDebouncedSearch } from '../../hooks/useDebouncedSearch'
-import { Button } from '../../components/Button'
-import { ListPage } from '../../components/ListPage'
+import { ListPage, NewButton } from '../../components/ListPage'
 import { LinkCount, ListRow } from '../../components/ListRow'
 import { SearchBar } from '../../components/SearchBar'
 import { TagList } from '../../components/TagList'
@@ -73,9 +72,7 @@ export default function ContactListView() {
       title="Contacts"
       noun="contacts"
       action={
-        <Button variant="link" onClick={() => setShowForm((v) => !v)}>
-          {showForm ? 'Cancel' : 'New Contact'}
-        </Button>
+        <NewButton noun="Contact" open={showForm} onClick={() => setShowForm((v) => !v)} />
       }
       createForm={
         showForm && (

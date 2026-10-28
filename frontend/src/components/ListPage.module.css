@@ -32,4 +32,14 @@
   .filters {
     flex-direction: column;
   }
+
+  /* NewButton's noun: screen-reader only on phones, so "+ New" fits beside the heading. */
+  .newNoun {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
 }
