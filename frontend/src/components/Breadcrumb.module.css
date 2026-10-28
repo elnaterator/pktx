@@ -4,7 +4,7 @@
   flex-wrap: wrap;
   gap: var(--space-1);
   margin-bottom: var(--space-6);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   color: var(--text-muted);
 }
 
@@ -22,7 +22,7 @@
 .link {
   color: var(--accent-green);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }
 
 .link:hover {
@@ -32,5 +32,5 @@
 
 .current {
   color: var(--text-secondary);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
 }

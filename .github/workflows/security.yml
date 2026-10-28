@@ -42,11 +42,23 @@ jobs:
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: ${{ env.TRIVY_VERSION }}
-      - run: docker build --pull -t pktx-scan .
+      # ECR Public rate-limits anonymous pulls per IP (shared by hosted runners),
+      # so the lambda-adapter COPY --from can 429; retry with backoff.
+      - name: Build image
+        run: |
+          for attempt in 1 2 3; do
+            docker build --pull -t pktx-scan . && exit 0
+            [ "$attempt" -lt 3 ] || break
+            echo "::warning::docker build failed (attempt $attempt), retrying in $((attempt * 30))s"
+            sleep $((attempt * 30))
+          done
+          exit 1
       - name: Trivy image (SARIF, all severities)
         run: trivy image --format sarif --output trivy-image.sarif pktx-scan
       - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
-        if: always()
+        # Upload whatever the scan produced, but don't mask an earlier failure
+        # with "Path does not exist" when it produced nothing.
+        if: always() && hashFiles('trivy-image.sarif') != ''
         with:
           sarif_file: trivy-image.sarif
           category: trivy-image
@@ -70,7 +82,9 @@ jobs:
           trivy fs --scanners misconfig,secret
           --format sarif --output trivy-repo.sarif .
       - uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
-        if: always()
+        # Upload whatever the scan produced, but don't mask an earlier failure
+        # with "Path does not exist" when it produced nothing.
+        if: always() && hashFiles('trivy-repo.sarif') != ''
         with:
           sarif_file: trivy-repo.sarif
           category: trivy-repo

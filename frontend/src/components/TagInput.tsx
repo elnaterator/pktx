@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback, KeyboardEvent } from 'react'
-import { X } from 'lucide-react'
+import { Chip } from './Chip'
 import styles from './TagInput.module.css'
 
 export interface TagInputProps {
@@ -104,6 +104,9 @@ export function TagInput({
       e.preventDefault()
       commitTag(inputText)
     } else if (e.key === 'Escape') {
+      // Consume Escape only when it closes the dropdown, so an enclosing
+      // form or dialog can still use it to cancel.
+      if (dropdownOpen) e.preventDefault()
       setDropdownOpen(false)
       setActiveIndex(-1)
     }
@@ -145,18 +148,7 @@ export function TagInput({
     <div className={styles.container}>
       <div className={styles.inputRow}>
         {value.map((tag) => (
-          <span key={tag} className={styles.chip}>
-            <span className={styles.chipLabel}>{tag}</span>
-            <button
-              type="button"
-              className={styles.chipRemove}
-              aria-label={`Remove ${tag}`}
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={() => removeTag(tag)}
-            >
-              <X size={10} />
-            </button>
-          </span>
+          <Chip key={tag} label={tag} onRemove={() => removeTag(tag)} />
         ))}
         <input
           ref={inputRef}

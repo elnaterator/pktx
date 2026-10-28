@@ -1,0 +1,128 @@
+/* Reset and element defaults. Values come from tokens.css. */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* Base typography and colors */
+body {
+  font-family: var(--font-mono);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  line-height: var(--leading-relaxed);
+  color: var(--text-primary);
+  background-color: var(--bg-primary);
+  font-size: var(--font-size-6);
+}
+
+/* Typography */
+h1, h2, h3, h4, h5, h6 {
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  color: var(--text-primary);
+}
+
+h2 {
+  font-size: var(--heading-page);
+}
+
+h3 {
+  font-size: var(--heading-panel);
+}
+
+p {
+  font-size: var(--font-size-6);
+  color: var(--text-secondary);
+  line-height: var(--leading-relaxed);
+}
+
+/* Text handling for long content (up to 5000 chars) */
+p, span, div {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Links */
+a {
+  color: var(--accent-green);
+  text-decoration: none;
+  transition: color var(--transition-default);
+}
+
+a:hover {
+  color: var(--accent-green-dim);
+}
+
+/* Buttons */
+button {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-6);
+  cursor: pointer;
+  border: none;
+  padding: var(--space-3) var(--space-6);
+  border-radius: var(--radius-none);
+  transition: all var(--transition-default);
+}
+
+/* Inputs and textareas */
+input,
+textarea {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-6);
+  padding: var(--space-3);
+  border: none;
+  border-radius: var(--radius-none);
+  width: 100%;
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+}
+
+select {
+  border-radius: var(--radius-none);
+}
+
+input:focus,
+textarea:focus {
+  outline: none;
+  box-shadow: var(--shadow-focus);
+}
+
+textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+/*
+ * Keyboard focus: one ring for every focusable element. Text fields are
+ * excluded — they show focus with their own fill (see inlineEdit.module.css).
+ * Modules must not set `outline: none` on buttons/links/rows, as a
+ * `.class:focus` rule outranks this one and hides the ring.
+ */
+:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+input:not([type='checkbox'], [type='radio'], [type='range'], [type='button'], [type='submit']):focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+[contenteditable]:focus-visible {
+  outline: none;
+}
+
+/* Lists */
+ul, ol {
+  padding-left: var(--space-8);
+}
+
+li {
+  margin-bottom: var(--space-1);
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: var(--font-size-4);
+  }
+}

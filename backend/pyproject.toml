@@ -9,7 +9,7 @@ description = "MCP server for managing personal data — resume, job search, and
 requires-python = ">=3.11"
 license = "MIT"
 dependencies = [
-    "fastmcp>=3.4.7",
+    "fastmcp>=3.4.10",
     "fastapi>=0.100.0",
     "uvicorn>=0.20.0",
     "svix>=1.0.0",

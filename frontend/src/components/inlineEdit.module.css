@@ -1,0 +1,87 @@
+/*
+ * Inline edit controls: look like the view-mode text they replace.
+ * Size, weight and colour come from the composing class (a shorthand or
+ * `inherit` here would override them, as this file is emitted last).
+ * Cue: a soft fill behind the value (a little stronger on hover/focus).
+ */
+
+.input,
+.select {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  font-family: inherit;
+  background: var(--edit-tint);
+  /* Spread (no layout shift) so the tint reads as a soft field behind the text. */
+  box-shadow: 0 0 0 var(--space-1) var(--edit-tint);
+  border: none;
+  transition: background-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.input:hover,
+.select:hover {
+  background: var(--edit-tint-strong);
+  box-shadow: 0 0 0 var(--space-1) var(--edit-tint-strong);
+}
+
+.input:focus,
+.select:focus {
+  outline: none;
+  background: var(--edit-tint-strong);
+  box-shadow: 0 0 0 var(--space-1) var(--edit-tint-strong);
+}
+
+.input[aria-invalid='true'] {
+  background: var(--status-error-bg);
+  box-shadow: 0 0 0 var(--space-1) var(--status-error-bg);
+}
+
+.select {
+  width: auto;
+  cursor: pointer;
+}
+
+.select option {
+  background-color: var(--bg-input);
+  color: var(--text-primary);
+}
+
+/* Negative margin + equal padding: the highlight bleeds out without moving text. */
+.textarea {
+  box-sizing: border-box;
+  width: calc(100% + var(--space-4));
+  margin: calc(-1 * var(--space-2));
+  padding: var(--space-2);
+  font-family: inherit;
+  line-height: var(--leading-normal);
+  background: var(--edit-tint);
+  border: none;
+  resize: none;
+  overflow: hidden;
+  min-height: 0;
+  transition: background-color var(--transition-fast);
+}
+
+.textarea::placeholder {
+  color: var(--text-muted);
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.textarea:hover {
+  background-color: var(--edit-tint-strong);
+}
+
+.textarea:focus {
+  outline: none;
+  box-shadow: none;
+  background-color: var(--edit-tint-strong);
+}

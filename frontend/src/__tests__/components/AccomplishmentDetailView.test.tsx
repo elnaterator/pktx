@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router'
 import AccomplishmentDetailView from '../../pages/accomplishments/AccomplishmentDetailView'
@@ -90,7 +90,7 @@ describe('AccomplishmentDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Led platform migration').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const titleInput = screen.getByDisplayValue('Led platform migration')
     expect(titleInput).toBeInTheDocument()
   })
@@ -102,7 +102,7 @@ describe('AccomplishmentDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Led platform migration').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     await user.click(screen.getByRole('button', { name: /Cancel/i }))
     expect(screen.queryByDisplayValue('Led platform migration')).not.toBeInTheDocument()
     expect(api.updateAccomplishment).not.toHaveBeenCalled()
@@ -119,7 +119,7 @@ describe('AccomplishmentDetailView', () => {
     await waitFor(() => {
       expect(screen.getAllByText('Led platform migration').length).toBeGreaterThan(0)
     })
-    await user.click(screen.getByRole('button', { name: /Edit/i }))
+    await user.click(screen.getByRole('button', { name: /^Edit (accomplishment|contact|note)$/i }))
     const resultField = screen.getByDisplayValue('Reduced deploy time by 80%.')
     await user.clear(resultField)
     await user.type(resultField, 'Updated result with metrics.')
@@ -144,7 +144,7 @@ describe('AccomplishmentDetailView', () => {
     await waitFor(() => {
       expect(screen.getByText(/Delete this accomplishment/i)).toBeInTheDocument()
     })
-    await user.click(screen.getByRole('button', { name: /Confirm|Yes/i }))
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
     await waitFor(() => {
       expect(api.deleteAccomplishment).toHaveBeenCalledWith(1)
       expect(screen.getByTestId('acc-list')).toBeInTheDocument()

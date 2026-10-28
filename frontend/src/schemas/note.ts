@@ -16,6 +16,8 @@ export const noteCreateSchema = z.object({
 })
 
 export type NoteCreateInput = z.infer<typeof noteCreateSchema>
+/** Raw form values before parsing (defaults not yet applied) — `useForm`'s first type arg. */
+export type NoteFormInput = z.input<typeof noteCreateSchema>
 
 export const noteUpdateSchema = noteCreateSchema.partial()
 export type NoteUpdateInput = z.infer<typeof noteUpdateSchema>

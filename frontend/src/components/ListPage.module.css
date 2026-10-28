@@ -1,0 +1,45 @@
+.container {
+  padding: var(--space-6) 0;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-7);
+}
+
+.heading {
+  margin: 0;
+  font-size: var(--heading-page);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
+}
+
+.createForm {
+  margin-bottom: var(--space-6);
+}
+
+.filters {
+  display: flex;
+  gap: var(--space-4);
+  margin-bottom: var(--space-6);
+}
+
+@media (max-width: 640px) {
+  .filters {
+    flex-direction: column;
+  }
+
+  /* NewButton's noun: screen-reader only on phones, so "+ New" fits beside the heading. */
+  .newNoun {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+}

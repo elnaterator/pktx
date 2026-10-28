@@ -1,9 +1,10 @@
 import { useLayoutEffect } from 'react'
-import { BrowserRouter } from 'react-router'
+import { BrowserRouter, Link } from 'react-router'
 import { SignedIn, SignedOut, useAuth } from '@clerk/clerk-react'
 import Navigation from './components/Navigation'
 import UserMenu from './components/UserMenu'
-import ConnectAssistantPanel from './components/ConnectAssistantPanel'
+import ConnectButton from './components/ConnectButton'
+import MobileTabBar from './components/MobileTabBar'
 import { setTokenGetter } from './services/api'
 import LandingPage from './components/LandingPage'
 import AppRoutes from './router'
@@ -21,18 +22,25 @@ function AuthenticatedApp() {
 
   return (
     <div className="app">
-      <ConnectAssistantPanel />
       <div className="app-shell">
         <header className="app-header">
           <div className="app-header-inner">
-            <h1 className="logo"><span className="logo-p">p</span>ktx</h1>
+            <h1 className="logo">
+              <Link to="/" className="logo-link">
+                <span className="logo-p">p</span>ktx
+              </Link>
+            </h1>
             <Navigation />
-            <UserMenu />
+            <div className="app-header-actions">
+              <ConnectButton />
+              <UserMenu />
+            </div>
           </div>
         </header>
         <main>
           <AppRoutes />
         </main>
+        <MobileTabBar />
       </div>
     </div>
   )

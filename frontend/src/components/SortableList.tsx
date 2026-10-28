@@ -19,6 +19,7 @@ import {
 } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { GripVertical } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import styles from './SortableList.module.css'
 
 /** What a row needs to take part in the list: attach `setNodeRef`/`style`, place `handle`. */
@@ -81,7 +82,7 @@ function Row<T>({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={14} aria-hidden="true" />
+        <GripVertical size={ICON_SIZE.md} aria-hidden="true" />
       </button>
     )
 

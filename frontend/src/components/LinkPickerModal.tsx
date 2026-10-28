@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react'
+import { useId, useMemo, useState } from 'react'
 import { X } from 'lucide-react'
+import { ICON_SIZE } from '../theme'
 import type { ResourceRef, ResourceType } from '../types'
 import {
   useAccomplishmentList,
@@ -8,6 +9,8 @@ import {
   useNoteList,
   useResumeList,
 } from '../hooks/queries'
+import { IconButton } from './IconButton'
+import { Modal } from './Modal'
 import styles from './LinkPickerModal.module.css'
 
 type TabId = 'all' | ResourceType
@@ -38,6 +41,7 @@ export function LinkPickerModal({
 }: LinkPickerModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>('all')
   const [query, setQuery] = useState('')
+  const titleId = useId()
 
   const apps = useApplicationList()
   const accs = useAccomplishmentList()
@@ -141,58 +145,54 @@ export function LinkPickerModal({
   }, [allRefs, excludeRefs, query])
 
   return (
-    <div className={styles.overlay} onClick={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={styles.modal} role="dialog" aria-modal="true" aria-label="Link picker">
-        <div className={styles.modalHeader}>
-          <h3 className={styles.modalTitle}>Link to resource</h3>
-          <button className={styles.closeButton} onClick={onClose} aria-label="Close">
-            <X size={16} />
-          </button>
-        </div>
-
-        <div className={styles.toolbar}>
-          <div className={styles.tabsScroll}>
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
-                onClick={() => setActiveTab(tab.id)}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-          <input
-            className={styles.filterInput}
-            type="text"
-            placeholder="filter..."
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            autoFocus
-          />
-        </div>
-
-        <div className={styles.resultsList}>
-          {loading ? (
-            <div className={styles.loading}>Loading...</div>
-          ) : filtered.length === 0 ? (
-            <div className={styles.empty}>No results</div>
-          ) : (
-            filtered.map((ref) => (
-              <button
-                key={`${ref.type}/${ref.id}`}
-                className={styles.resultRow}
-                onClick={() => onPick(ref)}
-              >
-                {activeTab === 'all' && (
-                  <span className={styles.typeBadge}>{ref.type}</span>
-                )}
-                <span className={styles.resultName}>{ref.name}</span>
-              </button>
-            ))
-          )}
-        </div>
+    <Modal onClose={onClose} labelledBy={titleId} className={styles.modal}>
+      <div className={styles.modalHeader}>
+        <h3 id={titleId} className={styles.modalTitle}>Link to resource</h3>
+        <IconButton icon={X} iconSize={ICON_SIZE.lg} label="Close" tone="neutral" onClick={onClose} />
       </div>
-    </div>
+
+      <div className={styles.toolbar}>
+        <div className={styles.tabsScroll}>
+          {TABS.map((tab) => (
+            <button
+              key={tab.id}
+              className={`${styles.tab} ${activeTab === tab.id ? styles.tabActive : ''}`}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        <input
+          className={styles.filterInput}
+          type="text"
+          placeholder="filter..."
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          autoFocus
+        />
+      </div>
+
+      <div className={styles.resultsList}>
+        {loading ? (
+          <div className={styles.loading}>Loading...</div>
+        ) : filtered.length === 0 ? (
+          <div className={styles.empty}>No results</div>
+        ) : (
+          filtered.map((ref) => (
+            <button
+              key={`${ref.type}/${ref.id}`}
+              className={styles.resultRow}
+              onClick={() => onPick(ref)}
+            >
+              {activeTab === 'all' && (
+                <span className={styles.typeBadge}>{ref.type}</span>
+              )}
+              <span className={styles.resultName}>{ref.name}</span>
+            </button>
+          ))
+        )}
+      </div>
+    </Modal>
   )
 }

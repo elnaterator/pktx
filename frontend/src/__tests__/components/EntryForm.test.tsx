@@ -395,4 +395,113 @@ describe('EntryForm', () => {
       expect(screen.getByText('Language is required')).toBeInTheDocument()
     })
   })
+
+  describe('bullet keyboard editing', () => {
+    it('Enter splits the bullet at the caret into a new one', async () => {
+      const user = userEvent.setup()
+      render(
+        <EntryForm
+          fields={highlightsFieldConfig}
+          schema={highlightsSchema}
+          defaultValues={{ title: 'Engineer', highlights: ['Led teamShipped'] }}
+          onSubmit={mockOnSubmit}
+          onCancel={mockOnCancel}
+        />
+      )
+
+      const first = screen.getByLabelText('Highlight 1') as HTMLTextAreaElement
+      await user.click(first)
+      first.setSelectionRange(8, 8)
+      await user.keyboard('{Enter}')
+
+      const bullets = screen.getAllByPlaceholderText(/highlight/i)
+      expect(bullets.map((b) => (b as HTMLTextAreaElement).value)).toEqual(['Led team', 'Shipped'])
+      expect(bullets[1]).toHaveFocus()
+    })
+
+    it('Backspace in an empty bullet removes it and focuses the previous one', async () => {
+      const user = userEvent.setup()
+      render(
+        <EntryForm
+          fields={highlightsFieldConfig}
+          schema={highlightsSchema}
+          defaultValues={{ title: 'Engineer', highlights: ['One', ''] }}
+          onSubmit={mockOnSubmit}
+          onCancel={mockOnCancel}
+        />
+      )
+
+      await user.click(screen.getByLabelText('Highlight 2'))
+      await user.keyboard('{Backspace}')
+
+      const bullets = screen.getAllByPlaceholderText(/highlight/i)
+      expect(bullets).toHaveLength(1)
+      expect(bullets[0]).toHaveFocus()
+    })
+  })
+
+  describe('open-ended end date', () => {
+    const dateFields = [
+      { name: 'title', label: 'Title', type: 'text' as const, required: true },
+      { name: 'endDate', label: 'End date', type: 'date' as const, required: false, openEnded: true },
+    ]
+    const dateSchema = z.object({ title: z.string().min(1), endDate: z.string().optional() })
+
+    it('starts as Present when blank and disables the date', () => {
+      render(
+        <EntryForm fields={dateFields} schema={dateSchema} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+      )
+      expect(screen.getByRole('checkbox', { name: /present/i })).toBeChecked()
+      expect(screen.getByLabelText('End date')).toBeDisabled()
+    })
+
+    it('checking Present clears the end date', async () => {
+      const user = userEvent.setup()
+      render(
+        <EntryForm
+          fields={dateFields}
+          schema={dateSchema}
+          defaultValues={{ title: 'Engineer', endDate: '2023-12' }}
+          onSubmit={mockOnSubmit}
+          onCancel={mockOnCancel}
+        />
+      )
+      const present = screen.getByRole('checkbox', { name: /present/i })
+      expect(present).not.toBeChecked()
+      await user.click(present)
+      await user.click(screen.getByRole('button', { name: /save/i }))
+
+      await waitFor(() => {
+        expect(mockOnSubmit).toHaveBeenCalledWith({ title: 'Engineer', endDate: '' })
+      })
+    })
+  })
+
+  describe('keyboard shortcuts', () => {
+    it('Ctrl+Enter saves', async () => {
+      const user = userEvent.setup()
+      render(
+        <EntryForm
+          fields={simpleFieldConfig}
+          schema={simpleSchema}
+          defaultValues={{ title: 'Engineer', company: 'Acme', location: '' }}
+          onSubmit={mockOnSubmit}
+          onCancel={mockOnCancel}
+        />
+      )
+      await user.click(screen.getByLabelText(/location/i))
+      await user.keyboard('{Control>}{Enter}{/Control}')
+      await waitFor(() => expect(mockOnSubmit).toHaveBeenCalled())
+    })
+
+    it('Escape cancels', async () => {
+      const user = userEvent.setup()
+      render(
+        <EntryForm fields={simpleFieldConfig} schema={simpleSchema} onSubmit={mockOnSubmit} onCancel={mockOnCancel} />
+      )
+      await user.click(screen.getByLabelText(/title/i))
+      await user.keyboard('{Escape}')
+      expect(mockOnCancel).toHaveBeenCalled()
+    })
+  })
 })

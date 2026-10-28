@@ -1,0 +1,21 @@
+.panel {
+  margin-bottom: var(--space-8);
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.title {
+  composes: panelTitle from './text.module.css';
+}
+
+.empty {
+  font-size: var(--font-size-4);
+  color: var(--text-secondary);
+  font-style: italic;
+  margin: 0;
+}

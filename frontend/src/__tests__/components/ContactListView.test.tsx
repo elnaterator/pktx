@@ -57,10 +57,8 @@ describe('ContactListView', () => {
   it('shows empty state when no contacts', async () => {
     vi.mocked(api.listContacts).mockResolvedValue([])
     renderView()
-    await waitFor(() => {
-      expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument()
-    })
-    expect(screen.getByText(/No contacts yet/i)).toBeInTheDocument()
+    expect(await screen.findByText(/No contacts yet/i)).toBeInTheDocument()
+    expect(screen.queryByText('Jane Doe')).not.toBeInTheDocument()
   })
 
   it('renders each contact as a link to its detail page', async () => {

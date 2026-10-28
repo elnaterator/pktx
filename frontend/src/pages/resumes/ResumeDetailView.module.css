@@ -17,53 +17,20 @@
 }
 
 .defaultBadge {
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-  font-size: 0.875rem;
-  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background-color: var(--accent-green);
+  color: var(--bg-primary, #111);
+  font-size: var(--font-size-1);
+  font-weight: var(--font-weight-bold);
+  text-transform: uppercase;
+  letter-spacing: var(--tracking-3);
   padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
 }
 
 .labelRow {
   margin-bottom: var(--space-4);
-}
-
-.tagsRow {
-  margin-bottom: var(--space-8);
-}
-
-.tagsDisplay {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-}
-
-.tagsEdit {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  flex-wrap: wrap;
-}
-
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tagBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
-}
-
-.tagsPlaceholder {
-  font-size: 0.875rem;
-  color: var(--text-muted);
 }
 
 .labelDisplay {
@@ -73,39 +40,10 @@
 }
 
 .label {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: var(--heading-panel);
+  font-weight: var(--font-weight-bold);
   color: var(--text-primary);
   margin: 0;
-}
-
-.iconBtn {
-  color: var(--text-muted);
-  cursor: pointer;
-  background: none;
-  border: none;
-  border-radius: var(--radius-none);
-  padding: var(--space-1) var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--transition-fast);
-}
-
-.iconBtn:hover {
-  color: var(--accent-green);
-}
-
-.iconBtn:focus {
-  outline: none;
-}
-
-.saveIcon:hover {
-  color: var(--accent-green);
-}
-
-.cancelIcon:hover {
-  color: var(--status-error);
 }
 
 .labelEdit {
@@ -115,68 +53,16 @@
 }
 
 .labelInput {
-  font-size: 1.25rem;
-  font-weight: 600;
-  padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-primary);
-  border-radius: var(--radius-none);
+  composes: input from '../../components/inlineEdit.module.css';
+  font-size: var(--heading-panel);
+  font-weight: var(--font-weight-bold);
+  color: var(--text-primary);
   width: 20rem;
   max-width: 100%;
-  background-color: var(--bg-input);
-  color: var(--text-primary);
-  font-family: var(--font-mono);
-}
-
-.labelInput:focus {
-  outline: none;
-  box-shadow: var(--shadow-focus);
-}
-
-
-.setDefaultButton {
-  background-color: var(--bg-hover);
-  color: var(--text-secondary);
-  border: none;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-none);
-  font-size: 0.875rem;
-  font-family: var(--font-mono);
-  cursor: pointer;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.setDefaultButton:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.setDefaultButton:focus {
-  outline: none;
-}
-
-.deleteButton {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-  border: none;
-  padding: var(--space-2) var(--space-2);
-  border-radius: var(--radius-none);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background-color var(--transition-fast);
-}
-
-.deleteButton:hover {
-  background-color: var(--status-error-bg-hover);
-}
-
-.deleteButton:focus {
-  outline: none;
 }
 
 .document {
-  background-color: var(--bg-surface);
+  background-color: var(--bg-primary);
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -211,7 +97,7 @@
   padding: var(--space-2) var(--space-4);
   color: var(--text-muted);
   font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   cursor: pointer;
   margin-bottom: -1px;
 }

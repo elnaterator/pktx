@@ -398,7 +398,7 @@ describe('GenericListSection', () => {
 
       await user.click(screen.getAllByRole('button', { name: /delete/i })[1])
       expect(screen.getByText(/are you sure/i)).toBeInTheDocument()
-      await user.click(screen.getByRole('button', { name: /confirm/i }))
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
 
       await waitFor(() => {
         expect(api.removeEntry).toHaveBeenCalledWith(7, 'work', 'id-2')
@@ -420,7 +420,7 @@ describe('GenericListSection', () => {
       vi.mocked(api.removeEntry).mockRejectedValue(new Error('boom'))
       renderSection()
       await user.click(screen.getAllByRole('button', { name: /delete/i })[0])
-      await user.click(screen.getByRole('button', { name: /confirm/i }))
+      await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
       expect(await screen.findByText(/failed to delete/i)).toBeInTheDocument()
     })
   })
@@ -492,7 +492,7 @@ describe('GenericListSection', () => {
       expect(screen.queryByText(/^Courses:/)).not.toBeInTheDocument()
     })
 
-    it('puts the courses field in its own row, after the shared details row', async () => {
+    it('gives the courses field its own row, after the paired details', async () => {
       const user = userEvent.setup()
       renderSection({ meta: educationMeta, entries: [school] })
       await user.click(screen.getByRole('button', { name: /edit education/i }))
@@ -500,8 +500,10 @@ describe('GenericListSection', () => {
       const courses = screen.getByLabelText(/courses/i)
       const degree = screen.getByLabelText(/degree/i)
       const score = screen.getByLabelText(/score/i)
-      expect(degree.closest('div')?.parentElement).toBe(score.closest('div')?.parentElement)
-      expect(degree.closest('div')?.parentElement?.contains(courses)).toBe(false)
+      // Degree and score share a row; courses spans the full width.
+      expect(degree.closest('div')?.className).toMatch(/half/)
+      expect(score.closest('div')?.className).toMatch(/half/)
+      expect(courses.closest('div')?.className).not.toMatch(/half/)
       expect(degree.compareDocumentPosition(courses) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
     })
   })

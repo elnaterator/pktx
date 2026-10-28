@@ -1,71 +1,14 @@
 .container {
   position: relative;
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
+  background-color: var(--bg-raised);
   padding: var(--space-6) var(--space-7);
 }
 
-.editIcon {
+.actions {
   position: absolute;
   top: var(--space-3);
   right: var(--space-3);
-  color: var(--text-muted);
-  cursor: pointer;
-  background: none;
-  border: none;
-  border-radius: var(--radius-none);
-  padding: var(--space-1) var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1;
-  transition: background-color var(--transition-fast), color var(--transition-fast);
-}
-
-.editIcon:hover {
-  background-color: var(--bg-active);
-  color: var(--accent-green);
-}
-
-.editActions {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  display: flex;
-  gap: var(--space-1);
-  align-items: center;
-  z-index: 1;
-}
-
-.actionButton {
-  color: var(--text-muted);
-  cursor: pointer;
-  background: none;
-  border: none;
-  border-radius: var(--radius-none);
-  padding: var(--space-1) var(--space-2);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: color var(--transition-fast);
-}
-
-.actionButton:hover {
-  color: var(--accent-green);
-}
-
-.saveIcon:hover {
-  color: var(--accent-green);
-}
-
-.cancelIcon:hover {
-  color: var(--status-error);
-}
-
-.saving {
-  font-size: 0.875rem;
-  color: var(--text-muted);
-  font-style: italic;
+  z-index: var(--z-raised);
 }
 
 .content {

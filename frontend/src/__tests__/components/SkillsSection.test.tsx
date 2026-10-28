@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import SkillsSection from '../../pages/resumes/SkillsSection'
 import * as api from '../../services/api'
@@ -105,308 +105,6 @@ describe('SkillsSection — new skill position', () => {
   })
 })
 
-/** A promise you resolve by hand, to hold a write in flight. */
-function deferred<T>() {
-  let resolve!: (v: T) => void
-  const promise = new Promise<T>((r) => {
-    resolve = r
-  })
-  return { promise, resolve }
-}
-
-describe('SkillsSection — typing keywords in a row', () => {
-  it('keeps focus in the keyword field while a keyword is saving', async () => {
-    const user = userEvent.setup()
-    const write = deferred<{ id: string }>()
-    vi.mocked(api.updateEntry).mockReturnValueOnce(write.promise)
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.type(input, 'Go{Enter}')
-
-    expect(api.updateEntry).toHaveBeenCalledTimes(1)
-    expect(input).toBeEnabled()
-    expect(input).toHaveFocus()
-
-    write.resolve({ id: 'g-lang' })
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(1))
-    await user.type(input, 'Rust{Enter}')
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(2))
-    expect(input).toHaveFocus()
-  })
-
-  it('takes the next keyword while the last one is still saving, and writes them in order', async () => {
-    const user = userEvent.setup()
-    const first = deferred<{ id: string }>()
-    vi.mocked(api.updateEntry).mockReturnValueOnce(first.promise)
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.type(input, 'Go{Enter}Rust{Enter}Zig{Enter}')
-
-    // Everything typed, one write in flight, the rest queued behind it.
-    expect(input).toHaveValue('')
-    expect(api.updateEntry).toHaveBeenCalledTimes(1)
-    expect(api.updateEntry).toHaveBeenLastCalledWith(VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python', 'Go'],
-    })
-
-    first.resolve({ id: 'g-lang' })
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(3))
-    expect(api.updateEntry).toHaveBeenNthCalledWith(2, VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python', 'Go', 'Rust'],
-    })
-    expect(api.updateEntry).toHaveBeenNthCalledWith(3, VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python', 'Go', 'Rust', 'Zig'],
-    })
-    expect(input).toHaveFocus()
-  })
-
-  it('does not create a new skill twice when keywords are typed before the first save lands', async () => {
-    const user = userEvent.setup()
-    const create = deferred<{ id: string }>()
-    vi.mocked(api.addEntry).mockReturnValueOnce(create.promise)
-    renderSection()
-
-    await user.click(screen.getByRole('button', { name: '+ Add Skill' }))
-    await user.type(screen.getByLabelText('New skill name'), 'Cloud')
-    const input = screen.getByLabelText('Add keyword to new skill')
-    await user.type(input, 'Terraform{Enter}Pulumi{Enter}')
-
-    expect(api.addEntry).toHaveBeenCalledTimes(1)
-    expect(input).toHaveFocus()
-
-    create.resolve({ id: 'g-cloud' })
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(1))
-    expect(api.addEntry).toHaveBeenCalledTimes(1)
-    expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-cloud', {
-      keywords: ['Terraform', 'Pulumi'],
-    })
-  })
-})
-
-describe('SkillsSection — skill edit mode', () => {
-  it('offers one edit button per skill, and no per-skill controls in view mode', () => {
-    renderSection()
-
-    expect(screen.getByRole('button', { name: 'Edit Languages skill' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit Frameworks skill' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Remove / })).not.toBeInTheDocument()
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-  })
-
-  it('lists groups in the order given, with their keywords', () => {
-    renderSection([
-      { id: 'a', name: 'Zeta', keywords: ['z'] },
-      { id: 'b', name: 'Alpha', keywords: ['a'] },
-    ])
-    const labels = screen.getAllByText(/^(Zeta|Alpha)$/).map((el) => el.textContent)
-    expect(labels).toEqual(['Zeta', 'Alpha'])
-    expect(screen.getByText('z')).toBeInTheDocument()
-  })
-
-  it('reveals removable chips and an adder for that skill only', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    await openAdder(user, 'Languages')
-
-    expect(screen.getByRole('button', { name: 'Remove TypeScript' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Remove React' })).not.toBeInTheDocument()
-    // skill name input + keyword adder
-    expect(screen.getAllByRole('textbox')).toHaveLength(2)
-  })
-
-  it('leaves edit mode via the check icon, not a text button', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    await openAdder(user, 'Languages')
-    const done = screen.getByRole('button', { name: 'Done editing Languages' })
-    expect(done).not.toHaveTextContent(/done/i)
-    expect(done.querySelector('svg')).toBeInTheDocument()
-    await user.click(done)
-
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Remove TypeScript' })).not.toBeInTheDocument()
-  })
-
-  it('edits one skill at a time', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    await openAdder(user, 'Languages')
-    await openAdder(user, 'Frameworks')
-
-    expect(screen.getByRole('button', { name: 'Remove React' })).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Remove TypeScript' })).not.toBeInTheDocument()
-  })
-
-  it('appends a keyword to its group in one update', async () => {
-    const user = userEvent.setup()
-    const onUpdate = renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.type(input, 'Go{Enter}')
-
-    await waitFor(() =>
-      expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-lang', {
-        keywords: ['TypeScript', 'Python', 'Go'],
-      }),
-    )
-    await waitFor(() => expect(onUpdate).toHaveBeenCalled())
-  })
-
-  it('builds consecutive writes on the last one before the refetch lands', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.type(input, 'Go,Rust,')
-
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(2))
-    expect(api.updateEntry).toHaveBeenNthCalledWith(2, VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python', 'Go', 'Rust'],
-    })
-    expect(screen.getByLabelText('Add keyword to Languages')).toBeInTheDocument()
-  })
-
-  it('writes a pasted separated list as a single update', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.click(input)
-    await user.paste('Go, Rust; Zig\nElixir')
-
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(1))
-    expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python', 'Go', 'Rust', 'Zig', 'Elixir'],
-    })
-  })
-
-  it('preserves keyword casing', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.type(input, 'GraphQL{Enter}')
-
-    await waitFor(() =>
-      expect(api.updateEntry).toHaveBeenCalledWith(
-        VERSION,
-        'skills',
-        'g-lang',
-        expect.objectContaining({ keywords: expect.arrayContaining(['GraphQL']) }),
-      ),
-    )
-  })
-
-  it('commits typed text on blur', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.type(input, 'Go')
-    await user.tab()
-
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(1))
-  })
-
-  it('skips keywords already in the group, case-insensitively', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.click(input)
-    await user.paste('typescript, Go')
-
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(1))
-    expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python', 'Go'],
-    })
-    expect(await screen.findByText('Skipped 1 already in Languages')).toBeInTheDocument()
-  })
-
-  it('writes nothing when every pasted keyword is a repeat', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.click(input)
-    await user.paste('python, TYPESCRIPT')
-
-    expect(await screen.findByText('Skipped 2 already in Languages')).toBeInTheDocument()
-    expect(api.updateEntry).not.toHaveBeenCalled()
-  })
-
-  it('skips repeats within one pasted list', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.click(input)
-    await user.paste('Go, go, GO')
-
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(1))
-    expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python', 'Go'],
-    })
-  })
-
-  it('reports a failed write', async () => {
-    const user = userEvent.setup()
-    renderSection()
-    vi.mocked(api.updateEntry).mockRejectedValueOnce(new Error('boom'))
-
-    const input = await openAdder(user, 'Languages')
-    await user.click(input)
-    await user.paste('Go, Rust')
-
-    expect(await screen.findByText('Failed to add: Go, Rust')).toBeInTheDocument()
-  })
-
-  it('leaves edit mode on Escape', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    const input = await openAdder(user, 'Languages')
-    await user.type(input, '{Escape}')
-
-    expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Edit Languages skill' })).toBeInTheDocument()
-    expect(api.updateEntry).not.toHaveBeenCalled()
-  })
-
-  it('renames a skill when its name field loses focus', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    await openAdder(user, 'Languages')
-    const name = screen.getByRole('textbox', { name: 'Languages skill name' })
-    await user.clear(name)
-    await user.type(name, 'Programming{Enter}')
-
-    await waitFor(() =>
-      expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-lang', {
-        name: 'Programming',
-      }),
-    )
-  })
-
-  it('does not rename to a blank name', async () => {
-    const user = userEvent.setup()
-    renderSection()
-
-    await openAdder(user, 'Languages')
-    const name = screen.getByRole('textbox', { name: 'Languages skill name' })
-    await user.clear(name)
-    await user.tab()
-
-    expect(await screen.findByText('A skill needs a name')).toBeInTheDocument()
-    expect(api.updateEntry).not.toHaveBeenCalled()
-  })
-})
 
 describe('SkillsSection — draft skill', () => {
   it('tells you the next step, following what you have typed', async () => {
@@ -577,69 +275,105 @@ describe('SkillsSection — draft skill', () => {
   })
 })
 
-describe('SkillsSection — remove with undo', () => {
-  it('removes a keyword immediately with no confirmation dialog', async () => {
+describe('SkillsSection — view mode', () => {
+  it('shows edit and delete icons per skill, and no chip remove buttons', () => {
+    renderSection()
+    for (const n of ['Languages', 'Frameworks']) {
+      expect(screen.getByRole('button', { name: `Edit ${n} skill` })).toBeInTheDocument()
+      expect(screen.getByRole('button', { name: `Delete ${n} skill` })).toBeInTheDocument()
+    }
+    expect(screen.queryByRole('button', { name: 'Remove TypeScript' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
+  })
+})
+
+describe('SkillsSection — edit with Save / Cancel', () => {
+  it('shows Save and Cancel plus removable chips for that skill only', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    await openAdder(user, 'Languages')
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Remove TypeScript' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Remove React' })).not.toBeInTheDocument()
+  })
+
+  it('writes name and keywords in one update on Save', async () => {
     const user = userEvent.setup()
     const onUpdate = renderSection()
-
-    await openAdder(user, 'Languages')
+    const input = await openAdder(user, 'Languages')
+    const name = screen.getByRole('textbox', { name: 'Languages skill name' })
+    await user.clear(name)
+    await user.type(name, 'Langs')
     await user.click(screen.getByRole('button', { name: 'Remove Python' }))
-
+    await user.type(input, 'Go{Enter}')
+    expect(api.updateEntry).not.toHaveBeenCalled()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
     await waitFor(() =>
       expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-lang', {
-        keywords: ['TypeScript'],
+        name: 'Langs',
+        keywords: ['TypeScript', 'Go'],
       }),
     )
     await waitFor(() => expect(onUpdate).toHaveBeenCalled())
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })
 
-  it('offers an Undo action that puts the keyword back', async () => {
+  it('skips keywords already present, case-insensitively', async () => {
     const user = userEvent.setup()
     renderSection()
+    const input = await openAdder(user, 'Languages')
+    await user.type(input, 'python{Enter}')
+    expect(await screen.findByText('Skipped 1 already in Languages')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    await waitFor(() =>
+      expect(api.updateEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-lang', {
+        name: 'Languages',
+        keywords: ['TypeScript', 'Python'],
+      }),
+    )
+  })
 
+  it('refuses a blank name', async () => {
+    const user = userEvent.setup()
+    renderSection()
+    await openAdder(user, 'Languages')
+    await user.clear(screen.getByRole('textbox', { name: 'Languages skill name' }))
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('A skill needs a name')).toBeInTheDocument()
+    expect(api.updateEntry).not.toHaveBeenCalled()
+  })
+
+  it('writes nothing on Cancel and restores the keywords', async () => {
+    const user = userEvent.setup()
+    renderSection()
     await openAdder(user, 'Languages')
     await user.click(screen.getByRole('button', { name: 'Remove Python' }))
-    await user.click(await screen.findByRole('button', { name: 'Undo' }))
-
-    await waitFor(() => expect(api.updateEntry).toHaveBeenCalledTimes(2))
-    expect(api.updateEntry).toHaveBeenLastCalledWith(VERSION, 'skills', 'g-lang', {
-      keywords: ['TypeScript', 'Python'],
-    })
+    await user.click(screen.getByRole('button', { name: 'Cancel' }))
+    expect(api.updateEntry).not.toHaveBeenCalled()
+    expect(screen.getByText('Python')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Save' })).not.toBeInTheDocument()
   })
 
-  it('surfaces an error and skips the undo toast when removal fails', async () => {
+  it('reports a failed save and stays in edit mode', async () => {
     const user = userEvent.setup()
-    const onUpdate = renderSection()
-    vi.mocked(api.updateEntry).mockRejectedValue(new Error('nope'))
-
-    await openAdder(user, 'Frameworks')
-    await user.click(screen.getByRole('button', { name: 'Remove React' }))
-
-    expect(await screen.findByText('nope')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: 'Undo' })).not.toBeInTheDocument()
-    expect(onUpdate).not.toHaveBeenCalled()
+    vi.mocked(api.updateEntry).mockRejectedValue(new Error('boom'))
+    renderSection()
+    await openAdder(user, 'Languages')
+    await user.click(screen.getByRole('button', { name: 'Save' }))
+    expect(await screen.findByText('Failed to update skill')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Save' })).toBeInTheDocument()
   })
+})
 
-  it('deletes a whole skill, with Undo restoring it in place', async () => {
+describe('SkillsSection — delete', () => {
+  it('asks to confirm, then removes the skill', async () => {
     const user = userEvent.setup()
     const onUpdate = renderSection()
-
-    await openAdder(user, 'Frameworks')
     await user.click(screen.getByRole('button', { name: 'Delete Frameworks skill' }))
-
-    await waitFor(() =>
-      expect(api.removeEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-fw'),
-    )
+    expect(api.removeEntry).not.toHaveBeenCalled()
+    await user.click(within(screen.getByRole('alertdialog')).getByRole('button', { name: 'Delete' }))
+    await waitFor(() => expect(api.removeEntry).toHaveBeenCalledWith(VERSION, 'skills', 'g-fw'))
     await waitFor(() => expect(onUpdate).toHaveBeenCalled())
-
-    await user.click(await screen.findByRole('button', { name: 'Undo' }))
-    await waitFor(() =>
-      expect(api.addEntry).toHaveBeenCalledWith(
-        VERSION,
-        'skills',
-        { name: 'Frameworks', keywords: ['React'] },
-        1,
-      ),
-    )
   })
 })

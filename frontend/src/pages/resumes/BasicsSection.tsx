@@ -1,9 +1,14 @@
 import { useEffect } from 'react'
 import { Controller, useFieldArray, useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Trash2 } from 'lucide-react'
+import { Plus, Trash2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { Basics } from '../../types'
+import { Button } from '../../components/Button'
 import { EditableSection } from '../../components/EditableSection'
+import { FormField } from '../../components/EditForm'
+import { IconButton } from '../../components/IconButton'
+import form from '../../components/EditForm.module.css'
 import SortableList from '../../components/SortableList'
 import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
 import { ExternalLink } from '../../components/ExternalLink'
@@ -189,6 +194,7 @@ export default function BasicsSection({ basics, versionId, onUpdate }: BasicsSec
     <EditableSection
       title="Basics"
       onSave={handleSave}
+      onCancel={() => reset(toDefaults(basics))}
       placeholderContent={
         empty ? (
           <p className={styles.placeholder}>Click the pencil icon to add your name and contact details</p>
@@ -198,167 +204,154 @@ export default function BasicsSection({ basics, versionId, onUpdate }: BasicsSec
       {({ isEditing }) => (
         <div data-testid="basics-section">
           {isEditing ? (
-            <form className={styles.form} onSubmit={(e) => e.preventDefault()}>
-              <div className={styles.formField}>
-                <label htmlFor="name" className={styles.formLabel}>Name</label>
-                <input
-                  type="text"
-                  id="name"
-                  className={`${styles.input} ${styles.inputName}`}
-                  {...register('name')}
-                />
-              </div>
-              <div className={styles.formField}>
-                <label htmlFor="label" className={styles.formLabel}>Headline</label>
+            <div className={form.fields}>
+              <FormField label="Name" htmlFor="name">
+                <input type="text" id="name" className={form.inputTitle} {...register('name')} />
+              </FormField>
+              <FormField label="Headline" htmlFor="label">
                 <input
                   type="text"
                   id="label"
-                  className={styles.input}
+                  className={form.input}
                   placeholder="e.g. Staff Software Engineer"
                   {...register('label')}
                 />
-              </div>
+              </FormField>
 
-              <div className={styles.formRow}>
-                <div className={styles.formField}>
-                  <label htmlFor="email" className={styles.formLabel}>Email</label>
-                  <input
-                    type="email"
-                    id="email"
-                    className={`${styles.input} ${errors.email ? styles.inputError : ''}`}
-                    {...register('email')}
-                  />
-                  <FieldError error={errors.email} />
-                </div>
-                <div className={styles.formField}>
-                  <label htmlFor="phone" className={styles.formLabel}>Phone</label>
-                  <input type="tel" id="phone" className={styles.input} {...register('phone')} />
-                </div>
-              </div>
+              <FormField label="Email" htmlFor="email" half error={errors.email}>
+                <input
+                  type="email"
+                  id="email"
+                  className={form.input}
+                  aria-invalid={!!errors.email}
+                  {...register('email')}
+                />
+              </FormField>
+              <FormField label="Phone" htmlFor="phone" half>
+                <input type="tel" id="phone" className={form.input} {...register('phone')} />
+              </FormField>
 
-              <div className={styles.formField}>
-                <label htmlFor="url" className={styles.formLabel}>Website</label>
+              <FormField label="Website" htmlFor="url" error={errors.url}>
                 <input
                   type="text"
                   id="url"
-                  className={`${styles.input} ${errors.url ? styles.inputError : ''}`}
+                  className={form.input}
                   placeholder="https://…"
+                  aria-invalid={!!errors.url}
                   {...register('url')}
                 />
-                <FieldError error={errors.url} />
-              </div>
+              </FormField>
 
-              <div className={styles.formRow}>
-                <div className={styles.formField}>
-                  <label htmlFor="city" className={styles.formLabel}>City</label>
-                  <input type="text" id="city" className={styles.input} {...register('city')} />
-                </div>
-                <div className={styles.formField}>
-                  <label htmlFor="region" className={styles.formLabel}>Region</label>
-                  <input type="text" id="region" className={styles.input} {...register('region')} />
-                </div>
-                <div className={styles.formField}>
-                  <label htmlFor="countryCode" className={styles.formLabel}>Country</label>
+              <div className={styles.locationRow}>
+                <FormField label="City" htmlFor="city">
+                  <input type="text" id="city" className={form.input} {...register('city')} />
+                </FormField>
+                <FormField label="Region" htmlFor="region">
+                  <input type="text" id="region" className={form.input} {...register('region')} />
+                </FormField>
+                <FormField label="Country" htmlFor="countryCode">
                   <input
                     type="text"
                     id="countryCode"
-                    className={styles.input}
+                    className={form.input}
                     placeholder="US"
                     {...register('countryCode')}
                   />
+                </FormField>
+              </div>
+
+              <div className={form.field}>
+                <div className={styles.subHeader}>
+                  <h3 className={styles.subLabel}>Profiles</h3>
+                  <Button
+                    size="sm"
+                    onClick={() => profiles.prepend({ network: '', username: '', url: '' })}
+                  >
+                    <Plus size={ICON_SIZE.sm} aria-hidden="true" /> Add profile
+                  </Button>
                 </div>
+                <SortableList
+                  className={styles.profileList}
+                  items={profiles.fields}
+                  getId={(row) => row.id}
+                  getLabel={(row) => {
+                    const i = profiles.fields.findIndex((f) => f.id === row.id)
+                    return getValues(`profiles.${i}.network`) || `profile ${i + 1}`
+                  }}
+                  onReorder={(_ids, { from, to }) => profiles.move(from, to)}
+                  renderItem={(row, sortable) => {
+                    const index = profiles.fields.findIndex((f) => f.id === row.id)
+                    const rowErrors = errors.profiles?.[index]
+                    return (
+                      <div ref={sortable.setNodeRef} style={sortable.style} className={styles.profileRow}>
+                        {sortable.handle}
+                        <div className={styles.profileFields}>
+                          <div className={form.field}>
+                            <input
+                              type="text"
+                              className={form.input}
+                              aria-invalid={!!rowErrors?.network}
+                              placeholder="Network (e.g. GitHub)"
+                              list="networks"
+                              aria-label={`Profile ${index + 1} network`}
+                              {...register(`profiles.${index}.network` as const)}
+                            />
+                            <FieldError error={rowErrors?.network} />
+                          </div>
+                          <div className={form.field}>
+                            <input
+                              type="text"
+                              className={form.input}
+                              placeholder="Username"
+                              aria-label={`Profile ${index + 1} username`}
+                              {...register(`profiles.${index}.username` as const)}
+                            />
+                          </div>
+                          <div className={form.field}>
+                            <input
+                              type="text"
+                              className={form.input}
+                              aria-invalid={!!rowErrors?.url}
+                              placeholder="https://…"
+                              aria-label={`Profile ${index + 1} URL`}
+                              {...register(`profiles.${index}.url` as const)}
+                            />
+                            <FieldError error={rowErrors?.url} />
+                          </div>
+                        </div>
+                        <IconButton
+                          icon={Trash2}
+                          label={`Remove profile ${index + 1}`}
+                          tone="danger"
+                          onClick={() => profiles.remove(index)}
+                        />
+                      </div>
+                    )
+                  }}
+                />
+                <datalist id="networks">
+                  {NETWORKS.map((n) => (
+                    <option key={n} value={n} />
+                  ))}
+                </datalist>
               </div>
 
-              <div className={styles.subHeader}>
-                <h3 className={styles.subLabel}>Profiles</h3>
-                <button
-                  type="button"
-                  className={styles.addProfile}
-                  onClick={() => profiles.prepend({ network: '', username: '', url: '' })}
-                >
-                  + Add profile
-                </button>
-              </div>
-              <SortableList
-                className={styles.profileList}
-                items={profiles.fields}
-                getId={(row) => row.id}
-                getLabel={(row) => {
-                  const i = profiles.fields.findIndex((f) => f.id === row.id)
-                  return getValues(`profiles.${i}.network`) || `profile ${i + 1}`
-                }}
-                onReorder={(_ids, { from, to }) => profiles.move(from, to)}
-                renderItem={(row, sortable) => {
-                const index = profiles.fields.findIndex((f) => f.id === row.id)
-                const rowErrors = errors.profiles?.[index]
-                return (
-                  <div ref={sortable.setNodeRef} style={sortable.style} className={styles.profileRow}>
-                    {sortable.handle}
-                    <div className={styles.formField}>
-                      <input
-                        type="text"
-                        className={`${styles.input} ${rowErrors?.network ? styles.inputError : ''}`}
-                        placeholder="Network (e.g. GitHub)"
-                        list="networks"
-                        aria-label={`Profile ${index + 1} network`}
-                        {...register(`profiles.${index}.network` as const)}
-                      />
-                      <FieldError error={rowErrors?.network} />
-                    </div>
-                    <div className={styles.formField}>
-                      <input
-                        type="text"
-                        className={styles.input}
-                        placeholder="Username"
-                        aria-label={`Profile ${index + 1} username`}
-                        {...register(`profiles.${index}.username` as const)}
-                      />
-                    </div>
-                    <div className={styles.formField}>
-                      <input
-                        type="text"
-                        className={`${styles.input} ${rowErrors?.url ? styles.inputError : ''}`}
-                        placeholder="https://…"
-                        aria-label={`Profile ${index + 1} URL`}
-                        {...register(`profiles.${index}.url` as const)}
-                      />
-                      <FieldError error={rowErrors?.url} />
-                    </div>
-                    <button
-                      type="button"
-                      className={styles.removeProfile}
-                      onClick={() => profiles.remove(index)}
-                      aria-label={`Remove profile ${index + 1}`}
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                )
-                }}
-              />
-              <datalist id="networks">
-                {NETWORKS.map((n) => (
-                  <option key={n} value={n} />
-                ))}
-              </datalist>
-
-              <div className={styles.formField}>
-                <label htmlFor="summary" className={styles.formLabel}>Summary</label>
+              <FormField label="Summary" htmlFor="summary">
                 <Controller
                   control={control}
                   name="summary"
                   render={({ field }) => (
                     <AutoResizeTextarea
                       id="summary"
-                      className={styles.textarea}
+                      className={form.textarea}
                       value={field.value ?? ''}
                       onChange={field.onChange}
                       placeholder="Enter your professional summary..."
                     />
                   )}
                 />
-              </div>
-            </form>
+              </FormField>
+            </div>
           ) : (
             <ReadView basics={basics} />
           )}

@@ -1,0 +1,19 @@
+/* Base status label: coloured dot + text, no pill, so a status never reads
+   as a tag. Compose and set `color` per status. */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  font-size: var(--font-size-4);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+}
+
+.badge::before {
+  content: '';
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background-color: currentColor;
+}

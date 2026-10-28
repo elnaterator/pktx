@@ -35,6 +35,8 @@ export const contactCreateSchema = z.object({
 })
 
 export type ContactCreateInput = z.infer<typeof contactCreateSchema>
+/** Raw form values before parsing (defaults not yet applied) — `useForm`'s first type arg. */
+export type ContactFormInput = z.input<typeof contactCreateSchema>
 
 export const contactUpdateSchema = contactCreateSchema.partial()
 export type ContactUpdateInput = z.infer<typeof contactUpdateSchema>

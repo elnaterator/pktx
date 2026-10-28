@@ -1,9 +1,12 @@
 import { useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { z, ZodTypeAny } from 'zod'
+import { z } from 'zod'
 import { FieldError } from './FieldError'
+import { Button } from './Button'
 import styles from './InlineCreateForm.module.css'
+
+type NameValues = { name: string }
 
 const defaultSchema = z.object({
   name: z.string().trim().min(1, 'Name cannot be empty'),
@@ -14,7 +17,8 @@ interface InlineCreateFormProps {
   onCancel: () => void
   placeholder?: string
   confirmLabel?: string
-  schema?: ZodTypeAny
+  /** Validates `{ name }`; defaults to a non-empty trimmed name. */
+  schema?: z.ZodType<NameValues, NameValues>
 }
 
 export function InlineCreateForm({
@@ -27,7 +31,7 @@ export function InlineCreateForm({
   const inputRef = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, setError } =
-    useForm<{ name: string }>({
+    useForm<NameValues>({
       resolver: zodResolver(schema),
       mode: 'onSubmit',
     })
@@ -51,7 +55,7 @@ export function InlineCreateForm({
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [onCancel])
 
-  const onSubmit = async (data: { name: string }) => {
+  const onSubmit = async (data: NameValues) => {
     try {
       await onConfirm(data.name)
     } catch (err) {
@@ -71,12 +75,12 @@ export function InlineCreateForm({
         aria-label="Name"
       />
       <div className={styles.buttons}>
-        <button type="submit" className={styles.confirmBtn} disabled={isSubmitting}>
+        <Button type="submit" variant="link" size="sm" disabled={isSubmitting}>
           {isSubmitting ? 'Creating...' : confirmLabel}
-        </button>
-        <button type="button" className={styles.cancelBtn} onClick={onCancel} disabled={isSubmitting}>
+        </Button>
+        <Button type="button" size="sm" onClick={onCancel} disabled={isSubmitting}>
           Cancel
-        </button>
+        </Button>
       </div>
       {errors.name && <FieldError error={errors.name} />}
     </form>

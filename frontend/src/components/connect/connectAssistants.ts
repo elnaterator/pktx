@@ -13,8 +13,14 @@ export interface Assistant {
   noun: AssistantNoun
   /** Ordered setup steps, plain text. */
   steps: string[]
-  /** Config file or command to copy, with where it goes. */
-  snippet?: { label: string; text: string }
+  /** Shown as a large tile in step 1; the rest sit under "More". */
+  featured?: boolean
+  /**
+   * Config file or command to copy, with where it goes. `inSetup` puts it in
+   * step 2 (the steps tell you to use it); otherwise it's an alternative and
+   * lives under Details.
+   */
+  snippet?: { label: string; text: string; inSetup?: boolean }
   /** One-click deep link that opens the client's own install prompt. */
   install?: { label: string; url: string }
   notes?: string[]
@@ -26,19 +32,13 @@ export interface Assistant {
 
 export const SERVER_NAME = 'pktx'
 
-export const EXAMPLE_PROMPTS = [
-  'Tailor my default resume to this job post: <paste link>',
-  'Log a win: I cut our deploy time from 40 minutes to 6.',
-  "Prep me for Friday's interview — pull the application, contacts, and notes.",
-  "Which applications haven't I followed up on in two weeks?",
-]
-
 const json = (value: unknown) => JSON.stringify(value, null, 2)
 
 export function buildAssistants(mcpUrl: string): Assistant[] {
   return [
     {
       id: 'claude',
+      featured: true,
       name: 'Claude',
       noun: 'connector',
       steps: [
@@ -58,6 +58,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
     },
     {
       id: 'chatgpt',
+      featured: true,
       name: 'ChatGPT / Codex',
       noun: 'MCP server',
       steps: [
@@ -81,6 +82,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
     },
     {
       id: 'chatgpt-web',
+      featured: true,
       name: 'ChatGPT web',
       noun: 'plugin',
       steps: [
@@ -109,6 +111,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
         `In Claude Code, run /mcp, pick ${SERVER_NAME}, and sign in (or run claude mcp login ${SERVER_NAME}).`,
       ],
       snippet: {
+        inSetup: true,
         label: 'Terminal',
         text: `claude mcp add --transport http ${SERVER_NAME} ${mcpUrl}`,
       },
@@ -117,6 +120,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
     },
     {
       id: 'cursor',
+      featured: true,
       name: 'Cursor',
       noun: 'MCP server',
       steps: [
@@ -130,6 +134,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
         )}`,
       },
       snippet: {
+        inSetup: true,
         label: '~/.cursor/mcp.json',
         text: json({ mcpServers: { [SERVER_NAME]: { url: mcpUrl } } }),
       },
@@ -138,6 +143,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
     },
     {
       id: 'github-copilot',
+      featured: true,
       name: 'VS Code (Copilot)',
       noun: 'MCP server',
       steps: [
@@ -152,6 +158,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
         )}`,
       },
       snippet: {
+        inSetup: true,
         label: '.vscode/mcp.json',
         text: json({ servers: { [SERVER_NAME]: { type: 'http', url: mcpUrl } } }),
       },
@@ -168,6 +175,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
         'Check it with grok mcp list.',
       ],
       snippet: {
+        inSetup: true,
         label: 'Terminal',
         text: `grok mcp add --transport http ${SERVER_NAME} ${mcpUrl}`,
       },
@@ -183,6 +191,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
         'Kiro reloads it automatically. Sign in when the browser opens.',
       ],
       snippet: {
+        inSetup: true,
         label: '~/.kiro/settings/mcp.json',
         text: json({ mcpServers: { [SERVER_NAME]: { url: mcpUrl } } }),
       },
@@ -199,6 +208,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
         'Sign in when the browser opens.',
       ],
       snippet: {
+        inSetup: true,
         label: '~/.config/devin/mcp_config.json',
         text: json({ mcpServers: { [SERVER_NAME]: { serverUrl: mcpUrl } } }),
       },
@@ -215,6 +225,7 @@ export function buildAssistants(mcpUrl: string): Assistant[] {
         'Sign in when Zed prompts.',
       ],
       snippet: {
+        inSetup: true,
         label: '~/.config/zed/settings.json',
         text: json({ context_servers: { [SERVER_NAME]: { url: mcpUrl } } }),
       },

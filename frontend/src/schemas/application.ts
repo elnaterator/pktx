@@ -21,6 +21,27 @@ export const APPLICATION_STATUSES = [
   'Accepted',
 ] as const
 
+export type ApplicationStatus = (typeof APPLICATION_STATUSES)[number]
+
+/** Statuses that end an application's pipeline; every other status is active. */
+const CLOSED_STATUSES: readonly ApplicationStatus[] = ['Rejected', 'Withdrawn', 'Accepted']
+
+export const ACTIVE_APPLICATION_STATUSES: ApplicationStatus[] = APPLICATION_STATUSES.filter(
+  (s) => !CLOSED_STATUSES.includes(s),
+)
+
+export function isActiveApplicationStatus(status: string): boolean {
+  return (ACTIVE_APPLICATION_STATUSES as string[]).includes(status)
+}
+
+/** Applications list URL, optionally pre-filtered to some statuses. */
+export function applicationsPath(statuses: readonly string[] = []): string {
+  const params = new URLSearchParams()
+  statuses.forEach((s) => params.append('status', s))
+  const query = params.toString()
+  return query ? `/applications?${query}` : '/applications'
+}
+
 export const applicationCreateSchema = z.object({
   company: trimmed(200).min(1, 'Company is required'),
   position: trimmed(200).min(1, 'Position is required'),
@@ -32,6 +53,8 @@ export const applicationCreateSchema = z.object({
 })
 
 export type ApplicationCreateInput = z.infer<typeof applicationCreateSchema>
+/** Raw form values before parsing (defaults not yet applied) — `useForm`'s first type arg. */
+export type ApplicationFormInput = z.input<typeof applicationCreateSchema>
 
 export const applicationUpdateSchema = applicationCreateSchema.partial()
 export type ApplicationUpdateInput = z.infer<typeof applicationUpdateSchema>

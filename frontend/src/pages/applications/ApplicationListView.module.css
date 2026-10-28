@@ -1,162 +1,64 @@
-.container {
-  padding: var(--space-6) 0;
-}
-
-.header {
-  display: flex;
+/* Two-line row: position | dates, then company · status | tags. Phones stack
+   position, company · status, tags, dates so nothing is cut off. */
+.twoLine {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    'position meta'
+    'sub tags';
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: var(--space-7);
-}
-
-.heading {
-  font-size: 1.5rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0;
-}
-
-.newButton {
-  background: none;
-  color: var(--accent-green);
-  padding: var(--space-3) var(--space-6);
-  border-radius: var(--radius-none);
-  font-weight: 500;
-  border: none;
-  cursor: pointer;
-  transition: background-color var(--transition-fast);
-  font-family: var(--font-mono);
-}
-
-.newButton:hover {
-  color: var(--accent-green-dim);
-}
-
-.newButton:focus {
-  outline: none;
-}
-
-/* Filters */
-.filters {
-  display: flex;
-  gap: var(--space-4);
-  margin-bottom: var(--space-6);
-}
-
-/* List */
-.empty {
-  color: var(--text-muted);
-  font-style: italic;
-}
-
-.list {
-  composes: list from '../../components/listRow.module.css';
-}
-
-.item {
-  composes: item from '../../components/listRow.module.css';
-}
-
-.itemLink {
-  composes: itemLink from '../../components/listRow.module.css';
-}
-
-.itemMain {
-  composes: itemMain from '../../components/listRow.module.css';
+  gap: var(--space-2) var(--space-6);
 }
 
 .position {
-  font-weight: 600;
-  color: var(--text-primary);
-  font-size: 1rem;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  composes: title from '../../components/listRow.module.css';
+  grid-area: position;
+}
+
+.sub {
+  grid-area: sub;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-4);
   min-width: 0;
 }
 
 .company {
   color: var(--text-secondary);
-  font-size: 0.9375rem;
-  white-space: nowrap;
+  font-size: var(--font-size-5);
+  overflow-wrap: anywhere;
 }
 
-.statusBadge {
-  font-size: 0.875rem;
-  font-weight: 600;
-  padding: var(--space-1) var(--space-4);
-  border-radius: var(--radius-none);
-  white-space: nowrap;
-  flex-shrink: 0;
-  font-family: var(--font-mono);
+.tags {
+  grid-area: tags;
+  justify-self: end;
 }
 
-/* Status badge colors */
-.statusInterested {
-  background-color: var(--status-green-dim-bg);
-  color: var(--accent-green-dim);
+.meta {
+  grid-area: meta;
+  justify-self: end;
 }
 
-.statusApplied {
-  background-color: var(--status-green-bg);
+.postingLink {
   color: var(--accent-green);
-}
-
-.statusPhoneScreen {
-  background-color: var(--status-warning-bg);
-  color: var(--status-warning);
-}
-
-.statusInterview {
-  background-color: var(--accent-purple-bg);
-  color: var(--accent-purple);
-}
-
-.statusOffer {
-  background-color: var(--status-green-bg);
-  color: var(--accent-green);
-}
-
-.statusRejected {
-  background-color: var(--status-error-bg);
-  color: var(--status-error);
-}
-
-.statusWithdrawn {
-  background-color: var(--bg-hover);
-  color: var(--text-muted);
-}
-
-.statusAccepted {
-  background-color: var(--status-green-bg-strong);
-  color: var(--accent-green);
-}
-
-.tagList {
-  composes: tagList from '../../components/listRow.module.css';
-}
-
-.tagBadge {
-  composes: tagBadge from '../../components/listRow.module.css';
-}
-
-.itemMeta {
-  composes: itemMeta from '../../components/listRow.module.css';
-}
-
-.linkCount {
-  composes: linkCount from '../../components/listRow.module.css';
-}
-
-.metaLink {
-  color: var(--accent-green);
+  font-size: var(--font-size-4);
   text-decoration: none;
   white-space: nowrap;
-  font-size: 0.875rem;
 }
 
 @media (max-width: 640px) {
-  .filters {
-    flex-direction: column;
+  .twoLine {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'position'
+      'sub'
+      'tags'
+      'meta';
+  }
+
+  .tags,
+  .meta {
+    justify-self: start;
   }
 }

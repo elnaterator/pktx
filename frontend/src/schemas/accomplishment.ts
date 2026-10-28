@@ -28,6 +28,8 @@ export const accomplishmentCreateSchema = z.object({
 })
 
 export type AccomplishmentCreateInput = z.infer<typeof accomplishmentCreateSchema>
+/** Raw form values before parsing (defaults not yet applied) — `useForm`'s first type arg. */
+export type AccomplishmentFormInput = z.input<typeof accomplishmentCreateSchema>
 
 export const accomplishmentUpdateSchema = accomplishmentCreateSchema.partial()
 export type AccomplishmentUpdateInput = z.infer<typeof accomplishmentUpdateSchema>

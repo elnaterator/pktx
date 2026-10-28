@@ -1,4 +1,5 @@
 import { Plus } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { SectionMeta } from '../../types'
 import styles from './AddSectionBar.module.css'
 
@@ -22,7 +23,7 @@ export default function AddSectionBar({ available, onAdd }: AddSectionBarProps) 
             className={styles.option}
             onClick={() => onAdd(meta.key)}
           >
-            <Plus size={13} aria-hidden="true" />
+            <Plus size={ICON_SIZE.md} aria-hidden="true" />
             {meta.label}
           </button>
         ))}

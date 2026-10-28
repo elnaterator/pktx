@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import { Pencil, Plus, Trash2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { ListEntry, SectionField, SectionMeta } from '../../types'
 import { EntryForm, type FieldConfig } from '../../components/EntryForm'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -10,6 +11,7 @@ import { useResumeMutations } from '../../hooks/queries'
 import { buildEntrySchema } from '../../schemas/resumeEntry'
 import SectionHeader from './SectionHeader'
 import { OWN_LINE_FIELDS, dateRange, fieldsOf, hasDateRange } from './sectionFields'
+import { IconButton } from '../../components/IconButton'
 import styles from './GenericListSection.module.css'
 
 interface GenericListSectionProps {
@@ -27,16 +29,22 @@ interface GenericListSectionProps {
 type Mode = 'view' | 'add' | { type: 'edit'; id: string } | { type: 'delete'; id: string }
 type FormValues = Record<string, string | string[]>
 
-const SHORT = new Set(['text', 'url', 'tags', 'date', 'email'])
+/** Widgets narrow enough to share a form row (URLs get the full width). */
+const SHORT = new Set(['text', 'tags', 'date', 'email'])
 const PLACEHOLDERS: Record<string, string> = {
   date: 'YYYY-MM',
   url: 'https://…',
   email: 'name@example.com',
 }
 
-/** Schema fields -> form fields; short fields after the primary share a row. */
+/** Schema fields -> form fields: the primary first, then short fields pair up in rows. */
 function toFieldConfigs(fields: SectionField[], primaryField: string): FieldConfig[] {
-  return fields.map((f) => {
+  const ranged = hasDateRange(fields)
+  const ordered = [
+    ...fields.filter((f) => f.name === primaryField),
+    ...fields.filter((f) => f.name !== primaryField),
+  ]
+  return ordered.map((f) => {
     const config: FieldConfig = {
       name: f.name,
       label: f.widget === 'tags' ? `${f.label} (comma separated)` : f.label,
@@ -53,6 +61,8 @@ function toFieldConfigs(fields: SectionField[], primaryField: string): FieldConf
     }
     // Periods (start/end) are month-precise; single dates (awarded, issued) can name a day.
     if (f.widget === 'date') config.days = f.name !== 'startDate' && f.name !== 'endDate'
+    // A blank end date means the entry is current.
+    if (ranged && f.name === 'endDate') config.openEnded = true
     if (f.name !== primaryField && SHORT.has(f.widget) && !OWN_LINE_FIELDS.has(f.name)) {
       config.group = 'meta'
     }
@@ -95,10 +105,13 @@ function EntryView({
   meta,
   fields,
   entry,
+  actions,
 }: {
   meta: SectionMeta
   fields: SectionField[]
   entry: ListEntry
+  /** Drag/edit/delete controls, kept to the heading so the body can use the full width. */
+  actions: React.ReactNode
 }) {
   const ranged = hasDateRange(fields)
   const primary = str(entry[meta.primaryField])
@@ -127,34 +140,39 @@ function EntryView({
   const ownLine = fields.filter((f) => OWN_LINE_FIELDS.has(f.name))
 
   return (
-    <div className={styles.entryInfo}>
-      <span className={styles.entryTitle}>{primary || meta.label}</span>
-      {(metaParts.length > 0 || url) && (
-        <span className={styles.entryMeta}>
-          {metaParts.map((part, i) => (
-            <span key={i}>
-              {i > 0 && ' · '}
-              {part}
+    <>
+      <div className={styles.entryHeader}>
+        <div className={styles.entryInfo}>
+          <span className={styles.entryTitle}>{primary || meta.label}</span>
+          {(metaParts.length > 0 || url) && (
+            <span className={styles.entryMeta}>
+              {metaParts.map((part, i) => (
+                <span key={i}>
+                  {i > 0 && ' · '}
+                  {part}
+                </span>
+              ))}
+              {url && (
+                <>
+                  {metaParts.length > 0 && ' · '}
+                  <ExternalLink href={url} className={styles.entryLink}>
+                    {url.replace(/^https?:\/\//, '')}
+                  </ExternalLink>
+                </>
+              )}
             </span>
-          ))}
-          {url && (
-            <>
-              {metaParts.length > 0 && ' · '}
-              <ExternalLink href={url} className={styles.entryLink}>
-                {url.replace(/^https?:\/\//, '')}
-              </ExternalLink>
-            </>
           )}
-        </span>
-      )}
-      {ownLine.map((f) => {
-        const items = Array.isArray(entry[f.name]) ? (entry[f.name] as string[]) : []
-        return items.length > 0 ? (
-          <span key={f.name} className={styles.entryMeta}>
-            {f.label}: {items.join(', ')}
-          </span>
-        ) : null
-      })}
+          {ownLine.map((f) => {
+            const items = Array.isArray(entry[f.name]) ? (entry[f.name] as string[]) : []
+            return items.length > 0 ? (
+              <span key={f.name} className={styles.entryMeta}>
+                {f.label}: {items.join(', ')}
+              </span>
+            ) : null
+          })}
+        </div>
+        {actions}
+      </div>
       {longText.map((f) =>
         str(entry[f.name]) ? (
           <p key={f.name} className={styles.entryText}>
@@ -174,7 +192,7 @@ function EntryView({
           </ul>
         ) : null
       })}
-    </div>
+    </>
   )
 }
 
@@ -265,7 +283,7 @@ export default function GenericListSection({
               </button>
             )}
             <button type="button" onClick={() => setMode('add')}>
-              <Plus size={12} aria-hidden="true" /> Add {title}
+              <Plus size={ICON_SIZE.sm} aria-hidden="true" /> Add {title}
             </button>
           </>
         )}
@@ -276,6 +294,7 @@ export default function GenericListSection({
           <EntryForm
             fields={fieldConfigs}
             schema={schema}
+            heading={`New ${noun}`}
             onSubmit={handleAdd}
             onCancel={() => {
               setMode('view')
@@ -301,6 +320,7 @@ export default function GenericListSection({
                     fields={fieldConfigs}
                     schema={schema}
                     defaultValues={toFormValues(entry, fields)}
+                    heading={`Editing ${str(entry[meta.primaryField]) || noun}`}
                     onSubmit={handleEdit}
                     onCancel={() => setMode('view')}
                   />
@@ -309,26 +329,27 @@ export default function GenericListSection({
             }
             return (
               <div ref={row.setNodeRef} style={row.style} className={styles.entry}>
-                <div className={styles.entryHeader}>
-                  <EntryView meta={meta} fields={fields} entry={entry} />
-                  <div className={styles.entryActions}>
-                    {row.handle}
-                    <button
-                      className={styles.editButton}
-                      onClick={() => setMode({ type: 'edit', id: entryId })}
-                      aria-label={`Edit ${noun}`}
-                    >
-                      <Pencil size={13} />
-                    </button>
-                    <button
-                      className={styles.deleteButton}
-                      onClick={() => setMode({ type: 'delete', id: entryId })}
-                      aria-label={`Delete ${noun}`}
-                    >
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                </div>
+                <EntryView
+                  meta={meta}
+                  fields={fields}
+                  entry={entry}
+                  actions={
+                    <div className={styles.entryActions}>
+                      {row.handle}
+                      <IconButton
+                        icon={Pencil}
+                        label={`Edit ${noun}`}
+                        onClick={() => setMode({ type: 'edit', id: entryId })}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label={`Delete ${noun}`}
+                        tone="danger"
+                        onClick={() => setMode({ type: 'delete', id: entryId })}
+                      />
+                    </div>
+                  }
+                />
               </div>
             )
           }}
@@ -341,6 +362,7 @@ export default function GenericListSection({
 
       {typeof mode === 'object' && mode.type === 'delete' && (
         <ConfirmDialog
+          confirmLabel="Delete"
           message={`Are you sure you want to delete this ${noun} entry?`}
           onConfirm={handleDelete}
           onCancel={() => setMode('view')}

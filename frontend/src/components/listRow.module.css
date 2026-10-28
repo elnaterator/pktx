@@ -8,8 +8,7 @@
 }
 
 .item {
-  background-color: var(--bg-hover);
-  border-radius: var(--radius-none);
+  background-color: var(--bg-raised);
   padding: var(--space-4) var(--space-7);
   cursor: pointer;
   transition: background-color var(--transition-fast);
@@ -19,11 +18,7 @@
 }
 
 .item:hover {
-  background-color: var(--bg-active);
-}
-
-.item:focus {
-  outline: none;
+  background-color: var(--bg-raised-hover);
 }
 
 .itemLink {
@@ -45,9 +40,9 @@
 }
 
 .title {
-  font-weight: 600;
+  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-  font-size: 1rem;
+  font-size: var(--font-size-6);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -57,13 +52,9 @@
   display: flex;
   gap: var(--space-6);
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   white-space: nowrap;
   align-items: center;
-}
-
-.metaItem {
-  white-space: nowrap;
 }
 
 .linkCount {
@@ -71,21 +62,6 @@
   align-items: center;
   gap: var(--space-1);
   color: var(--text-secondary);
-}
-
-.tagList {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-}
-
-.tagBadge {
-  font-size: 0.875rem;
-  font-weight: 500;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-none);
-  background-color: var(--accent-green-bg);
-  color: var(--accent-green);
 }
 
 @media (max-width: 640px) {
@@ -99,11 +75,24 @@
     flex-direction: column;
     align-items: flex-start;
     gap: var(--space-2);
+    width: 100%;
   }
 
+  /* Title, "@ company" and badges wrap within the row instead of widening the page. */
+  .itemMain {
+    flex-wrap: wrap;
+    width: 100%;
+  }
+
+  .title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  /* Dates and counts share one line, wrapping only when out of room. */
   .itemMeta {
-    flex-direction: column;
-    gap: var(--space-1);
+    flex-wrap: wrap;
+    gap: var(--space-1) var(--space-4);
     white-space: normal;
   }
 }

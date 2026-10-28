@@ -1,0 +1,10 @@
+/* Colours come from the --comm-status-* tokens in styles/tokens.css. */
+.badge {
+  composes: badge from './badge.module.css';
+  color: var(--comm-status-draft);
+}
+
+.draft { color: var(--comm-status-draft); }
+.ready { color: var(--comm-status-ready); }
+.sent { color: var(--comm-status-sent); }
+.archived { color: var(--comm-status-archived); }

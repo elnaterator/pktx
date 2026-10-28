@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildAssistants, EXAMPLE_PROMPTS } from '../../../components/connect/connectAssistants'
+import { buildAssistants } from '../../../components/connect/connectAssistants'
 
 const URL_ = 'https://pktx.test/mcp'
 const assistants = buildAssistants(URL_)
@@ -42,8 +42,16 @@ describe('connectAssistants data', () => {
     })
   })
 
-  it('has a few example prompts', () => {
-    expect(EXAMPLE_PROMPTS.length).toBeGreaterThanOrEqual(3)
-    expect(EXAMPLE_PROMPTS.length).toBeLessThanOrEqual(4)
+  it('features the common chat apps and editors', () => {
+    const featured = buildAssistants(URL_).filter((a) => a.featured).map((a) => a.id)
+    expect(featured).toEqual(['claude', 'chatgpt', 'chatgpt-web', 'cursor', 'github-copilot'])
+  })
+
+  it('puts a snippet in the setup step only when the steps point to it', () => {
+    for (const a of buildAssistants(URL_)) {
+      if (!a.snippet) continue
+      const referenced = a.steps.some((step) => /below/.test(step))
+      expect(Boolean(a.snippet.inSetup), a.id).toBe(referenced)
+    }
   })
 })

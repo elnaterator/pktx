@@ -111,6 +111,19 @@ describe('BasicsSection (read-only)', () => {
 })
 
 describe('BasicsSection (editing)', () => {
+  it('drops unsaved edits on cancel', async () => {
+    const user = userEvent.setup()
+    renderEditable({ name: 'Jane' })
+    await startEditing(user)
+
+    await user.clear(screen.getByLabelText('Name'))
+    await user.type(screen.getByLabelText('Name'), 'Draft')
+    await user.click(screen.getByRole('button', { name: /cancel editing basics/i }))
+    await startEditing(user)
+
+    expect(screen.getByLabelText('Name')).toHaveValue('Jane')
+  })
+
   it('prompts to fill in an empty resume', () => {
     renderEditable({})
     expect(screen.getByText(/click the pencil icon/i)).toBeInTheDocument()

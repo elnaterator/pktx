@@ -1,6 +1,7 @@
 import { ReactNode, useState } from 'react';
-import { Pencil, Check, X } from 'lucide-react';
 import { useToast } from './toast';
+import { EditActions } from './EditActions';
+import { EditForm } from './EditForm';
 import styles from './EditableSection.module.css';
 
 type EditState = 'viewing' | 'editing' | 'saving';
@@ -10,9 +11,11 @@ interface EditableSectionProps {
   onSave: () => Promise<void>;
   title: string;
   placeholderContent?: ReactNode;
+  /** Called when editing is abandoned, e.g. to reset the form. */
+  onCancel?: () => void;
 }
 
-export function EditableSection({ children, onSave, title, placeholderContent }: EditableSectionProps) {
+export function EditableSection({ children, onSave, title, placeholderContent, onCancel }: EditableSectionProps) {
   const [editState, setEditState] = useState<EditState>('viewing');
   const { success: toastSuccess, error: toastError } = useToast();
 
@@ -21,6 +24,7 @@ export function EditableSection({ children, onSave, title, placeholderContent }:
   };
 
   const handleCancel = () => {
+    onCancel?.();
     setEditState('viewing');
   };
 
@@ -37,49 +41,34 @@ export function EditableSection({ children, onSave, title, placeholderContent }:
     }
   };
 
+  if (editState !== 'viewing') {
+    return (
+      <div className={styles.container}>
+        <EditForm
+          heading={`Editing ${title.toLowerCase()}`}
+          onSubmit={handleSave}
+          onCancel={handleCancel}
+          saving={editState === 'saving'}
+          saveLabel={`Save ${title}`}
+          cancelLabel={`Cancel editing ${title}`}
+        >
+          {children({ isEditing: true })}
+        </EditForm>
+      </div>
+    );
+  }
+
   return (
     <div className={styles.container}>
-      {editState === 'viewing' && (
-        <button
-          onClick={handleEdit}
-          className={styles.editIcon}
-          aria-label={`Edit ${title}`}
-        >
-          <Pencil size={14} />
-        </button>
-      )}
-
-      {(editState === 'editing' || editState === 'saving') && (
-        <div className={styles.editActions}>
-          {editState === 'editing' && (
-            <>
-              <button
-                onClick={handleSave}
-                className={`${styles.actionButton} ${styles.saveIcon}`}
-                aria-label={`Save ${title}`}
-              >
-                <Check size={14} />
-              </button>
-              <button
-                onClick={handleCancel}
-                className={`${styles.actionButton} ${styles.cancelIcon}`}
-                aria-label={`Cancel editing ${title}`}
-              >
-                <X size={14} />
-              </button>
-            </>
-          )}
-          {editState === 'saving' && (
-            <span className={styles.saving}>Saving...</span>
-          )}
-        </div>
-      )}
-
-      <div className={styles.content}>
-        {children({ isEditing: editState === 'editing' })}
+      <div className={styles.actions}>
+        <EditActions editing={false} onEdit={handleEdit} editLabel={`Edit ${title}`} />
       </div>
 
-      {editState === 'viewing' && placeholderContent}
+      <div className={styles.content}>
+        {children({ isEditing: false })}
+      </div>
+
+      {placeholderContent}
     </div>
   );
 }

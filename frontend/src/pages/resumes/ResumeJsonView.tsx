@@ -1,5 +1,6 @@
 import { useMemo } from 'react'
 import { Save, Undo2 } from 'lucide-react'
+import { ICON_SIZE } from '../../theme'
 import type { Resume } from '../../types'
 import { useToast } from '../../components/toast'
 import { useResumeMutations } from '../../hooks/queries'
@@ -66,7 +67,7 @@ export default function ResumeJsonView({ versionId, data, draft, onDraftChange }
               onClick={() => onDraftChange(null)}
               disabled={replaceData.isPending}
             >
-              <Undo2 size={14} aria-hidden="true" />
+              <Undo2 size={ICON_SIZE.md} aria-hidden="true" />
               Revert
             </button>
           )}
@@ -76,7 +77,7 @@ export default function ResumeJsonView({ versionId, data, draft, onDraftChange }
             onClick={handleSave}
             disabled={!dirty || 'error' in parsed || replaceData.isPending}
           >
-            <Save size={14} aria-hidden="true" />
+            <Save size={ICON_SIZE.md} aria-hidden="true" />
             {replaceData.isPending ? 'Saving…' : 'Save'}
           </button>
         </div>

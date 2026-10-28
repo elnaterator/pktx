@@ -3,7 +3,7 @@
   top: var(--header-h, 64px);
   left: 0;
   right: 0;
-  z-index: 9999;
+  z-index: var(--z-toast);
   max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-3) var(--space-9) 0;
@@ -41,7 +41,7 @@
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-card);
   font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   opacity: 0;
   transform: translateY(-8px);
   transition:
@@ -98,7 +98,7 @@
   border: 1px solid currentColor;
   color: inherit;
   font-family: var(--font-mono);
-  font-size: 0.875rem;
+  font-size: var(--font-size-4);
   padding: var(--space-1) var(--space-3);
   cursor: pointer;
   border-radius: var(--radius-sm);
@@ -112,8 +112,8 @@
 .dismissButton {
   background: none;
   border: none;
-  font-size: 1.25rem;
-  line-height: 1;
+  font-size: var(--font-size-8);
+  line-height: var(--leading-none);
   cursor: pointer;
   padding: 0 var(--space-1);
   color: inherit;
@@ -126,6 +126,5 @@
 }
 
 .dismissButton:focus {
-  outline: none;
   opacity: 1;
 }
