@@ -97,10 +97,13 @@ function EntryView({
   meta,
   fields,
   entry,
+  actions,
 }: {
   meta: SectionMeta
   fields: SectionField[]
   entry: ListEntry
+  /** Drag/edit/delete controls, kept to the heading so the body can use the full width. */
+  actions: React.ReactNode
 }) {
   const ranged = hasDateRange(fields)
   const primary = str(entry[meta.primaryField])
@@ -129,34 +132,39 @@ function EntryView({
   const ownLine = fields.filter((f) => OWN_LINE_FIELDS.has(f.name))
 
   return (
-    <div className={styles.entryInfo}>
-      <span className={styles.entryTitle}>{primary || meta.label}</span>
-      {(metaParts.length > 0 || url) && (
-        <span className={styles.entryMeta}>
-          {metaParts.map((part, i) => (
-            <span key={i}>
-              {i > 0 && ' · '}
-              {part}
+    <>
+      <div className={styles.entryHeader}>
+        <div className={styles.entryInfo}>
+          <span className={styles.entryTitle}>{primary || meta.label}</span>
+          {(metaParts.length > 0 || url) && (
+            <span className={styles.entryMeta}>
+              {metaParts.map((part, i) => (
+                <span key={i}>
+                  {i > 0 && ' · '}
+                  {part}
+                </span>
+              ))}
+              {url && (
+                <>
+                  {metaParts.length > 0 && ' · '}
+                  <ExternalLink href={url} className={styles.entryLink}>
+                    {url.replace(/^https?:\/\//, '')}
+                  </ExternalLink>
+                </>
+              )}
             </span>
-          ))}
-          {url && (
-            <>
-              {metaParts.length > 0 && ' · '}
-              <ExternalLink href={url} className={styles.entryLink}>
-                {url.replace(/^https?:\/\//, '')}
-              </ExternalLink>
-            </>
           )}
-        </span>
-      )}
-      {ownLine.map((f) => {
-        const items = Array.isArray(entry[f.name]) ? (entry[f.name] as string[]) : []
-        return items.length > 0 ? (
-          <span key={f.name} className={styles.entryMeta}>
-            {f.label}: {items.join(', ')}
-          </span>
-        ) : null
-      })}
+          {ownLine.map((f) => {
+            const items = Array.isArray(entry[f.name]) ? (entry[f.name] as string[]) : []
+            return items.length > 0 ? (
+              <span key={f.name} className={styles.entryMeta}>
+                {f.label}: {items.join(', ')}
+              </span>
+            ) : null
+          })}
+        </div>
+        {actions}
+      </div>
       {longText.map((f) =>
         str(entry[f.name]) ? (
           <p key={f.name} className={styles.entryText}>
@@ -176,7 +184,7 @@ function EntryView({
           </ul>
         ) : null
       })}
-    </div>
+    </>
   )
 }
 
@@ -311,23 +319,27 @@ export default function GenericListSection({
             }
             return (
               <div ref={row.setNodeRef} style={row.style} className={styles.entry}>
-                <div className={styles.entryHeader}>
-                  <EntryView meta={meta} fields={fields} entry={entry} />
-                  <div className={styles.entryActions}>
-                    {row.handle}
-                    <IconButton
-                      icon={Pencil}
-                      label={`Edit ${noun}`}
-                      onClick={() => setMode({ type: 'edit', id: entryId })}
-                    />
-                    <IconButton
-                      icon={Trash2}
-                      label={`Delete ${noun}`}
-                      tone="danger"
-                      onClick={() => setMode({ type: 'delete', id: entryId })}
-                    />
-                  </div>
-                </div>
+                <EntryView
+                  meta={meta}
+                  fields={fields}
+                  entry={entry}
+                  actions={
+                    <div className={styles.entryActions}>
+                      {row.handle}
+                      <IconButton
+                        icon={Pencil}
+                        label={`Edit ${noun}`}
+                        onClick={() => setMode({ type: 'edit', id: entryId })}
+                      />
+                      <IconButton
+                        icon={Trash2}
+                        label={`Delete ${noun}`}
+                        tone="danger"
+                        onClick={() => setMode({ type: 'delete', id: entryId })}
+                      />
+                    </div>
+                  }
+                />
               </div>
             )
           }}
