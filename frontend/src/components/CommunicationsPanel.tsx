@@ -321,11 +321,15 @@ function CommunicationRow({
           <DirectionIcon size={ICON_SIZE.md} />
         </span>
         <div className={styles.rowMain}>
+          {/* Two fixed meta lines (when · who, then what · status) so status
+              sits in the same place on every row. */}
           <div className={styles.meta}>
             <span className={styles.date}>{formatDate(comm.date)}</span>
             <span className={cx(styles.directionLabel, directionClass)}>
               {commDirectionLabel(comm.direction, contactName)}
             </span>
+          </div>
+          <div className={styles.meta}>
             <span className={styles.metaItem}>
               <TypeIcon size={ICON_SIZE.sm} aria-hidden="true" />
               {commLabel(COMM_TYPE_LABELS, comm.type)}
@@ -339,25 +343,30 @@ function CommunicationRow({
               {comm.body && <span className={styles.preview}>{comm.body}</span>}
             </p>
           )}
-        </div>
-        <TagList tags={comm.tags ?? []} />
-        <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
-          <IconButton icon={Pencil} label="Edit communication" onClick={onEdit} />
-          <IconButton icon={Trash2} label="Delete communication" tone="danger" onClick={onDelete} />
-          {expandable ? (
-            <IconButton
-              icon={ChevronDown}
-              label={expanded ? 'Collapse message' : 'Expand message'}
-              tone="neutral"
-              aria-expanded={expanded}
-              aria-controls={bodyId}
-              className={cx(styles.chevron, expanded && styles.chevronOpen)}
-              onClick={onToggle}
-            />
-          ) : (
-            // Keeps edit/delete in the same place on every row.
-            <span className={styles.chevronSlot} aria-hidden="true" />
-          )}
+          {/* Tags left, actions right — one line, aligned with the text. */}
+          <div className={styles.footer}>
+            <div className={styles.tags}>
+              <TagList tags={comm.tags ?? []} />
+            </div>
+            <div className={styles.actions} onClick={(e) => e.stopPropagation()}>
+              <IconButton icon={Pencil} label="Edit communication" onClick={onEdit} />
+              <IconButton icon={Trash2} label="Delete communication" tone="danger" onClick={onDelete} />
+              {expandable ? (
+                <IconButton
+                  icon={ChevronDown}
+                  label={expanded ? 'Collapse message' : 'Expand message'}
+                  tone="neutral"
+                  aria-expanded={expanded}
+                  aria-controls={bodyId}
+                  className={cx(styles.chevron, expanded && styles.chevronOpen)}
+                  onClick={onToggle}
+                />
+              ) : (
+                // Keeps edit/delete in the same place on every row.
+                <span className={styles.chevronSlot} aria-hidden="true" />
+              )}
+            </div>
+          </div>
         </div>
       </div>
       {expanded && expandable && (

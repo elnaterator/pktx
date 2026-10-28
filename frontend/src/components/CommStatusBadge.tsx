@@ -9,7 +9,7 @@ const STATUS_CLASS: Record<CommStatus, string> = {
   archived: styles.archived,
 }
 
-/** Communication status pill (draft / ready / sent / archived). */
+/** Communication status as a coloured dot + label (draft / ready / sent / archived). */
 export function CommStatusBadge({ status }: { status: string }) {
   return (
     <span className={cx(styles.badge, STATUS_CLASS[status as CommStatus])}>

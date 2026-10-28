@@ -1,11 +1,24 @@
-/* Colours come from the --comm-status-* tokens in styles/tokens.css. */
+/* Coloured dot + label rather than a pill, so status never reads as a tag.
+   Colours come from the --comm-status-* tokens in styles/tokens.css. */
 .badge {
-  composes: badge from './badge.module.css';
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-shrink: 0;
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
   color: var(--comm-status-draft);
-  background-color: var(--comm-status-draft-bg);
 }
 
-.draft { color: var(--comm-status-draft); background-color: var(--comm-status-draft-bg); }
-.ready { color: var(--comm-status-ready); background-color: var(--comm-status-ready-bg); }
-.sent { color: var(--comm-status-sent); background-color: var(--comm-status-sent-bg); }
-.archived { color: var(--comm-status-archived); background-color: var(--comm-status-archived-bg); }
+.badge::before {
+  content: '';
+  width: 0.45em;
+  height: 0.45em;
+  border-radius: 50%;
+  background-color: currentColor;
+}
+
+.draft { color: var(--comm-status-draft); }
+.ready { color: var(--comm-status-ready); }
+.sent { color: var(--comm-status-sent); }
+.archived { color: var(--comm-status-archived); }

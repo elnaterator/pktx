@@ -122,11 +122,24 @@
   color: var(--text-muted);
 }
 
+.footer {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+/* Tags take the free space and wrap; actions always sit at the right. */
+.tags {
+  flex: 1;
+  min-width: 0;
+}
+
 .actions {
   display: flex;
   align-items: center;
   gap: var(--space-1);
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .chevron svg {
@@ -156,20 +169,4 @@
   font-size: var(--font-size-5);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-}
-
-@media (max-width: 640px) {
-  .row {
-    flex-wrap: wrap;
-  }
-
-  /* Tile + text fill the first line; tags and actions wrap below. */
-  .rowMain {
-    flex-basis: calc(100% - 1.75rem - var(--space-4));
-  }
-
-  /* Tags (if any) on the left, actions always at the right. */
-  .actions {
-    margin-left: auto;
-  }
 }

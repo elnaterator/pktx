@@ -168,15 +168,11 @@
   --comm-direction-in: var(--app-status-applied);       /* same blue as "Applied" */
   --comm-direction-in-bg: var(--app-status-applied-bg);
 
-  /* Communication status badges (contact timeline) */
+  /* Communication status (contact timeline): dot + text, no pill */
   --comm-status-draft: var(--text-secondary);
-  --comm-status-draft-bg: var(--bg-raised-hover);
   --comm-status-ready: var(--status-warning);
-  --comm-status-ready-bg: var(--status-warning-bg);
   --comm-status-sent: var(--accent-green);
-  --comm-status-sent-bg: var(--accent-green-bg);
   --comm-status-archived: var(--text-muted);
-  --comm-status-archived-bg: transparent;
 
   /* Transitions */
   --transition-fast: 150ms ease;
