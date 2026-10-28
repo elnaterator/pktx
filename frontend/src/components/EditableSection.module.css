@@ -11,12 +11,6 @@
   z-index: var(--z-raised);
 }
 
-.saving {
-  font-size: var(--font-size-4);
-  color: var(--text-muted);
-  font-style: italic;
-}
-
 .content {
   margin-top: 0;
 }

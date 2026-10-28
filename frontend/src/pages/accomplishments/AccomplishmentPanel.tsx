@@ -1,13 +1,15 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
+import { DateInput } from '../../components/DateInput'
 import { TagInput } from '../../components/TagInput'
 import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
+import { EditForm, FormField } from '../../components/EditForm'
+import form from '../../components/EditForm.module.css'
 import { accomplishmentCreateSchema, type AccomplishmentCreateInput } from '../../schemas/accomplishment'
 import type { Accomplishment } from '../../types'
 import { PanelHeader } from '../../components/PanelHeader'
-import panelHeaderStyles from '../../components/PanelHeader.module.css'
 import styles from './AccomplishmentPanel.module.css'
 
 const STAR_FIELDS: { key: 'situation' | 'task' | 'action' | 'result'; label: string; placeholder: string }[] = [
@@ -27,17 +29,14 @@ interface AccomplishmentPanelProps {
   onDelete?: () => void
 }
 
-export function AccomplishmentPanel({
+/** Edit and create. Tags are edited here only on create (the detail sidebar owns them). */
+function AccomplishmentForm({
   mode,
   accomplishment,
   allTags = [],
   onSave,
   onCancel,
-  onEdit,
-  onDelete,
-}: AccomplishmentPanelProps) {
-  const isEditable = mode !== 'view'
-
+}: Omit<AccomplishmentPanelProps, 'onEdit' | 'onDelete'>) {
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<AccomplishmentCreateInput>({
     resolver: zodResolver(accomplishmentCreateSchema),
     mode: 'onBlur',
@@ -52,39 +51,46 @@ export function AccomplishmentPanel({
     },
   })
 
-  const handleFormSave = handleSubmit(async (data) => {
-    await onSave?.(data)
-  })
-
   return (
-    <div className={mode === 'create' ? styles.panelCreate : undefined}>
-      <PanelHeader
-        editing={isEditable}
-        entity="accomplishment"
-        title={accomplishment?.title}
-        titleEditor={
+    <EditForm
+      heading={mode === 'create' ? 'New accomplishment' : `Editing ${accomplishment?.title}`}
+      onSubmit={handleSubmit(async (data) => {
+        await onSave?.(data)
+      })}
+      onCancel={() => onCancel?.()}
+      saving={isSubmitting}
+    >
+      <div className={form.fields}>
+        <FormField label="Title" htmlFor="acc-title" required error={errors.title}>
           <input
-            className={panelHeaderStyles.titleInput}
+            id="acc-title"
+            className={form.inputTitle}
             type="text"
             autoFocus
             placeholder="Brief title of the accomplishment"
-            aria-label="Title"
+            aria-invalid={!!errors.title}
             {...register('title')}
           />
-        }
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onSave={handleFormSave}
-        onCancel={onCancel}
-        saving={isSubmitting}
-      />
-
-      {errors.title && <p className={styles.formError}>{errors.title.message}</p>}
-
-      {isEditable ? (
-        <div className={styles.metaEdit}>
-          {mode === 'create' && <div className={styles.metaField}>
-            <label className={styles.metaLabel}>Tags</label>
+        </FormField>
+        <FormField label="Date" htmlFor="acc-date" half error={errors.accomplishment_date}>
+          <Controller
+            control={control}
+            name="accomplishment_date"
+            render={({ field }) => (
+              <DateInput
+                id="acc-date"
+                className={form.input}
+                placeholder="YYYY-MM-DD"
+                days
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                invalid={!!errors.accomplishment_date}
+              />
+            )}
+          />
+        </FormField>
+        {mode === 'create' && (
+          <FormField label="Tags">
             <Controller
               control={control}
               name="tags"
@@ -97,49 +103,57 @@ export function AccomplishmentPanel({
                 />
               )}
             />
-          </div>}
-          <div className={`${styles.metaField} ${styles.metaFieldDate}`}>
-            <label className={styles.metaLabel}>Date</label>
-            <input
-              className={styles.metaInput}
-              type="date"
-              {...register('accomplishment_date')}
+          </FormField>
+        )}
+        {STAR_FIELDS.map(({ key, label, placeholder }) => (
+          <FormField key={key} label={label} htmlFor={`acc-${key}`}>
+            <Controller
+              control={control}
+              name={key}
+              render={({ field }) => (
+                <AutoResizeTextarea
+                  id={`acc-${key}`}
+                  className={form.textarea}
+                  value={field.value ?? ''}
+                  onChange={field.onChange}
+                  placeholder={placeholder}
+                />
+              )}
             />
-          </div>
+          </FormField>
+        ))}
+      </div>
+    </EditForm>
+  )
+}
+
+export function AccomplishmentPanel(props: AccomplishmentPanelProps) {
+  const { mode, accomplishment, onEdit, onDelete } = props
+  if (mode !== 'view') return <AccomplishmentForm {...props} />
+
+  return (
+    <div>
+      <PanelHeader
+        entity="accomplishment"
+        title={accomplishment?.title}
+       
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+
+      {accomplishment?.accomplishment_date && (
+        <div className={styles.meta}>
+          <span className={styles.accomplishmentDate}>Accomplished {accomplishment.accomplishment_date}</span>
         </div>
-      ) : (
-        accomplishment?.accomplishment_date && (
-          <div className={styles.meta}>
-            {accomplishment.accomplishment_date && (
-              <span className={styles.accomplishmentDate}>Accomplished {accomplishment.accomplishment_date}</span>
-            )}
-          </div>
-        )
       )}
 
       <div className={styles.starSections}>
         {STAR_FIELDS.map(({ key, label, placeholder }) => (
           <SectionCard key={key} label={label}>
-            {isEditable ? (
-              <Controller
-                control={control}
-                name={key}
-                render={({ field }) => (
-                  <AutoResizeTextarea
-                    className={styles.sectionTextarea}
-                    aria-label={label}
-                    value={field.value ?? ''}
-                    onChange={field.onChange}
-                    placeholder={placeholder}
-                  />
-                )}
-              />
+            {accomplishment?.[key] ? (
+              <MarkdownContent>{accomplishment[key] as string}</MarkdownContent>
             ) : (
-              accomplishment?.[key] ? (
-                <MarkdownContent>{accomplishment[key] as string}</MarkdownContent>
-              ) : (
-                <p className={styles.placeholderText}>{placeholder}</p>
-              )
+              <p className={styles.placeholderText}>{placeholder}</p>
             )}
           </SectionCard>
         ))}

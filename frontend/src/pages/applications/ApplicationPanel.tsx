@@ -1,16 +1,16 @@
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { FieldError } from '../../components/FieldError'
 import { TagInput } from '../../components/TagInput'
 import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
 import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
+import { EditForm, FormField } from '../../components/EditForm'
+import form from '../../components/EditForm.module.css'
 import { applicationCreateSchema, APPLICATION_STATUSES } from '../../schemas/application'
 import type { ApplicationCreateInput } from '../../schemas/application'
 import type { Application } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
 import { PanelHeader } from '../../components/PanelHeader'
-import panelHeaderStyles from '../../components/PanelHeader.module.css'
 import { StatusBadge } from './StatusBadge'
 import { formatDate } from '../../utils/formatDate'
 import styles from './ApplicationPanel.module.css'
@@ -27,17 +27,14 @@ interface ApplicationPanelProps {
   onDelete?: () => void
 }
 
-export function ApplicationPanel({
+/** Edit and create: every field in one form. Tags are edited here only on create (the detail sidebar owns them). */
+function ApplicationForm({
   mode,
   application,
   allTags = [],
   onSave,
   onCancel,
-  onEdit,
-  onDelete,
-}: ApplicationPanelProps) {
-  const isEditable = mode !== 'view'
-
+}: Omit<ApplicationPanelProps, 'onEdit' | 'onDelete'>) {
   const {
     register,
     handleSubmit,
@@ -62,58 +59,57 @@ export function ApplicationPanel({
   })
 
   return (
-    <div className={mode === 'create' ? styles.panelCreate : undefined}>
-      {/* Top bar: labels row above values/inputs row */}
-      <PanelHeader
-        editing={isEditable}
-        entity="application"
-        title={
-          <>
-            {application?.position}
-            <span className={styles.titleAt}> @ </span>
-            {application?.company}
-          </>
-        }
-        titleEditor={
-          <div className={styles.titleEdit}>
-            <div className={styles.titleField}>
-              <input
-                className={panelHeaderStyles.titleInput}
-                type="text"
-                placeholder="Position"
-                aria-label="Position *"
-                aria-invalid={!!errors.position}
-                autoFocus={mode === 'create'}
-                {...register('position')}
-              />
-              <FieldError error={errors.position} />
-            </div>
-            <span className={styles.titleAt}>@</span>
-            <div className={styles.titleField}>
-              <input
-                className={panelHeaderStyles.titleInput}
-                type="text"
-                placeholder="Company"
-                aria-label="Company *"
-                aria-invalid={!!errors.company}
-                {...register('company')}
-              />
-              <FieldError error={errors.company} />
-            </div>
-          </div>
-        }
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onSave={handleFormSave}
-        onCancel={onCancel}
-        saving={isSubmitting}
-      />
-
-      {/* Meta: tags + date */}
-      {isEditable ? (
-        mode === 'create' && <div className={styles.metaEdit}>
-          <div className={styles.metaField}>
-            <span className={styles.metaLabel}>Tags</span>
+    <EditForm
+      heading={
+        mode === 'create'
+          ? 'New application'
+          : `Editing ${application?.position} @ ${application?.company}`
+      }
+      onSubmit={handleFormSave}
+      onCancel={() => onCancel?.()}
+      saving={isSubmitting}
+    >
+      <div className={form.fields}>
+        <FormField label="Position" htmlFor="ap-position" required half error={errors.position}>
+          <input
+            id="ap-position"
+            className={form.inputTitle}
+            type="text"
+            placeholder="Position"
+            aria-invalid={!!errors.position}
+            autoFocus={mode === 'create'}
+            {...register('position')}
+          />
+        </FormField>
+        <FormField label="Company" htmlFor="ap-company" required half error={errors.company}>
+          <input
+            id="ap-company"
+            className={form.inputTitle}
+            type="text"
+            placeholder="Company"
+            aria-invalid={!!errors.company}
+            {...register('company')}
+          />
+        </FormField>
+        <FormField label="Status" htmlFor="ap-status" half>
+          <select id="ap-status" className={form.select} {...register('status')}>
+            {APPLICATION_STATUSES.map((s) => (
+              <option key={s} value={s}>{s}</option>
+            ))}
+          </select>
+        </FormField>
+        <FormField label="URL" htmlFor="ap-url" half error={errors.url}>
+          <input
+            id="ap-url"
+            type="url"
+            className={form.input}
+            placeholder="https://…"
+            aria-invalid={!!errors.url}
+            {...register('url')}
+          />
+        </FormField>
+        {mode === 'create' && (
+          <FormField label="Tags">
             <Controller
               name="tags"
               control={control}
@@ -127,85 +123,93 @@ export function ApplicationPanel({
                 />
               )}
             />
-          </div>
-        </div>
-      ) : (
-        <div className={styles.meta}>
-          {application?.updated_at && (
-            <span className={styles.updatedDate}>
-              Updated {formatDate(application.updated_at)}
-            </span>
-          )}
-        </div>
-      )}
+          </FormField>
+        )}
+        <FormField label="Description" htmlFor="ap-description">
+          <Controller
+            name="description"
+            control={control}
+            render={({ field }) => (
+              <AutoResizeTextarea
+                id="ap-description"
+                className={form.textarea}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                placeholder="Job description, requirements…"
+              />
+            )}
+          />
+        </FormField>
+        <FormField label="Notes" htmlFor="ap-notes">
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <AutoResizeTextarea
+                id="ap-notes"
+                className={form.textarea}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                placeholder="Personal notes…"
+              />
+            )}
+          />
+        </FormField>
+      </div>
+    </EditForm>
+  )
+}
 
-      {/* Section cards */}
+export function ApplicationPanel(props: ApplicationPanelProps) {
+  const { mode, application, onEdit, onDelete } = props
+  if (mode !== 'view') return <ApplicationForm {...props} />
+
+  return (
+    <div>
+      <PanelHeader
+        entity="application"
+        title={
+          <>
+            {application?.position}
+            <span className={styles.titleAt}> @ </span>
+            {application?.company}
+          </>
+        }
+       
+        onEdit={onEdit}
+        onDelete={onDelete}
+      />
+
+      <div className={styles.meta}>
+        {application?.updated_at && (
+          <span className={styles.updatedDate}>
+            Updated {formatDate(application.updated_at)}
+          </span>
+        )}
+      </div>
+
       <div className={styles.sections}>
         <SectionCard label="Details">
           <div className={styles.detailsRow}>
             <div className={styles.detailsField}>
-              {isEditable ? (
-                <>
-                  <label className={styles.detailsLabel} htmlFor="ap-status">Status</label>
-                  <select id="ap-status" className={styles.select} {...register('status')}>
-                    {APPLICATION_STATUSES.map((s) => (
-                      <option key={s} value={s}>{s}</option>
-                    ))}
-                  </select>
-                </>
-              ) : (
-                <>
-                  <span className={styles.detailsLabel}>Status</span>
-                  {application && <StatusBadge status={application.status} />}
-                </>
-              )}
+              <span className={styles.detailsLabel}>Status</span>
+              {application && <StatusBadge status={application.status} />}
             </div>
             <div className={styles.detailsField}>
-              {isEditable ? (
-                <>
-                  <label className={styles.detailsLabel} htmlFor="ap-url">URL</label>
-                  <input
-                    id="ap-url"
-                    type="url"
-                    className={styles.input}
-                    placeholder="https://..."
-                    aria-invalid={!!errors.url}
-                    {...register('url')}
-                  />
-                  <FieldError error={errors.url} />
-                </>
+              <span className={styles.detailsLabel}>URL</span>
+              {application?.url ? (
+                <ExternalLink href={application.url} className={styles.urlLink}>
+                  {application.url}
+                </ExternalLink>
               ) : (
-                <>
-                  <span className={styles.detailsLabel}>URL</span>
-                  {application?.url ? (
-                    <ExternalLink href={application.url} className={styles.urlLink}>
-                      {application.url}
-                    </ExternalLink>
-                  ) : (
-                    <span className={styles.emptyText}>—</span>
-                  )}
-                </>
+                <span className={styles.emptyText}>—</span>
               )}
             </div>
           </div>
         </SectionCard>
 
         <SectionCard label="Description">
-          {isEditable ? (
-            <Controller
-              name="description"
-              control={control}
-              render={({ field }) => (
-                <AutoResizeTextarea
-                  id="ap-description"
-                  className={styles.sectionTextarea}
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  placeholder="Job description, requirements…"
-                />
-              )}
-            />
-          ) : application?.description ? (
+          {application?.description ? (
             <MarkdownContent>{application.description}</MarkdownContent>
           ) : (
             <p className={styles.placeholderText}>Job description, requirements…</p>
@@ -213,27 +217,12 @@ export function ApplicationPanel({
         </SectionCard>
 
         <SectionCard label="Notes">
-          {isEditable ? (
-            <Controller
-              name="notes"
-              control={control}
-              render={({ field }) => (
-                <AutoResizeTextarea
-                  id="ap-notes"
-                  className={styles.sectionTextarea}
-                  value={field.value ?? ''}
-                  onChange={field.onChange}
-                  placeholder="Personal notes…"
-                />
-              )}
-            />
-          ) : application?.notes ? (
+          {application?.notes ? (
             <MarkdownContent>{application.notes}</MarkdownContent>
           ) : (
             <p className={styles.placeholderText}>Personal notes…</p>
           )}
         </SectionCard>
-
       </div>
     </div>
   )

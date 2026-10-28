@@ -4,10 +4,11 @@ import { AutoResizeTextarea } from '../../components/AutoResizeTextarea'
 import { TagInput } from '../../components/TagInput'
 import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
+import { EditForm, FormField } from '../../components/EditForm'
+import form from '../../components/EditForm.module.css'
 import { noteCreateSchema, type NoteCreateInput } from '../../schemas/note'
 import type { Note } from '../../types'
 import { PanelHeader } from '../../components/PanelHeader'
-import panelHeaderStyles from '../../components/PanelHeader.module.css'
 import { formatDate } from '../../utils/formatDate'
 import styles from './NotePanel.module.css'
 
@@ -21,17 +22,8 @@ interface NotePanelProps {
   onDelete?: () => void
 }
 
-export function NotePanel({
-  mode,
-  note,
-  allTags = [],
-  onSave,
-  onCancel,
-  onEdit,
-  onDelete,
-}: NotePanelProps) {
-  const isEditable = mode !== 'view'
-
+/** Edit and create. Tags are edited here only on create (the detail sidebar owns them). */
+function NoteForm({ mode, note, allTags = [], onSave, onCancel }: Omit<NotePanelProps, 'onEdit' | 'onDelete'>) {
   const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<NoteCreateInput>({
     resolver: zodResolver(noteCreateSchema),
     mode: 'onBlur',
@@ -42,39 +34,29 @@ export function NotePanel({
     },
   })
 
-  const handleFormSave = handleSubmit(async (data) => {
-    await onSave?.(data)
-  })
-
   return (
-    <div className={mode === 'create' ? styles.panelCreate : undefined}>
-      <PanelHeader
-        editing={isEditable}
-        entity="note"
-        title={note?.title}
-        titleEditor={
+    <EditForm
+      heading={mode === 'create' ? 'New note' : `Editing ${note?.title}`}
+      onSubmit={handleSubmit(async (data) => {
+        await onSave?.(data)
+      })}
+      onCancel={() => onCancel?.()}
+      saving={isSubmitting}
+    >
+      <div className={form.fields}>
+        <FormField label="Title" htmlFor="note-title" required error={errors.title}>
           <input
-            className={panelHeaderStyles.titleInput}
+            id="note-title"
+            className={form.inputTitle}
             type="text"
             autoFocus
             placeholder="Note title"
-            aria-label="Title"
+            aria-invalid={!!errors.title}
             {...register('title')}
           />
-        }
-        onEdit={onEdit}
-        onDelete={onDelete}
-        onSave={handleFormSave}
-        onCancel={onCancel}
-        saving={isSubmitting}
-      />
-
-      {errors.title && <p className={styles.formError}>{errors.title.message}</p>}
-
-      {isEditable ? (
-        mode === 'create' && <div className={styles.metaEdit}>
-          <div className={styles.metaField}>
-            <label className={styles.metaLabel}>Tags</label>
+        </FormField>
+        {mode === 'create' && (
+          <FormField label="Tags">
             <Controller
               control={control}
               name="tags"
@@ -87,37 +69,47 @@ export function NotePanel({
                 />
               )}
             />
-          </div>
-        </div>
-      ) : (
-        <div className={styles.meta}>
-          {note?.updated_at && (
-            <span className={styles.updatedDate}>Updated {formatDate(note.updated_at)}</span>
-          )}
-        </div>
-      )}
-
-      <SectionCard>
-        {isEditable ? (
+          </FormField>
+        )}
+        <FormField label="Content" htmlFor="note-content">
           <Controller
             control={control}
             name="content"
             render={({ field }) => (
               <AutoResizeTextarea
-                className={styles.contentTextarea}
-                aria-label="Content"
+                id="note-content"
+                className={form.textareaLong}
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 placeholder="Write your note here..."
               />
             )}
           />
+        </FormField>
+      </div>
+    </EditForm>
+  )
+}
+
+export function NotePanel(props: NotePanelProps) {
+  const { mode, note, onEdit, onDelete } = props
+  if (mode !== 'view') return <NoteForm {...props} />
+
+  return (
+    <div>
+      <PanelHeader entity="note" title={note?.title} onEdit={onEdit} onDelete={onDelete} />
+
+      <div className={styles.meta}>
+        {note?.updated_at && (
+          <span className={styles.updatedDate}>Updated {formatDate(note.updated_at)}</span>
+        )}
+      </div>
+
+      <SectionCard>
+        {note?.content ? (
+          <MarkdownContent>{note.content}</MarkdownContent>
         ) : (
-          note?.content ? (
-            <MarkdownContent>{note.content}</MarkdownContent>
-          ) : (
-            <p className={styles.placeholderText}>No content yet.</p>
-          )
+          <p className={styles.placeholderText}>No content yet.</p>
         )}
       </SectionCard>
     </div>

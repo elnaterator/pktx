@@ -7,9 +7,20 @@ interface AutoResizeTextareaProps {
   className?: string
   id?: string
   'aria-label'?: string
+  'data-bullet'?: boolean
+  onKeyDown?: React.KeyboardEventHandler<HTMLTextAreaElement>
 }
 
-export function AutoResizeTextarea({ value, onChange, placeholder, className, id, 'aria-label': ariaLabel }: AutoResizeTextareaProps) {
+export function AutoResizeTextarea({
+  value,
+  onChange,
+  placeholder,
+  className,
+  id,
+  'aria-label': ariaLabel,
+  'data-bullet': dataBullet,
+  onKeyDown,
+}: AutoResizeTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null)
   const isManuallyResized = useRef(false)
 
@@ -50,11 +61,13 @@ export function AutoResizeTextarea({ value, onChange, placeholder, className, id
       }}
       id={id}
       aria-label={ariaLabel}
+      data-bullet={dataBullet || undefined}
       className={className}
       placeholder={placeholder}
       value={value}
       rows={1}
       onChange={(e) => onChange(e.target.value)}
+      onKeyDown={onKeyDown}
       style={{ resize: 'vertical', overflow: 'auto' }}
     />
   )

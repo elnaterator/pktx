@@ -41,9 +41,9 @@ import { Button } from './Button'
 import { CommStatusBadge } from './CommStatusBadge'
 import { ConfirmDialog } from './ConfirmDialog'
 import { DateInput } from './DateInput'
-import { EditActions } from './EditActions'
+import { EditForm, FormField } from './EditForm'
+import form from './EditForm.module.css'
 import { EmptyState } from './EmptyState'
-import { FieldError } from './FieldError'
 import { IconButton } from './IconButton'
 import { LoadingSpinner } from './LoadingSpinner'
 import { MarkdownContent } from './MarkdownContent'
@@ -215,6 +215,7 @@ export default function CommunicationsPanel({
         {adding && (
           <li className={cx(styles.item, styles.itemEditing)}>
             <CommunicationForm
+              mode="add"
               initial={emptyDefaults()}
               allTags={allTags}
               onSubmit={handleAdd}
@@ -230,6 +231,7 @@ export default function CommunicationsPanel({
           >
             {editingId === comm.id ? (
               <CommunicationForm
+                mode="edit"
                 initial={fromCommunication(comm)}
                 allTags={allTags}
                 onSubmit={(data) => handleUpdate(comm.id, data)}
@@ -373,15 +375,14 @@ function CommunicationRow({
 interface CommunicationFormProps {
   initial: CommunicationCreateInput
   allTags: string[]
+  /** Add (new) or edit (existing) — sets the form's heading. */
+  mode: 'add' | 'edit'
   onSubmit: (data: CommunicationCreateInput) => Promise<void>
   onCancel: () => void
 }
 
-/**
- * Add / edit form in the app's inline-edit style: the subject is the title row
- * with save/cancel beside it (like PanelHeader), then the metadata, body and tags.
- */
-function CommunicationForm({ initial, allTags, onSubmit, onCancel }: CommunicationFormProps) {
+/** Add / edit form, in the shared `EditForm` look used by every edit mode. */
+function CommunicationForm({ initial, allTags, mode, onSubmit, onCancel }: CommunicationFormProps) {
   const id = useId()
   const {
     register,
@@ -395,51 +396,44 @@ function CommunicationForm({ initial, allTags, onSubmit, onCancel }: Communicati
   })
 
   return (
-    <form
-      className={styles.form}
+    <EditForm
+      heading={mode === 'add' ? 'New communication' : 'Editing communication'}
       onSubmit={handleSubmit(onSubmit)}
-      noValidate
-      onKeyDown={(e) => {
-        if (e.key === 'Escape' && !e.defaultPrevented) {
-          e.preventDefault()
-          onCancel()
-        }
-      }}
+      onCancel={onCancel}
+      saving={isSubmitting}
     >
-      <div className={styles.formTitle}>
-        <input
-          className={styles.subjectInput}
-          placeholder="Subject line"
-          aria-label="Subject"
-          autoFocus
-          {...register('subject')}
-        />
-        <EditActions editing saveType="submit" saving={isSubmitting} onCancel={onCancel} />
-      </div>
-
-      <div className={styles.formMeta}>
-        <Field label="Type" htmlFor={`${id}-type`}>
-          <select id={`${id}-type`} className={styles.select} {...register('type')}>
+      <div className={form.fields}>
+        <FormField label="Subject" htmlFor={`${id}-subject`}>
+          <input
+            id={`${id}-subject`}
+            className={form.inputTitle}
+            placeholder="Subject line"
+            autoFocus
+            {...register('subject')}
+          />
+        </FormField>
+        <FormField label="Type" htmlFor={`${id}-type`} half>
+          <select id={`${id}-type`} className={form.select} {...register('type')}>
             {COMM_TYPES.map((t) => (
               <option key={t} value={t}>{COMM_TYPE_LABELS[t]}</option>
             ))}
           </select>
-        </Field>
-        <Field label="Direction" htmlFor={`${id}-direction`}>
-          <select id={`${id}-direction`} className={styles.select} {...register('direction')}>
+        </FormField>
+        <FormField label="Direction" htmlFor={`${id}-direction`} half>
+          <select id={`${id}-direction`} className={form.select} {...register('direction')}>
             {COMM_DIRECTIONS.map((d) => (
               <option key={d} value={d}>{COMM_DIRECTION_LABELS[d]}</option>
             ))}
           </select>
-        </Field>
-        <Field label="Date" htmlFor={`${id}-date`} className={styles.dateField}>
+        </FormField>
+        <FormField label="Date" htmlFor={`${id}-date`} half error={errors.date}>
           <Controller
             control={control}
             name="date"
             render={({ field }) => (
               <DateInput
                 id={`${id}-date`}
-                className={styles.input}
+                className={form.input}
                 value={field.value ?? ''}
                 onChange={field.onChange}
                 placeholder="YYYY-MM-DD"
@@ -448,61 +442,39 @@ function CommunicationForm({ initial, allTags, onSubmit, onCancel }: Communicati
               />
             )}
           />
-          <FieldError error={errors.date} />
-        </Field>
-        <Field label="Status" htmlFor={`${id}-status`}>
-          <select id={`${id}-status`} className={styles.select} {...register('status')}>
+        </FormField>
+        <FormField label="Status" htmlFor={`${id}-status`} half>
+          <select id={`${id}-status`} className={form.select} {...register('status')}>
             {COMM_STATUSES.map((s) => (
               <option key={s} value={s}>{COMM_STATUS_LABELS[s]}</option>
             ))}
           </select>
-        </Field>
+        </FormField>
+        <FormField label="Body" htmlFor={`${id}-body`}>
+          <Controller
+            control={control}
+            name="body"
+            render={({ field }) => (
+              <AutoResizeTextarea
+                id={`${id}-body`}
+                className={form.textarea}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                placeholder="Message body..."
+              />
+            )}
+          />
+        </FormField>
+        <FormField label="Tags">
+          <Controller
+            control={control}
+            name="tags"
+            render={({ field }) => (
+              <TagInput value={field.value ?? []} onChange={field.onChange} availableTags={allTags} allowCreate />
+            )}
+          />
+        </FormField>
       </div>
-
-      <Field label="Body" htmlFor={`${id}-body`}>
-        <Controller
-          control={control}
-          name="body"
-          render={({ field }) => (
-            <AutoResizeTextarea
-              id={`${id}-body`}
-              className={styles.textarea}
-              value={field.value ?? ''}
-              onChange={field.onChange}
-              placeholder="Message body..."
-            />
-          )}
-        />
-      </Field>
-
-      <Field label="Tags">
-        <Controller
-          control={control}
-          name="tags"
-          render={({ field }) => (
-            <TagInput value={field.value ?? []} onChange={field.onChange} availableTags={allTags} allowCreate />
-          )}
-        />
-      </Field>
-    </form>
-  )
-}
-
-function Field({
-  label,
-  htmlFor,
-  className,
-  children,
-}: {
-  label: string
-  htmlFor?: string
-  className?: string
-  children: ReactNode
-}) {
-  return (
-    <div className={cx(styles.field, className)}>
-      <label className={styles.label} htmlFor={htmlFor}>{label}</label>
-      {children}
-    </div>
+    </EditForm>
   )
 }

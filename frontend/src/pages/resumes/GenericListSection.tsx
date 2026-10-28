@@ -29,16 +29,22 @@ interface GenericListSectionProps {
 type Mode = 'view' | 'add' | { type: 'edit'; id: string } | { type: 'delete'; id: string }
 type FormValues = Record<string, string | string[]>
 
-const SHORT = new Set(['text', 'url', 'tags', 'date', 'email'])
+/** Widgets narrow enough to share a form row (URLs get the full width). */
+const SHORT = new Set(['text', 'tags', 'date', 'email'])
 const PLACEHOLDERS: Record<string, string> = {
   date: 'YYYY-MM',
   url: 'https://…',
   email: 'name@example.com',
 }
 
-/** Schema fields -> form fields; short fields after the primary share a row. */
+/** Schema fields -> form fields: the primary first, then short fields pair up in rows. */
 function toFieldConfigs(fields: SectionField[], primaryField: string): FieldConfig[] {
-  return fields.map((f) => {
+  const ranged = hasDateRange(fields)
+  const ordered = [
+    ...fields.filter((f) => f.name === primaryField),
+    ...fields.filter((f) => f.name !== primaryField),
+  ]
+  return ordered.map((f) => {
     const config: FieldConfig = {
       name: f.name,
       label: f.widget === 'tags' ? `${f.label} (comma separated)` : f.label,
@@ -55,6 +61,8 @@ function toFieldConfigs(fields: SectionField[], primaryField: string): FieldConf
     }
     // Periods (start/end) are month-precise; single dates (awarded, issued) can name a day.
     if (f.widget === 'date') config.days = f.name !== 'startDate' && f.name !== 'endDate'
+    // A blank end date means the entry is current.
+    if (ranged && f.name === 'endDate') config.openEnded = true
     if (f.name !== primaryField && SHORT.has(f.widget) && !OWN_LINE_FIELDS.has(f.name)) {
       config.group = 'meta'
     }
@@ -286,6 +294,7 @@ export default function GenericListSection({
           <EntryForm
             fields={fieldConfigs}
             schema={schema}
+            heading={`New ${noun}`}
             onSubmit={handleAdd}
             onCancel={() => {
               setMode('view')
@@ -311,6 +320,7 @@ export default function GenericListSection({
                     fields={fieldConfigs}
                     schema={schema}
                     defaultValues={toFormValues(entry, fields)}
+                    heading={`Editing ${str(entry[meta.primaryField]) || noun}`}
                     onSubmit={handleEdit}
                     onCancel={() => setMode('view')}
                   />

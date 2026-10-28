@@ -1,54 +1,24 @@
-.form {
-  display: flex;
-  flex-direction: column;
+.present {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-3) var(--space-4);
-  background-color: var(--bg-raised);
+  font-size: var(--font-size-3);
+  line-height: 1;
+  color: var(--text-secondary);
+  cursor: pointer;
 }
 
-.fieldGroup {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-}
-
-.label {
-  composes: fieldLabel from './text.module.css';
-}
-
-.required {
-  color: var(--status-error);
-  margin-left: var(--space-1);
-}
-
-.input {
-  composes: input from './inlineEdit.module.css';
-  font-size: var(--font-size-6);
-  color: var(--text-primary);
-}
-
-.textarea {
-  composes: textarea from './inlineEdit.module.css';
-  font-size: var(--font-size-6);
-  color: var(--text-primary);
-  min-height: 4rem;
-}
-
-.fieldRow {
-  display: flex;
-  gap: var(--space-3);
-  align-items: flex-start;
-}
-
-.fieldGroupInline {
-  flex: 1;
-  min-width: 0;
+.present input {
+  width: 0.75rem;
+  height: 0.75rem;
+  margin: 0;
+  accent-color: var(--accent-green);
 }
 
 .highlightsList {
   display: flex;
   flex-direction: column;
-  gap: var(--space-1);
+  gap: var(--space-2);
 }
 
 .highlightItem {
@@ -57,8 +27,9 @@
   align-items: flex-start;
 }
 
-.highlightItem .input {
-  flex: 1;
+.bulletTool {
+  display: flex;
+  flex-shrink: 0;
 }
 
 .highlightTextarea {
@@ -69,22 +40,24 @@
 }
 
 .addButton {
-  padding: var(--space-3) var(--space-6);
-  background-color: var(--bg-raised-hover);
-  color: var(--accent-green);
-  border: none;
-  cursor: pointer;
-  font-size: var(--font-size-4);
-  font-family: var(--font-mono);
   align-self: flex-start;
+  margin-top: var(--space-1);
 }
 
-.addButton:hover {
-  background-color: var(--accent-green-bg);
+.hint {
+  margin: 0;
+  font-size: var(--font-size-2);
+  color: var(--text-muted);
 }
 
-.formHeader {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-1);
+@media (max-width: 640px) {
+  /* Keyboard hints are noise on touch. */
+  .hint {
+    display: none;
+  }
+
+  /* Give the text the room: grip and delete only on the bullet last edited. */
+  .highlightItem:not(.active) .bulletTool {
+    display: none;
+  }
 }

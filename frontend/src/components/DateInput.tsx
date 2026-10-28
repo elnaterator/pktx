@@ -12,6 +12,7 @@ interface DateInputProps {
   invalid?: boolean
   /** Let the calendar go down to a day (`YYYY-MM-DD`); otherwise it stops at a month. */
   days?: boolean
+  disabled?: boolean
 }
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
@@ -166,6 +167,7 @@ export function DateInput({
   placeholder = 'YYYY-MM',
   invalid,
   days = false,
+  disabled = false,
 }: DateInputProps) {
   const [open, setOpen] = useState(false)
   const wrap = useRef<HTMLDivElement>(null)
@@ -206,6 +208,7 @@ export function DateInput({
         value={value}
         placeholder={placeholder}
         aria-invalid={invalid}
+        disabled={disabled}
         autoComplete="off"
         onChange={(e) => onChange(e.target.value)}
       />
@@ -215,6 +218,7 @@ export function DateInput({
         onClick={() => setOpen((o) => !o)}
         aria-label="Choose date"
         aria-expanded={open}
+        disabled={disabled}
       >
         <CalendarDays size={ICON_SIZE.md} aria-hidden="true" />
       </button>

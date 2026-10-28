@@ -50,16 +50,11 @@ describe('EditActions', () => {
 })
 
 describe('PanelHeader', () => {
-  it('renders the title as a heading in view mode', () => {
-    render(<PanelHeader editing={false} title="My note" titleEditor={<input />} entity="note" onEdit={() => {}} />)
+  it('renders the title as a heading with edit and delete', () => {
+    render(<PanelHeader title="My note" entity="note" onEdit={() => {}} onDelete={() => {}} />)
     expect(screen.getByRole('heading', { name: 'My note' })).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Edit note' })).toBeInTheDocument()
-  })
-
-  it('renders the editor instead of the heading in edit mode', () => {
-    render(<PanelHeader editing title="My note" titleEditor={<input aria-label="Title" />} entity="note" />)
-    expect(screen.queryByRole('heading')).not.toBeInTheDocument()
-    expect(screen.getByRole('textbox', { name: 'Title' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Delete note' })).toBeInTheDocument()
   })
 })
 

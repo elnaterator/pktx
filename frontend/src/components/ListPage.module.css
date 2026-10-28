@@ -18,6 +18,10 @@
   color: var(--text-primary);
 }
 
+.createForm {
+  margin-bottom: var(--space-6);
+}
+
 .filters {
   display: flex;
   gap: var(--space-4);

@@ -87,7 +87,7 @@ export function ListPage<T>({
         <h2 className={styles.heading}>{title}</h2>
         {action}
       </div>
-      {createForm}
+      {createForm && <div className={styles.createForm}>{createForm}</div>}
       <div className={styles.filters}>{filters}</div>
       {aside}
       {body}
