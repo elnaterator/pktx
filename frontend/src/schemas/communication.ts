@@ -64,6 +64,8 @@ export const communicationCreateSchema = z.object({
 })
 
 export type CommunicationCreateInput = z.infer<typeof communicationCreateSchema>
+/** Raw form values before parsing (defaults not yet applied) — `useForm`'s first type arg. */
+export type CommunicationFormInput = z.input<typeof communicationCreateSchema>
 
 export const communicationUpdateSchema = communicationCreateSchema.partial()
 export type CommunicationUpdateInput = z.infer<typeof communicationUpdateSchema>

@@ -6,7 +6,7 @@ import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
 import { EditForm, FormField } from '../../components/EditForm'
 import form from '../../components/EditForm.module.css'
-import { noteCreateSchema, type NoteCreateInput } from '../../schemas/note'
+import { noteCreateSchema, type NoteCreateInput, type NoteFormInput } from '../../schemas/note'
 import type { Note } from '../../types'
 import { PanelHeader } from '../../components/PanelHeader'
 import { formatDate } from '../../utils/formatDate'
@@ -24,7 +24,7 @@ interface NotePanelProps {
 
 /** Edit and create. Tags are edited here only on create (the detail sidebar owns them). */
 function NoteForm({ mode, note, allTags = [], onSave, onCancel }: Omit<NotePanelProps, 'onEdit' | 'onDelete'>) {
-  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<NoteCreateInput>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<NoteFormInput, unknown, NoteCreateInput>({
     resolver: zodResolver(noteCreateSchema),
     mode: 'onBlur',
     defaultValues: {

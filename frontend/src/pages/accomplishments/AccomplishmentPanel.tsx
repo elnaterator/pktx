@@ -7,7 +7,7 @@ import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
 import { EditForm, FormField } from '../../components/EditForm'
 import form from '../../components/EditForm.module.css'
-import { accomplishmentCreateSchema, type AccomplishmentCreateInput } from '../../schemas/accomplishment'
+import { accomplishmentCreateSchema, type AccomplishmentCreateInput, type AccomplishmentFormInput } from '../../schemas/accomplishment'
 import type { Accomplishment } from '../../types'
 import { PanelHeader } from '../../components/PanelHeader'
 import styles from './AccomplishmentPanel.module.css'
@@ -37,7 +37,7 @@ function AccomplishmentForm({
   onSave,
   onCancel,
 }: Omit<AccomplishmentPanelProps, 'onEdit' | 'onDelete'>) {
-  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<AccomplishmentCreateInput>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<AccomplishmentFormInput, unknown, AccomplishmentCreateInput>({
     resolver: zodResolver(accomplishmentCreateSchema),
     mode: 'onBlur',
     defaultValues: {

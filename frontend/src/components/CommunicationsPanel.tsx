@@ -33,6 +33,7 @@ import {
   COMM_TYPE_LABELS,
   COMM_TYPES,
   type CommunicationCreateInput,
+  type CommunicationFormInput,
 } from '../schemas/communication'
 import { cx } from '../utils/cx'
 import { formatDate } from '../utils/formatDate'
@@ -398,7 +399,7 @@ function CommunicationForm({ initial, allTags, mode, onSubmit, onCancel }: Commu
     handleSubmit,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<CommunicationCreateInput>({
+  } = useForm<CommunicationFormInput, unknown, CommunicationCreateInput>({
     resolver: zodResolver(communicationCreateSchema),
     mode: 'onSubmit',
     defaultValues: initial,

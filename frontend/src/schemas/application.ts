@@ -53,6 +53,8 @@ export const applicationCreateSchema = z.object({
 })
 
 export type ApplicationCreateInput = z.infer<typeof applicationCreateSchema>
+/** Raw form values before parsing (defaults not yet applied) — `useForm`'s first type arg. */
+export type ApplicationFormInput = z.input<typeof applicationCreateSchema>
 
 export const applicationUpdateSchema = applicationCreateSchema.partial()
 export type ApplicationUpdateInput = z.infer<typeof applicationUpdateSchema>

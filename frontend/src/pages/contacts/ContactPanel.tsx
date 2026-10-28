@@ -7,7 +7,7 @@ import { TagInput } from '../../components/TagInput'
 import { DateInput } from '../../components/DateInput'
 import { SectionCard } from '../../components/SectionCard'
 import { MarkdownContent } from '../../components/MarkdownContent'
-import { contactCreateSchema, type ContactCreateInput } from '../../schemas/contact'
+import { contactCreateSchema, type ContactCreateInput, type ContactFormInput } from '../../schemas/contact'
 import type { Contact } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
 import { PanelHeader } from '../../components/PanelHeader'
@@ -34,7 +34,7 @@ type DateField = 'last_contacted_date' | 'followup_date'
 
 /** Edit and create. Tags are edited here only on create (the detail sidebar owns them). */
 function ContactForm({ mode, contact, allTags = [], onSave, onCancel }: Omit<ContactPanelProps, 'onEdit' | 'onDelete'>) {
-  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<ContactCreateInput>({
+  const { register, handleSubmit, control, formState: { errors, isSubmitting } } = useForm<ContactFormInput, unknown, ContactCreateInput>({
     resolver: zodResolver(contactCreateSchema),
     mode: 'onBlur',
     defaultValues: {

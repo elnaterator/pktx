@@ -105,11 +105,15 @@ export function EntryForm({
   const highlightsField = fields.find((f) => f.type === 'highlights')
   const widths = layoutOf(fields)
 
-  const augmentedSchema = highlightsField
-    ? (schema as z.ZodObject<z.ZodRawShape>).extend({
-        [highlightsField.name]: z.array(z.object({ value: z.string() })).default([]),
-      })
-    : schema
+  // The schema is built from field config at runtime, so its static types are
+  // opaque; it validates the same shape the form holds.
+  const augmentedSchema = (
+    highlightsField
+      ? (schema as z.ZodObject<z.ZodRawShape>).extend({
+          [highlightsField.name]: z.array(z.object({ value: z.string() })).default([]),
+        })
+      : schema
+  ) as z.ZodType<InternalValues, InternalValues>
 
   const form = useForm<InternalValues>({
     resolver: zodResolver(augmentedSchema),

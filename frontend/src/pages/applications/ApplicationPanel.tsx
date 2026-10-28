@@ -7,7 +7,7 @@ import { MarkdownContent } from '../../components/MarkdownContent'
 import { EditForm, FormField } from '../../components/EditForm'
 import form from '../../components/EditForm.module.css'
 import { applicationCreateSchema, APPLICATION_STATUSES } from '../../schemas/application'
-import type { ApplicationCreateInput } from '../../schemas/application'
+import type { ApplicationCreateInput, ApplicationFormInput } from '../../schemas/application'
 import type { Application } from '../../types'
 import { ExternalLink } from '../../components/ExternalLink'
 import { PanelHeader } from '../../components/PanelHeader'
@@ -40,7 +40,7 @@ function ApplicationForm({
     handleSubmit,
     control,
     formState: { errors, isSubmitting },
-  } = useForm<ApplicationPanelInput>({
+  } = useForm<ApplicationFormInput, unknown, ApplicationPanelInput>({
     resolver: zodResolver(applicationCreateSchema),
     mode: 'onBlur',
     defaultValues: {
