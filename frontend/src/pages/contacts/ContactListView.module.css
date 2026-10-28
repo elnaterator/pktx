@@ -166,16 +166,36 @@
   text-overflow: ellipsis;
 }
 
+/* Phones: stack name/badge over tags/date and let every line wrap instead of
+   pushing the date past the row edge. */
 @media (max-width: 640px) {
   .itemRow1 {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .itemLeft {
     flex-wrap: wrap;
+    gap: var(--space-2) var(--space-3);
+    overflow: visible;
+  }
+
+  .itemName,
+  .itemSub {
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
   .itemRight {
+    flex-shrink: 1;
     flex-wrap: wrap;
+    gap: var(--space-2) var(--space-4);
+    min-width: 0;
   }
 
   .itemRow2 {
     flex-wrap: wrap;
+    gap: var(--space-2) var(--space-6);
   }
 }
