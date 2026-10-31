@@ -4,6 +4,7 @@ import asyncio
 from typing import Any, cast
 
 import pytest
+from fastmcp.exceptions import ToolError
 from psycopg import Connection
 
 from pktx.auth import current_user_id_var
@@ -52,16 +53,16 @@ class TestContactMcpRoundtrip:
             delete_fn = _get_tool_fn(mcp, "delete_contact")
 
             # Create
-            result = create_fn(
+            created = create_fn(
                 name="Test Person", company="TestCorp", tags=["mcp-test"]
             )
-            assert "Created contact" in result
-            assert "Test Person" in result
+            assert created["name"] == "Test Person"
+            assert created["tags"] == ["mcp-test"]
 
             # List — verify it appears
             contacts = list_fn()
             assert any(c["name"] == "Test Person" for c in contacts)
-            contact_id = next(c["id"] for c in contacts if c["name"] == "Test Person")
+            contact_id = created["id"]
 
             # Get full record
             contact = get_fn(id=contact_id)
@@ -73,7 +74,8 @@ class TestContactMcpRoundtrip:
             update_result = update_fn(
                 id=contact_id, company="UpdatedCorp", notes="Updated notes"
             )
-            assert f"Updated contact {contact_id}" == update_result
+            assert update_result["company"] == "UpdatedCorp"
+            assert update_result["name"] == "Test Person"
 
             updated = get_fn(id=contact_id)
             assert updated["company"] == "UpdatedCorp"
@@ -81,11 +83,11 @@ class TestContactMcpRoundtrip:
 
             # Delete
             del_result = delete_fn(id=contact_id)
-            assert "Deleted contact" in del_result
+            assert del_result == {"id": contact_id, "name": "Test Person"}
 
             # Verify gone
-            get_result = get_fn(id=contact_id)
-            assert "Error" in get_result
+            with pytest.raises(ToolError, match="not found"):
+                get_fn(id=contact_id)
 
         finally:
             current_user_id_var.reset(token)

@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 from fastmcp import FastMCP
+from fastmcp.exceptions import ToolError
 from psycopg import Connection
 from starlette.testclient import TestClient
 
@@ -119,7 +120,7 @@ def test_mcp_create_application_rejects_javascript_url(
     register_application_tools(mcp, lambda: svc)
     token = current_user_id_var.set(CAROL)
     try:
-        with pytest.raises(ValueError, match="http"):
+        with pytest.raises(ToolError, match="http"):
             _get_tool_fn(mcp, "create_application")(
                 company="c", position="p", url="javascript:alert(1)"
             )

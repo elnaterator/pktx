@@ -54,12 +54,7 @@ class TestContactCommMcpRoundtrip:
             remove_comm_fn = _get_tool_fn(mcp, "remove_contact_communication")
 
             # Create contact
-            contact_result = create_contact_fn(name="Jane Recruiter")
-            import re
-
-            match = re.search(r"id=(\d+)", contact_result)
-            assert match, f"No id in: {contact_result}"
-            cid = int(match.group(1))
+            cid = create_contact_fn(name="Jane Recruiter")["id"]
 
             # Add communication
             add_result = add_comm_fn(
@@ -71,10 +66,8 @@ class TestContactCommMcpRoundtrip:
                 subject="Intro",
                 tags=["outreach"],
             )
-            assert "Added communication" in add_result
-            match2 = re.search(r"id=(\d+)", add_result)
-            assert match2
-            comm_id = int(match2.group(1))
+            assert add_result["subject"] == "Intro"
+            comm_id = add_result["id"]
 
             # List
             comms = list_comm_fn(contact_id=cid)
@@ -85,7 +78,8 @@ class TestContactCommMcpRoundtrip:
 
             # Update
             update_result = update_comm_fn(comm_id=comm_id, subject="Updated Subject")
-            assert "Updated" in update_result
+            assert update_result["id"] == comm_id
+            assert update_result["subject"] == "Updated Subject"
 
             # Verify update
             comms2 = list_comm_fn(contact_id=cid)
@@ -93,7 +87,7 @@ class TestContactCommMcpRoundtrip:
 
             # Delete
             del_result = remove_comm_fn(comm_id=comm_id)
-            assert "Removed" in del_result
+            assert del_result == {"id": comm_id, "subject": "Updated Subject"}
 
             # Verify deleted
             comms3 = list_comm_fn(contact_id=cid)
@@ -123,10 +117,7 @@ class TestSearchCrossParents:
             add_fn = _get_tool_fn(mcp, "add_contact_communication")
             search_fn = _get_tool_fn(mcp, "search_communications")
 
-            import re
-
-            r = create_fn(name="Search Test Contact")
-            cid = int(re.search(r"id=(\d+)", r).group(1))  # type: ignore[union-attr]
+            cid = create_fn(name="Search Test Contact")["id"]
 
             add_fn(
                 contact_id=cid,

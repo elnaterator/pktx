@@ -65,20 +65,21 @@ class TestLinkMcpRoundtrip:
             unlink_fn = _get_tool_fn(mcp, "unlink_resources")
 
             # Create resources
-            create_note_fn(title="Integration Note")
-            create_app_fn(company="Acme", position="Dev", status="Interested")
-
-            # Extract IDs from service directly
-            notes = note_svc.list_notes(user_id=_TEST_USER)
-            apps = app_svc.list_applications(user_id=_TEST_USER)
-            note_id = notes[0]["id"]
-            app_id = apps[0]["id"]
+            note_id = create_note_fn(title="Integration Note")["id"]
+            app_id = create_app_fn(company="Acme", position="Dev", status="Interested")[
+                "id"
+            ]
 
             # Link
             link_msg = link_fn(
                 a_type="note", a_id=note_id, b_type="application", b_id=app_id
             )
-            assert "Linked" in link_msg
+            assert link_msg == {
+                "a_type": "note",
+                "a_id": note_id,
+                "b_type": "application",
+                "b_id": app_id,
+            }
 
             # Verify note → app
             note_data = note_svc.get_note(note_id, user_id=_TEST_USER)
@@ -94,7 +95,7 @@ class TestLinkMcpRoundtrip:
             unlink_msg = unlink_fn(
                 a_type="note", a_id=note_id, b_type="application", b_id=app_id
             )
-            assert "Unlinked" in unlink_msg
+            assert unlink_msg == link_msg
 
             # Verify cleared
             note_data2 = note_svc.get_note(note_id, user_id=_TEST_USER)

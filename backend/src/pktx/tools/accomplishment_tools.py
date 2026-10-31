@@ -6,12 +6,14 @@ from fastmcp import FastMCP
 
 from pktx.accomplishment_service import AccomplishmentService
 from pktx.auth import require_user_id
+from pktx.tools.errors import raises_tool_error
 
 
 def register_accomplishment_tools(mcp: FastMCP, get_service: Any) -> None:
     """Register accomplishment MCP tools on the given FastMCP instance."""
 
     @mcp.tool()
+    @raises_tool_error
     def list_accomplishments(
         tag: str | None = None, q: str | None = None
     ) -> list[dict[str, Any]]:
@@ -28,7 +30,8 @@ def register_accomplishment_tools(mcp: FastMCP, get_service: Any) -> None:
         return service.list_accomplishments(tags=tags, q=q, user_id=user_id)
 
     @mcp.tool()
-    def get_accomplishment(id: int) -> dict[str, Any] | str:
+    @raises_tool_error
+    def get_accomplishment(id: int) -> dict[str, Any]:
         """Get full STAR detail for a specific accomplishment.
 
         Args:
@@ -36,12 +39,10 @@ def register_accomplishment_tools(mcp: FastMCP, get_service: Any) -> None:
         """
         user_id = require_user_id()
         service: AccomplishmentService = get_service()
-        try:
-            return service.get_accomplishment(id, user_id=user_id)
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.get_accomplishment(id, user_id=user_id)
 
     @mcp.tool()
+    @raises_tool_error
     def create_accomplishment(
         title: str,
         situation: str = "",
@@ -50,7 +51,7 @@ def register_accomplishment_tools(mcp: FastMCP, get_service: Any) -> None:
         result: str = "",
         accomplishment_date: str | None = None,
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Create a new career accomplishment in STAR format.
 
         Args:
@@ -64,24 +65,21 @@ def register_accomplishment_tools(mcp: FastMCP, get_service: Any) -> None:
         """
         user_id = require_user_id()
         service: AccomplishmentService = get_service()
-        try:
-            acc = service.create_accomplishment(
-                {
-                    "title": title,
-                    "situation": situation,
-                    "task": task,
-                    "action": action,
-                    "result": result,
-                    "accomplishment_date": accomplishment_date,
-                    "tags": tags or [],
-                },
-                user_id=user_id,
-            )
-            return f"Created accomplishment '{acc['title']}' (id={acc['id']})"
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.create_accomplishment(
+            {
+                "title": title,
+                "situation": situation,
+                "task": task,
+                "action": action,
+                "result": result,
+                "accomplishment_date": accomplishment_date,
+                "tags": tags or [],
+            },
+            user_id=user_id,
+        )
 
     @mcp.tool()
+    @raises_tool_error
     def update_accomplishment(
         id: int,
         title: str | None = None,
@@ -91,7 +89,7 @@ def register_accomplishment_tools(mcp: FastMCP, get_service: Any) -> None:
         result: str | None = None,
         accomplishment_date: str | None = None,
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Update fields of an existing accomplishment (partial update).
 
         Only provided fields are changed; omitted fields retain their current values.
@@ -120,23 +118,19 @@ def register_accomplishment_tools(mcp: FastMCP, get_service: Any) -> None:
         ]:
             if value is not None:
                 data[field] = value
-        try:
-            service.update_accomplishment(id, data, user_id=user_id)
-            return f"Updated accomplishment {id}"
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.update_accomplishment(id, data, user_id=user_id)
 
     @mcp.tool()
-    def delete_accomplishment(id: int) -> str:
+    @raises_tool_error
+    def delete_accomplishment(id: int) -> dict[str, Any]:
         """Delete a career accomplishment by ID.
 
         Args:
             id: Accomplishment ID.
+
+        Returns the deleted `{id, title}`.
         """
         user_id = require_user_id()
         service: AccomplishmentService = get_service()
-        try:
-            acc = service.delete_accomplishment(id, user_id=user_id)
-            return f"Deleted accomplishment '{acc['title']}' (id={id})"
-        except ValueError as e:
-            return f"Error: {e}"
+        acc = service.delete_accomplishment(id, user_id=user_id)
+        return {"id": acc["id"], "title": acc["title"]}
