@@ -6,12 +6,14 @@ from fastmcp import FastMCP
 
 from pktx.auth import require_user_id
 from pktx.note_service import NoteService
+from pktx.tools.errors import raises_tool_error
 
 
 def register_note_tools(mcp: FastMCP, get_service: Any) -> None:
     """Register note MCP tools on the given FastMCP instance."""
 
     @mcp.tool()
+    @raises_tool_error
     def list_notes(
         tag: str | None = None, q: str | None = None
     ) -> list[dict[str, Any]]:
@@ -28,7 +30,8 @@ def register_note_tools(mcp: FastMCP, get_service: Any) -> None:
         return service.list_notes(tags=[tag] if tag else None, q=q, user_id=user_id)
 
     @mcp.tool()
-    def get_note(id: int) -> dict[str, Any] | str:
+    @raises_tool_error
+    def get_note(id: int) -> dict[str, Any]:
         """Get full detail for a specific note including content.
 
         Args:
@@ -36,17 +39,15 @@ def register_note_tools(mcp: FastMCP, get_service: Any) -> None:
         """
         user_id = require_user_id()
         service: NoteService = get_service()
-        try:
-            return service.get_note(id, user_id=user_id)
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.get_note(id, user_id=user_id)
 
     @mcp.tool()
+    @raises_tool_error
     def create_note(
         title: str,
         content: str = "",
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Create a new personal context note.
 
         Args:
@@ -56,26 +57,23 @@ def register_note_tools(mcp: FastMCP, get_service: Any) -> None:
         """
         user_id = require_user_id()
         service: NoteService = get_service()
-        try:
-            note = service.create_note(
-                {
-                    "title": title,
-                    "content": content,
-                    "tags": tags or [],
-                },
-                user_id=user_id,
-            )
-            return f"Created note '{note['title']}' (id={note['id']})"
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.create_note(
+            {
+                "title": title,
+                "content": content,
+                "tags": tags or [],
+            },
+            user_id=user_id,
+        )
 
     @mcp.tool()
+    @raises_tool_error
     def update_note(
         id: int,
         title: str | None = None,
         content: str | None = None,
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Update fields of an existing note (partial update).
 
         Only provided fields are changed; omitted fields retain their current values.
@@ -96,23 +94,19 @@ def register_note_tools(mcp: FastMCP, get_service: Any) -> None:
         ]:
             if value is not None:
                 data[field] = value
-        try:
-            service.update_note(id, data, user_id=user_id)
-            return f"Updated note {id}"
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.update_note(id, data, user_id=user_id)
 
     @mcp.tool()
-    def delete_note(id: int) -> str:
+    @raises_tool_error
+    def delete_note(id: int) -> dict[str, Any]:
         """Delete a personal context note by ID.
 
         Args:
             id: Note ID.
+
+        Returns the deleted `{id, title}`.
         """
         user_id = require_user_id()
         service: NoteService = get_service()
-        try:
-            note = service.delete_note(id, user_id=user_id)
-            return f"Deleted note '{note['title']}' (id={id})"
-        except ValueError as e:
-            return f"Error: {e}"
+        note = service.delete_note(id, user_id=user_id)
+        return {"id": note["id"], "title": note["title"]}

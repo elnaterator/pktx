@@ -1,17 +1,14 @@
 """MCP resume tools, driven through an in-memory FastMCP client."""
 
-import asyncio
-import json
-from collections.abc import Awaitable, Callable
 from typing import Any
 
 import pytest
-from fastmcp import Client, FastMCP
+from fastmcp import FastMCP
 from psycopg import Connection
 
-from pktx.auth import current_user_id_var
 from pktx.resume_service import ResumeService
 from pktx.tools.resume_tools import register_resume_tools
+from tests.mcp_client import Mcp
 
 USER = "mcp_resume_user"
 
@@ -29,38 +26,6 @@ TOOLS = {
 }
 
 
-class Mcp:
-    """Sync helper: ``call`` returns structured data or raises ``RuntimeError``."""
-
-    def __init__(self, server: FastMCP) -> None:
-        self.server = server
-
-    def _run(self, fn: Callable[[Client], Awaitable[Any]]) -> Any:
-        async def go() -> Any:
-            token = current_user_id_var.set(USER)
-            try:
-                async with Client(self.server) as client:
-                    return await fn(client)
-            finally:
-                current_user_id_var.reset(token)
-
-        return asyncio.run(go())
-
-    def call(self, name: str, **args: Any) -> Any:
-        result = self._run(
-            lambda c: c.call_tool(name, args, raise_on_error=False)  # type: ignore[arg-type]
-        )
-        if result.is_error:
-            raise RuntimeError(result.content[0].text)  # type: ignore[union-attr]
-        data = result.structured_content
-        if data is None:  # untyped return (Any): JSON in the text content
-            return json.loads(result.content[0].text)  # type: ignore[union-attr]
-        return data["result"] if set(data) == {"result"} else data
-
-    def tools(self) -> dict[str, Any]:
-        return {t.name: t for t in self._run(lambda c: c.list_tools())}
-
-
 @pytest.fixture
 def mcp(db_conn: Connection[Any]) -> Mcp:
     db_conn.execute("INSERT INTO users (id) VALUES (%s)", (USER,))
@@ -69,7 +34,7 @@ def mcp(db_conn: Connection[Any]) -> Mcp:
     svc.update_resume(svc.list_resumes(USER)[0]["id"], user_id=USER, is_default=True)
     server = FastMCP("test")
     register_resume_tools(server, lambda: svc)
-    return Mcp(server)
+    return Mcp(server, USER)
 
 
 def _ids(mcp: Mcp) -> list[str]:

@@ -6,12 +6,14 @@ from fastmcp import FastMCP
 
 from pktx.application_service import ApplicationService
 from pktx.auth import require_user_id
+from pktx.tools.errors import raises_tool_error
 
 
 def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
     """Register application MCP tools on the given FastMCP instance."""
 
     @mcp.tool()
+    @raises_tool_error
     def list_applications(
         status: str | None = None,
         tag: str | None = None,
@@ -30,6 +32,7 @@ def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
         return service.list_applications(status=status, tags=tags, q=q, user_id=user_id)
 
     @mcp.tool()
+    @raises_tool_error
     def get_application(id: int) -> dict[str, Any]:
         """Get full details for a specific application.
 
@@ -41,6 +44,7 @@ def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
         return service.get_application(id, user_id=user_id)
 
     @mcp.tool()
+    @raises_tool_error
     def create_application(
         company: str,
         position: str,
@@ -49,7 +53,7 @@ def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
         url: str | None = None,
         notes: str = "",
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Create a new job application.
 
         Args:
@@ -63,7 +67,7 @@ def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
         """
         user_id = require_user_id()
         service: ApplicationService = get_service()
-        app = service.create_application(
+        return service.create_application(
             {
                 "company": company,
                 "position": position,
@@ -75,9 +79,9 @@ def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
             },
             user_id=user_id,
         )
-        return f"Created application for '{position}' at '{company}' (id={app['id']})"
 
     @mcp.tool()
+    @raises_tool_error
     def update_application(
         id: int,
         company: str | None = None,
@@ -87,7 +91,7 @@ def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
         url: str | None = None,
         notes: str | None = None,
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Update an existing application's fields.
 
         Args:
@@ -114,25 +118,25 @@ def register_application_tools(mcp: FastMCP, get_service: Any) -> None:
         ]:
             if value is not None:
                 data[field] = value
-        service.update_application(id, data, user_id=user_id)
-        return f"Updated application {id}"
+        return service.update_application(id, data, user_id=user_id)
 
     @mcp.tool()
-    def delete_application(id: int) -> str:
+    @raises_tool_error
+    def delete_application(id: int) -> dict[str, Any]:
         """Delete an application and all associated data (cascade).
 
         Args:
             id: Application ID.
+
+        Returns the deleted `{id, company, position}`.
         """
         user_id = require_user_id()
         service: ApplicationService = get_service()
         app = service.delete_application(id, user_id=user_id)
-        return (
-            f"Deleted application '{app['position']}' at "
-            f"'{app['company']}' and all associated data"
-        )
+        return {"id": app["id"], "company": app["company"], "position": app["position"]}
 
     @mcp.tool()
+    @raises_tool_error
     def get_application_context(id: int) -> dict[str, Any]:
         """Get complete context for AI-assisted operations on an application.
 
