@@ -138,7 +138,7 @@ Notes: research/resume-sections.md
 Notes: research/resume-schema.md
 
 
-## 035 MCP tools: raise errors and return structured results
+## 035 MCP tools: raise errors and return structured results - SHIPPED
 
 Non-resume MCP tools (`note_tools`, `contact_tools`, `accomplishment_tools`, `link_tools`, 23 sites) catch `ValueError` and return `"Error: ..."` strings. The call looks successful (no `isError`), so `DBSessionToolMiddleware` commits instead of rolling back, and clients can't tell failure from success. Writes also return prose (`"Updated note 3"`), so the assistant has to re-fetch to see ids or the new state. Make every tool raise `ToolError` on invalid input / not found (rollback + `isError: true`) and return the created/updated/deleted object as structured JSON, matching the resume tools from 034. Add a contract test per tool module: failed write leaves data unchanged and reports `isError`. Also align application tools if they differ.
 

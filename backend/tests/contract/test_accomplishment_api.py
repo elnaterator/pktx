@@ -10,6 +10,7 @@ from typing import Any
 
 import psycopg
 import pytest
+from fastmcp.exceptions import ToolError
 from psycopg import Connection
 from starlette.testclient import TestClient
 
@@ -66,7 +67,7 @@ def _make_acc_client(db_conn: Connection[Any]) -> TestClient:
 class TestMCPCreateGetAccomplishment:
     """T008 — MCP contract tests for create_accomplishment + get_accomplishment."""
 
-    def test_create_returns_confirmation_string(self, acc_service: Any) -> None:
+    def test_create_returns_accomplishment(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -85,11 +86,11 @@ class TestMCPCreateGetAccomplishment:
             accomplishment_date=None,
             tags=[],
         )
-        assert isinstance(result, str)
-        assert "Led platform migration" in result
-        assert "id=" in result
+        assert result["title"] == "Led platform migration"
+        assert result["situation"] == "Monolith"
+        assert isinstance(result["id"], int)
 
-    def test_create_missing_title_returns_error_string(self, acc_service: Any) -> None:
+    def test_create_missing_title_raises(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -98,24 +99,16 @@ class TestMCPCreateGetAccomplishment:
         register_accomplishment_tools(mcp, lambda: acc_service)
 
         tool_fn = _get_tool_fn(mcp, "create_accomplishment")
-        result = tool_fn(
-            title="",
-            situation="",
-            task="",
-            action="",
-            result="",
-            accomplishment_date=None,
-            tags=[],
-        )
-        assert isinstance(result, str)
-        # No Python traceback exposed
-        assert "Traceback" not in result
-        assert (
-            "Error" in result
-            or "error" in result
-            or "title" in result.lower()
-            or "Title" in result
-        )
+        with pytest.raises(ToolError):
+            tool_fn(
+                title="",
+                situation="",
+                task="",
+                action="",
+                result="",
+                accomplishment_date=None,
+                tags=[],
+            )
 
     def test_get_returns_accomplishment_dict(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
@@ -146,7 +139,7 @@ class TestMCPCreateGetAccomplishment:
         assert isinstance(result, dict)
         assert result["title"] == "Test acc"
 
-    def test_get_unknown_id_returns_error_string(self, acc_service: Any) -> None:
+    def test_get_unknown_id_raises(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -155,9 +148,8 @@ class TestMCPCreateGetAccomplishment:
         register_accomplishment_tools(mcp, lambda: acc_service)
 
         tool_fn = _get_tool_fn(mcp, "get_accomplishment")
-        result = tool_fn(id=9999)
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        with pytest.raises(ToolError):
+            tool_fn(id=9999)
 
 
 class TestRESTCreateGetAccomplishment:
@@ -397,7 +389,7 @@ class TestRESTMultiTagFilterAccomplishments:
 class TestMCPUpdateAccomplishment:
     """T032 — MCP contract test for update_accomplishment tool."""
 
-    def test_partial_update_returns_confirmation(self, acc_service: Any) -> None:
+    def test_partial_update_returns_accomplishment(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -419,10 +411,11 @@ class TestMCPUpdateAccomplishment:
             accomplishment_date=None,
             tags=None,
         )
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        assert result["id"] == created["id"]
+        assert result["title"] == "Original"
+        assert result["result"] == "New result"
 
-    def test_unknown_id_returns_error_string(self, acc_service: Any) -> None:
+    def test_unknown_id_raises(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -431,20 +424,19 @@ class TestMCPUpdateAccomplishment:
         register_accomplishment_tools(mcp, lambda: acc_service)
 
         update_fn = _get_tool_fn(mcp, "update_accomplishment")
-        result = update_fn(
-            id=9999,
-            title=None,
-            situation=None,
-            task=None,
-            action=None,
-            result="x",
-            accomplishment_date=None,
-            tags=None,
-        )
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        with pytest.raises(ToolError):
+            update_fn(
+                id=9999,
+                title=None,
+                situation=None,
+                task=None,
+                action=None,
+                result="x",
+                accomplishment_date=None,
+                tags=None,
+            )
 
-    def test_blank_title_returns_error_string(self, acc_service: Any) -> None:
+    def test_blank_title_raises(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -456,18 +448,17 @@ class TestMCPUpdateAccomplishment:
             {"title": "Original"}, user_id=_TEST_USER
         )
         update_fn = _get_tool_fn(mcp, "update_accomplishment")
-        result = update_fn(
-            id=created["id"],
-            title="",
-            situation=None,
-            task=None,
-            action=None,
-            result=None,
-            accomplishment_date=None,
-            tags=None,
-        )
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        with pytest.raises(ToolError):
+            update_fn(
+                id=created["id"],
+                title="",
+                situation=None,
+                task=None,
+                action=None,
+                result=None,
+                accomplishment_date=None,
+                tags=None,
+            )
 
 
 class TestRESTUpdateAccomplishment:
@@ -508,7 +499,7 @@ class TestRESTUpdateAccomplishment:
 class TestMCPDeleteAccomplishment:
     """T041 — MCP contract test for delete_accomplishment tool."""
 
-    def test_delete_returns_confirmation_with_title(self, acc_service: Any) -> None:
+    def test_delete_returns_id_and_title(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -521,11 +512,9 @@ class TestMCPDeleteAccomplishment:
         )
         delete_fn = _get_tool_fn(mcp, "delete_accomplishment")
         result = delete_fn(id=created["id"])
-        assert isinstance(result, str)
-        assert "Delete me" in result
-        assert "Traceback" not in result
+        assert result == {"id": created["id"], "title": "Delete me"}
 
-    def test_delete_unknown_id_returns_error_string(self, acc_service: Any) -> None:
+    def test_delete_unknown_id_raises(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -534,9 +523,8 @@ class TestMCPDeleteAccomplishment:
         register_accomplishment_tools(mcp, lambda: acc_service)
 
         delete_fn = _get_tool_fn(mcp, "delete_accomplishment")
-        result = delete_fn(id=9999)
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        with pytest.raises(ToolError):
+            delete_fn(id=9999)
 
 
 class TestRESTDeleteAccomplishment:
@@ -601,13 +589,11 @@ class TestMCPCrossToolIntegration:
             accomplishment_date=None,
             tags=[],
         )
-        assert isinstance(create_result, str)
-        assert "Traceback" not in create_result
+        acc_id = create_result["id"]
 
         # List — entry appears
         list_result = list_fn(tag=None, q=None)
-        assert len(list_result) == 1
-        acc_id = list_result[0]["id"]
+        assert [a["id"] for a in list_result] == [acc_id]
 
         # Update
         update_result = update_fn(
@@ -620,8 +606,7 @@ class TestMCPCrossToolIntegration:
             accomplishment_date=None,
             tags=None,
         )
-        assert isinstance(update_result, str)
-        assert "Traceback" not in update_result
+        assert update_result["result"] == "Updated"
 
         # List — verify update reflected (via get)
         get_result = get_fn(id=acc_id)
@@ -629,16 +614,13 @@ class TestMCPCrossToolIntegration:
 
         # Delete
         delete_result = delete_fn(id=acc_id)
-        assert isinstance(delete_result, str)
-        assert "Traceback" not in delete_result
+        assert delete_result == {"id": acc_id, "title": "Cross-tool test"}
 
         # List — entry gone
         list_after = list_fn(tag=None, q=None)
         assert list_after == []
 
-    def test_all_error_responses_are_strings_without_traceback(
-        self, acc_service: Any
-    ) -> None:
+    def test_all_errors_raise_tool_error(self, acc_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.accomplishment_tools import register_accomplishment_tools
@@ -651,9 +633,9 @@ class TestMCPCrossToolIntegration:
         delete_fn = _get_tool_fn(mcp, "delete_accomplishment")
         create_fn = _get_tool_fn(mcp, "create_accomplishment")
 
-        errors = [
-            get_fn(id=9999),
-            update_fn(
+        calls = [
+            lambda: get_fn(id=9999),
+            lambda: update_fn(
                 id=9999,
                 title=None,
                 situation=None,
@@ -663,8 +645,8 @@ class TestMCPCrossToolIntegration:
                 accomplishment_date=None,
                 tags=None,
             ),
-            delete_fn(id=9999),
-            create_fn(
+            lambda: delete_fn(id=9999),
+            lambda: create_fn(
                 title="",
                 situation="",
                 task="",
@@ -674,9 +656,9 @@ class TestMCPCrossToolIntegration:
                 tags=[],
             ),
         ]
-        for err in errors:
-            assert isinstance(err, str), f"Expected str, got {type(err)}"
-            assert "Traceback" not in err, f"Traceback exposed: {err}"
+        for call in calls:
+            with pytest.raises(ToolError):
+                call()
 
 
 # ── Helper ────────────────────────────────────────────────────────────────────

@@ -5,6 +5,7 @@ from collections.abc import Generator
 from typing import Any
 
 import pytest
+from fastmcp.exceptions import ToolError
 from psycopg import Connection
 from starlette.testclient import TestClient
 
@@ -273,7 +274,7 @@ class TestRESTNoteMultiTagFilter:
 class TestMCPNoteTools:
     """MCP contract tests for all 5 note tools."""
 
-    def test_create_returns_confirmation_string(self, note_service: Any) -> None:
+    def test_create_returns_note(self, note_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.note_tools import register_note_tools
@@ -283,11 +284,11 @@ class TestMCPNoteTools:
 
         tool_fn = _get_tool_fn(mcp, "create_note")
         result = tool_fn(title="Test note", content="Body", tags=[])
-        assert isinstance(result, str)
-        assert "Test note" in result
-        assert "id=" in result
+        assert result["title"] == "Test note"
+        assert result["content"] == "Body"
+        assert isinstance(result["id"], int)
 
-    def test_create_missing_title_returns_error_string(self, note_service: Any) -> None:
+    def test_create_missing_title_raises(self, note_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.note_tools import register_note_tools
@@ -296,9 +297,8 @@ class TestMCPNoteTools:
         register_note_tools(mcp, lambda: note_service)
 
         tool_fn = _get_tool_fn(mcp, "create_note")
-        result = tool_fn(title="", content="", tags=[])
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        with pytest.raises(ToolError):
+            tool_fn(title="", content="", tags=[])
 
     def test_list_returns_summaries(self, note_service: Any) -> None:
         from fastmcp import FastMCP
@@ -329,7 +329,7 @@ class TestMCPNoteTools:
         assert isinstance(result, dict)
         assert result["title"] == "Get me"
 
-    def test_get_unknown_returns_error_string(self, note_service: Any) -> None:
+    def test_get_unknown_raises(self, note_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.note_tools import register_note_tools
@@ -338,11 +338,10 @@ class TestMCPNoteTools:
         register_note_tools(mcp, lambda: note_service)
 
         get_fn = _get_tool_fn(mcp, "get_note")
-        result = get_fn(id=9999)
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        with pytest.raises(ToolError, match="not found"):
+            get_fn(id=9999)
 
-    def test_update_returns_confirmation(self, note_service: Any) -> None:
+    def test_update_returns_note(self, note_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.note_tools import register_note_tools
@@ -353,10 +352,11 @@ class TestMCPNoteTools:
         created = note_service.create_note({"title": "Original"}, user_id=_TEST_USER)
         update_fn = _get_tool_fn(mcp, "update_note")
         result = update_fn(id=created["id"], title=None, content="Updated", tags=None)
-        assert isinstance(result, str)
-        assert "Traceback" not in result
+        assert result["id"] == created["id"]
+        assert result["title"] == "Original"
+        assert result["content"] == "Updated"
 
-    def test_delete_returns_confirmation(self, note_service: Any) -> None:
+    def test_delete_returns_id_and_title(self, note_service: Any) -> None:
         from fastmcp import FastMCP
 
         from pktx.tools.note_tools import register_note_tools
@@ -367,9 +367,7 @@ class TestMCPNoteTools:
         created = note_service.create_note({"title": "Delete me"}, user_id=_TEST_USER)
         delete_fn = _get_tool_fn(mcp, "delete_note")
         result = delete_fn(id=created["id"])
-        assert isinstance(result, str)
-        assert "Delete me" in result
-        assert "Traceback" not in result
+        assert result == {"id": created["id"], "title": "Delete me"}
 
     def test_create_list_update_delete_sequence(self, note_service: Any) -> None:
         from fastmcp import FastMCP

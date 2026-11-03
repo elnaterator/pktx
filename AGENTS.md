@@ -160,6 +160,11 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
   `validate_http_url` — http(s) only, bare hosts get `https://`, `check_len`).
   Frontend renders user URLs only through `components/ExternalLink`.
 - Multi-step writes use `conn.transaction()`, never manual `SAVEPOINT`.
+- **MCP tools (035)** wear `@raises_tool_error` (`tools/errors.py`) under `@mcp.tool()`:
+  a service `ValueError` becomes a `ToolError` (`isError`, rollback). Never return an
+  `"Error: ..."` string — that commits. Create/update return the object, delete returns
+  `{id, <name>}`, link/unlink echo the link. Test through `tests/mcp_client.Mcp`
+  (in-memory client); `tests/contract/test_mcp_tools.py` covers every non-resume tool.
 
 <!-- MANUAL ADDITIONS END -->
 
@@ -212,6 +217,7 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - AWS Lambda (container image + Function URL) via Terraform in `infra/`; EventBridge keep-warm rule pings `GET /health` every 5 min (toggle: `keep_warm_enabled` module var)
 
 ## Recent Changes
+- 035-mcp-tool-errors: every MCP tool raises `ToolError` (rollback + `isError`) instead of returning `"Error: ..."`; writes return structured objects; link tool types are a `Literal` enum; shared `tests/mcp_client.Mcp`
 - 034-json-resume-schema: JSON Resume (jsonresume.org) is the canonical resume shape, stored as JSONB; `basics` replaces contact + summary; skills are keyword groups; ids-only entry addressing; reorder + whole-document import; resume REST/MCP reshaped (10 MCP tools); `enabled_sections`, contact keys/presets and every legacy path removed; schema v16 → v17 (reshape, date normalisation, newest-first period sections)
 - 033-resume-sections: section registry + stable entry ids; fixed section order with optional sections added from a fixed list; new sections (projects, certifications, awards, publications, volunteer, languages, contact as key/value details); schema v14 → v16 (backfill entry ids; contact links → `contact.fields`)
 - 029-pyjwt: python-jose → PyJWT for REST Clerk JWT verification (drops `ecdsa`/`rsa`/`pyasn1` and the PYSEC-2026-1325 pip-audit waiver); RS256 pinned, unusable JWKS entries → 401

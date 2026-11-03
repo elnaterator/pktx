@@ -7,6 +7,7 @@ from fastmcp import FastMCP
 from pktx.auth import require_user_id
 from pktx.communication_service import ContactCommunicationService
 from pktx.contact_service import ContactService
+from pktx.tools.errors import raises_tool_error
 
 
 def register_contact_tools(
@@ -15,6 +16,7 @@ def register_contact_tools(
     """Register contact MCP tools on the given FastMCP instance."""
 
     @mcp.tool()
+    @raises_tool_error
     def list_contacts(
         tag: str | None = None, q: str | None = None
     ) -> list[dict[str, Any]]:
@@ -30,7 +32,8 @@ def register_contact_tools(
         return service.list_contacts(tags=[tag] if tag else None, q=q, user_id=user_id)
 
     @mcp.tool()
-    def get_contact(id: int) -> dict[str, Any] | str:
+    @raises_tool_error
+    def get_contact(id: int) -> dict[str, Any]:
         """Get full detail for a specific contact including notes.
 
         Args:
@@ -38,12 +41,10 @@ def register_contact_tools(
         """
         user_id = require_user_id()
         service: ContactService = get_service()
-        try:
-            return service.get_contact(id, user_id=user_id)
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.get_contact(id, user_id=user_id)
 
     @mcp.tool()
+    @raises_tool_error
     def create_contact(
         name: str,
         email: str | None = None,
@@ -57,7 +58,7 @@ def register_contact_tools(
         followup_date: str | None = None,
         notes: str = "",
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Create a new networking contact.
 
         Args:
@@ -76,29 +77,26 @@ def register_contact_tools(
         """
         user_id = require_user_id()
         service: ContactService = get_service()
-        try:
-            contact = service.create_contact(
-                {
-                    "name": name,
-                    "email": email,
-                    "phone": phone,
-                    "company": company,
-                    "title": title,
-                    "relationship": relationship,
-                    "linkedin_url": linkedin_url,
-                    "location": location,
-                    "last_contacted_date": last_contacted_date,
-                    "followup_date": followup_date,
-                    "notes": notes,
-                    "tags": tags or [],
-                },
-                user_id=user_id,
-            )
-            return f"Created contact '{contact['name']}' (id={contact['id']})"
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.create_contact(
+            {
+                "name": name,
+                "email": email,
+                "phone": phone,
+                "company": company,
+                "title": title,
+                "relationship": relationship,
+                "linkedin_url": linkedin_url,
+                "location": location,
+                "last_contacted_date": last_contacted_date,
+                "followup_date": followup_date,
+                "notes": notes,
+                "tags": tags or [],
+            },
+            user_id=user_id,
+        )
 
     @mcp.tool()
+    @raises_tool_error
     def update_contact(
         id: int,
         name: str | None = None,
@@ -113,7 +111,7 @@ def register_contact_tools(
         followup_date: str | None = None,
         notes: str | None = None,
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Update fields of an existing contact (partial update).
 
         Only provided fields are changed; omitted fields retain their current values.
@@ -152,32 +150,29 @@ def register_contact_tools(
         ]:
             if value is not None:
                 data[field] = value
-        try:
-            service.update_contact(id, data, user_id=user_id)
-            return f"Updated contact {id}"
-        except ValueError as e:
-            return f"Error: {e}"
+        return service.update_contact(id, data, user_id=user_id)
 
     @mcp.tool()
-    def delete_contact(id: int) -> str:
+    @raises_tool_error
+    def delete_contact(id: int) -> dict[str, Any]:
         """Delete a networking contact by ID.
 
         Args:
             id: Contact ID.
+
+        Returns the deleted `{id, name}`.
         """
         user_id = require_user_id()
         service: ContactService = get_service()
-        try:
-            contact = service.delete_contact(id, user_id=user_id)
-            return f"Deleted contact '{contact['name']}' (id={id})"
-        except ValueError as e:
-            return f"Error: {e}"
+        contact = service.delete_contact(id, user_id=user_id)
+        return {"id": contact["id"], "name": contact["name"]}
 
     if get_comm_service is None:
         return
 
     @mcp.tool()
-    def list_contact_communications(contact_id: int) -> list[dict[str, Any]] | str:
+    @raises_tool_error
+    def list_contact_communications(contact_id: int) -> list[dict[str, Any]]:
         """List communications for a networking contact.
 
         Args:
@@ -185,12 +180,10 @@ def register_contact_tools(
         """
         user_id = require_user_id()
         svc: ContactCommunicationService = get_comm_service()
-        try:
-            return svc.list_for_contact(contact_id, user_id=user_id)
-        except ValueError as e:
-            return f"Error: {e}"
+        return svc.list_for_contact(contact_id, user_id=user_id)
 
     @mcp.tool()
+    @raises_tool_error
     def add_contact_communication(
         contact_id: int,
         type: str,
@@ -200,7 +193,7 @@ def register_contact_tools(
         subject: str = "",
         status: str = "sent",
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Add a communication to a networking contact.
 
         Args:
@@ -215,25 +208,22 @@ def register_contact_tools(
         """
         user_id = require_user_id()
         svc: ContactCommunicationService = get_comm_service()
-        try:
-            comm = svc.add_for_contact(
-                contact_id,
-                {
-                    "type": type,
-                    "direction": direction,
-                    "body": body,
-                    "date": date,
-                    "subject": subject,
-                    "status": status,
-                    "tags": tags or [],
-                },
-                user_id=user_id,
-            )
-            return f"Added communication (id={comm['id']}) to contact {contact_id}"
-        except ValueError as e:
-            return f"Error: {e}"
+        return svc.add_for_contact(
+            contact_id,
+            {
+                "type": type,
+                "direction": direction,
+                "body": body,
+                "date": date,
+                "subject": subject,
+                "status": status,
+                "tags": tags or [],
+            },
+            user_id=user_id,
+        )
 
     @mcp.tool()
+    @raises_tool_error
     def update_contact_communication(
         comm_id: int,
         type: str | None = None,
@@ -243,7 +233,7 @@ def register_contact_tools(
         subject: str | None = None,
         status: str | None = None,
         tags: list[str] | None = None,
-    ) -> str:
+    ) -> dict[str, Any]:
         """Update a contact communication (partial update).
 
         Args:
@@ -270,32 +260,29 @@ def register_contact_tools(
         ]:
             if value is not None:
                 data[field] = value
-        try:
-            svc.update(comm_id, data, user_id=user_id)
-            return f"Updated communication {comm_id}"
-        except ValueError as e:
-            return f"Error: {e}"
+        return svc.update(comm_id, data, user_id=user_id)
 
     @mcp.tool()
-    def remove_contact_communication(comm_id: int) -> str:
+    @raises_tool_error
+    def remove_contact_communication(comm_id: int) -> dict[str, Any]:
         """Remove a contact communication.
 
         Args:
             comm_id: Communication ID.
+
+        Returns the deleted `{id, subject}`.
         """
         user_id = require_user_id()
         svc: ContactCommunicationService = get_comm_service()
-        try:
-            subject = svc.remove(comm_id, user_id=user_id)
-            return f"Removed communication '{subject}' (id={comm_id})"
-        except ValueError as e:
-            return f"Error: {e}"
+        subject = svc.remove(comm_id, user_id=user_id)
+        return {"id": comm_id, "subject": subject}
 
     @mcp.tool()
+    @raises_tool_error
     def search_communications(
         q: str | None = None,
         tag: str | None = None,
-    ) -> list[dict[str, Any]] | str:
+    ) -> list[dict[str, Any]]:
         """Search communications across all networking contacts.
 
         Args:
@@ -304,11 +291,8 @@ def register_contact_tools(
         """
         user_id = require_user_id()
         svc: ContactCommunicationService = get_comm_service()
-        try:
-            return svc.search(
-                q=q,
-                tags=[tag] if tag else None,
-                user_id=user_id,
-            )
-        except ValueError as e:
-            return f"Error: {e}"
+        return svc.search(
+            q=q,
+            tags=[tag] if tag else None,
+            user_id=user_id,
+        )

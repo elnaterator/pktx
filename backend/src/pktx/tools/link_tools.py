@@ -1,13 +1,17 @@
 """MCP tool handlers for resource linking."""
 
 from collections.abc import Callable
+from typing import Literal, get_args
 
 from fastmcp import FastMCP
 
 from pktx.auth import require_user_id
 from pktx.link_service import RESOURCE_TYPES, LinkService
+from pktx.tools.errors import raises_tool_error
 
-_VALID_TYPES = ", ".join(RESOURCE_TYPES)
+ResourceType = Literal["application", "accomplishment", "resume", "note", "contact"]
+if get_args(ResourceType) != RESOURCE_TYPES:
+    raise RuntimeError("ResourceType is out of sync with link_service.RESOURCE_TYPES")
 
 
 def register_link_tools(
@@ -17,43 +21,34 @@ def register_link_tools(
     """Register link_resources and unlink_resources MCP tools."""
 
     @mcp.tool()
+    @raises_tool_error
     def link_resources(
-        a_type: str,
+        a_type: ResourceType,
         a_id: int,
-        b_type: str,
+        b_type: ResourceType,
         b_id: int,
-    ) -> str:
+    ) -> dict[str, str | int]:
         """Link two resources together.
 
         Args:
-            a_type: Resource type (application|accomplishment|resume|note|contact)
+            a_type: Type of first resource
             a_id: ID of first resource
-            b_type: Resource type (application|accomplishment|resume|note|contact)
+            b_type: Type of second resource
             b_id: ID of second resource
 
-        Returns:
-            Confirmation message
+        Returns the link `{a_type, a_id, b_type, b_id}`.
         """
-        if a_type not in RESOURCE_TYPES:
-            return f"Error: invalid type '{a_type}'. Must be one of: {_VALID_TYPES}"
-        if b_type not in RESOURCE_TYPES:
-            return f"Error: invalid type '{b_type}'. Must be one of: {_VALID_TYPES}"
-
-        uid = require_user_id()
-        svc = get_link_service()
-        try:
-            svc.link(a_type, a_id, b_type, b_id, uid)
-        except ValueError as e:
-            return f"Error: {e}"
-        return f"Linked {a_type}/{a_id} ↔ {b_type}/{b_id}"
+        get_link_service().link(a_type, a_id, b_type, b_id, require_user_id())
+        return {"a_type": a_type, "a_id": a_id, "b_type": b_type, "b_id": b_id}
 
     @mcp.tool()
+    @raises_tool_error
     def unlink_resources(
-        a_type: str,
+        a_type: ResourceType,
         a_id: int,
-        b_type: str,
+        b_type: ResourceType,
         b_id: int,
-    ) -> str:
+    ) -> dict[str, str | int]:
         """Remove a link between two resources.
 
         Args:
@@ -62,18 +57,7 @@ def register_link_tools(
             b_type: Type of second resource
             b_id: ID of second resource
 
-        Returns:
-            Confirmation message
+        Returns the removed link `{a_type, a_id, b_type, b_id}`.
         """
-        if a_type not in RESOURCE_TYPES:
-            return f"Error: invalid type '{a_type}'. Must be one of: {_VALID_TYPES}"
-        if b_type not in RESOURCE_TYPES:
-            return f"Error: invalid type '{b_type}'. Must be one of: {_VALID_TYPES}"
-
-        uid = require_user_id()
-        svc = get_link_service()
-        try:
-            svc.unlink(a_type, a_id, b_type, b_id, uid)
-        except ValueError as e:
-            return f"Error: {e}"
-        return f"Unlinked {a_type}/{a_id} ↔ {b_type}/{b_id}"
+        get_link_service().unlink(a_type, a_id, b_type, b_id, require_user_id())
+        return {"a_type": a_type, "a_id": a_id, "b_type": b_type, "b_id": b_id}
