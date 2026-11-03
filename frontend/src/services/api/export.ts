@@ -1,5 +1,5 @@
 /**
- * Data export endpoint.
+ * File downloads: the full data export and resume PDFs.
  */
 
 import { API_BASE, fetchWithErrorHandling, ApiClientError } from './client'
@@ -12,29 +12,31 @@ export interface DataExport {
 const FILENAME_PATTERN = /filename="?([^";]+)"?/
 
 /**
- * Download the signed-in user's full data export as a JSON blob.
- *
- * Returns the blob plus the filename the server asked for, so the caller can
- * trigger a download without re-deriving the name.
+ * GET a file from the API. Returns the blob plus the filename the server asked
+ * for (else `fallback`), so the caller can save it without re-deriving the name.
  */
-export async function fetchDataExport(): Promise<DataExport> {
-  const response = await fetchWithErrorHandling(`${API_BASE}/export`)
+async function fetchDownload(path: string, what: string, fallback: string): Promise<DataExport> {
+  const response = await fetchWithErrorHandling(`${API_BASE}${path}`)
   if (!response.ok) {
     throw new ApiClientError(
-      `Export failed (HTTP ${response.status})`,
+      `${what} failed (HTTP ${response.status})`,
       response.status,
       response.statusText
     )
   }
+  const match = FILENAME_PATTERN.exec(response.headers.get('content-disposition') ?? '')
+  return { blob: await response.blob(), filename: match ? match[1] : fallback }
+}
 
-  const disposition = response.headers.get('content-disposition') ?? ''
-  const match = FILENAME_PATTERN.exec(disposition)
+/** Download the signed-in user's full data export as a JSON blob. */
+export function fetchDataExport(): Promise<DataExport> {
   const today = new Date().toISOString().slice(0, 10)
+  return fetchDownload('/export', 'Export', `pktx-export-${today}.json`)
+}
 
-  return {
-    blob: await response.blob(),
-    filename: match ? match[1] : `pktx-export-${today}.json`,
-  }
+/** Download one resume version rendered as a PDF. */
+export function fetchResumePdf(id: number): Promise<DataExport> {
+  return fetchDownload(`/resumes/${id}/pdf`, 'PDF export', `resume-${id}.pdf`)
 }
 
 /**

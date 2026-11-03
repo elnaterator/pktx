@@ -387,3 +387,22 @@ def test_jsonresume_sample_round_trips(client: TestClient) -> None:
     # (Stored shape == wire shape, so a second import is a fixed point.)
     again = client.put(_url(client, "/data"), json=stored).json()["data"]
     assert again == stored
+
+
+class TestPdf:
+    def test_pdf_download(self, client: TestClient) -> None:
+        r = client.get(_url(client, "/pdf"))
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "application/pdf"
+        assert r.content.startswith(b"%PDF-")
+        disposition = r.headers["content-disposition"]
+        assert disposition.startswith('attachment; filename="jane-doe')
+        assert disposition.endswith('.pdf"')
+
+    def test_pdf_full_sample(self, client: TestClient) -> None:
+        client.put(_url(client, "/data"), json=JSON_RESUME_SAMPLE)
+        r = client.get(_url(client, "/pdf"))
+        assert r.status_code == 200 and r.content.startswith(b"%PDF-")
+
+    def test_pdf_not_found(self, client: TestClient) -> None:
+        assert client.get("/api/resumes/999999/pdf").status_code == 404

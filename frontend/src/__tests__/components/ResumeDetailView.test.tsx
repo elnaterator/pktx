@@ -171,3 +171,30 @@ describe('ResumeDetailView sections', () => {
     expect(screen.getByRole('textbox', { name: 'Resume JSON' })).toHaveValue('{"basics":{"name":"Z"}}')
   })
 })
+
+describe('ResumeDetailView PDF download', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('downloads the PDF under the server filename', async () => {
+    const blob = new Blob(['%PDF-'], { type: 'application/pdf' })
+    vi.mocked(api.fetchResumePdf).mockResolvedValue({ blob, filename: 'jane-main.pdf' })
+    renderView()
+    await userEvent.click(await screen.findByRole('button', { name: /download pdf/i }))
+    await waitFor(() => expect(api.saveBlob).toHaveBeenCalledWith(blob, 'jane-main.pdf'))
+    expect(api.fetchResumePdf).toHaveBeenCalledWith(1)
+    expect(screen.getByRole('button', { name: /download pdf/i })).toBeEnabled()
+  })
+
+  it('shows a busy state while rendering and an error toast on failure', async () => {
+    let reject!: (e: Error) => void
+    vi.mocked(api.fetchResumePdf).mockReturnValue(new Promise((_, r) => (reject = r)))
+    renderView()
+    await userEvent.click(await screen.findByRole('button', { name: /download pdf/i }))
+    expect(screen.getByRole('button', { name: /preparing pdf/i })).toBeDisabled()
+    reject(new Error('PDF export failed (HTTP 500)'))
+    expect(await screen.findByText('Failed to export PDF')).toBeInTheDocument()
+    expect(api.saveBlob).not.toHaveBeenCalled()
+  })
+})
