@@ -143,6 +143,12 @@ Notes: research/resume-schema.md
 Non-resume MCP tools (`note_tools`, `contact_tools`, `accomplishment_tools`, `link_tools`, 23 sites) catch `ValueError` and return `"Error: ..."` strings. The call looks successful (no `isError`), so `DBSessionToolMiddleware` commits instead of rolling back, and clients can't tell failure from success. Writes also return prose (`"Updated note 3"`), so the assistant has to re-fetch to see ids or the new state. Make every tool raise `ToolError` on invalid input / not found (rollback + `isError: true`) and return the created/updated/deleted object as structured JSON, matching the resume tools from 034. Add a contract test per tool module: failed write leaves data unchanged and reports `isError`. Also align application tools if they differ.
 
 
+## 036 Export resume as PDF
+
+Download any resume version as a clean, ATS-friendly PDF from the resume page. Reuse the JSON Resume ecosystem instead of a bespoke layout: render server-side with the `typst` Python package (in-process, no Chromium, Lambda-friendly) and one vendored JSON Resume Typst template, data passed via `sys.inputs` (no markup injection), fonts bundled. All stored sections render, empty ones hidden, array order kept. `GET /api/resumes/{id}/pdf`, owner-scoped. Theme picker and MCP access are follow-ups.
+Notes: research/resume-pdf-export.md
+
+
 ## 031 Continuous deployment: auto dev, gated prod
 
 Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, builds the image once, auto-deploys to dev, and smoke tests it. Prod deploys the same verified image digest, triggered by a GitHub Release and gated by a `production` Environment with required reviewer. AWS access via GitHub OIDC with per-env roles, Terraform plan on PRs, one-click rollback to a previous release, forward-compatible migrations. Lays the pipeline 022 uses to stand up prod.
