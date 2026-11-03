@@ -143,12 +143,6 @@ Notes: research/resume-schema.md
 Non-resume MCP tools (`note_tools`, `contact_tools`, `accomplishment_tools`, `link_tools`, 23 sites) catch `ValueError` and return `"Error: ..."` strings. The call looks successful (no `isError`), so `DBSessionToolMiddleware` commits instead of rolling back, and clients can't tell failure from success. Writes also return prose (`"Updated note 3"`), so the assistant has to re-fetch to see ids or the new state. Make every tool raise `ToolError` on invalid input / not found (rollback + `isError: true`) and return the created/updated/deleted object as structured JSON, matching the resume tools from 034. Add a contract test per tool module: failed write leaves data unchanged and reports `isError`. Also align application tools if they differ.
 
 
-## 032 Spike: replace OAuth proxy with Clerk native CIMD
-
-Clerk shipped CIMD GA (2026-09-17). Spike whether we can delete the FastMCP `OAuthProxy` (`auth.build_mcp_auth`, `oauth_store.py`, `oauth_kv`, client secret env) and point RFC 9728 protected-resource metadata at Clerk as the authorization server, with a plain JWT verifier on `/mcp`. Throwaway spike branch; test Claude Desktop, Cursor, VS Code (and ChatGPT). Pass only if all hold: (1) `localhost` vs `127.0.0.1` redirect mismatch does not 400, (2) token `aud` bound to `<PKTX_PUBLIC_URL>/mcp` (RFC 8707), (3) revocation-aware validation, (4) consent page and hosted-client redirect allowlist acceptable, (5) Clerk AS metadata advertises `client_id_metadata_document_supported`. Output: written findings plus go/no-go in the research note. If go, add a follow-up item to remove the proxy; if no-go, record why and a re-check trigger.
-Notes: research/clerk-native-cimd.md
-
-
 ## 031 Continuous deployment: auto dev, gated prod
 
 Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, builds the image once, auto-deploys to dev, and smoke tests it. Prod deploys the same verified image digest, triggered by a GitHub Release and gated by a `production` Environment with required reviewer. AWS access via GitHub OIDC with per-env roles, Terraform plan on PRs, one-click rollback to a previous release, forward-compatible migrations. Lays the pipeline 022 uses to stand up prod.
@@ -169,6 +163,14 @@ Add privacy policy and terms of service pages. Implement full account deletion (
 
 ## 024 Donations via simple payment link
 Add a GitHub Sponsors or Buy Me a Coffee link in the app footer. Explicitly no billing system, subscriptions, or tiers — a payment link only. Revisit with real billing (Stripe) only if donations become meaningful revenue.
+
+
+## 032 Spike: replace OAuth proxy with Clerk native CIMD - DROPPED
+
+Clerk shipped CIMD GA (2026-09-17). Spike whether we can delete the FastMCP `OAuthProxy` (`auth.build_mcp_auth`, `oauth_store.py`, `oauth_kv`, client secret env) and point RFC 9728 protected-resource metadata at Clerk as the authorization server, with a plain JWT verifier on `/mcp`. Throwaway spike branch; test Claude Desktop, Cursor, VS Code (and ChatGPT). Pass only if all hold: (1) `localhost` vs `127.0.0.1` redirect mismatch does not 400, (2) token `aud` bound to `<PKTX_PUBLIC_URL>/mcp` (RFC 8707), (3) revocation-aware validation, (4) consent page and hosted-client redirect allowlist acceptable, (5) Clerk AS metadata advertises `client_id_metadata_document_supported`. Output: written findings plus go/no-go in the research note. If go, add a follow-up item to remove the proxy; if no-go, record why and a re-check trigger.
+Notes: research/clerk-native-cimd.md
+
+**Dropped (2026-11-02):** Desk check against current Clerk docs fails criteria (1) and (2) on paper: redirect URIs must exactly match (no loopback relaxation documented) and no RFC 8707 `resource` / audience binding is documented. Payoff is deleting a few hundred working, tested lines; cost is losing loopback tolerance, audience binding and the themed consent page. Switching IdP (Auth0, Okta, WorkOS, Stytch, Descope, Keycloak) also rejected: migration cost (frontend SDK, REST auth, `user_id` = Clerk `sub`) outweighs it, and the proxy already keeps MCP auth IdP-agnostic. Re-check if Clerk documents RFC 8707 resource indicators and loopback redirect tolerance.
 
 
 ## 012 Storybook and playwright for shared components and e2e UI tests - DEFERRED

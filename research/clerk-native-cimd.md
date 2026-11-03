@@ -35,6 +35,42 @@ Native Clerk would drop DCR for clients that lack CIMD; check which of Claude De
 - Require PKCE: yes, only if the proxy forwards `code_challenge` upstream; verify with one login.
 - Audience: leave empty; verifier uses `audience=None` for the upstream Clerk token.
 
+## Verdict (2026-11-02): no-go, spike dropped
+
+Desk check against current Clerk docs (no live spike):
+
+| Criterion | Status | Evidence |
+|---|---|---|
+| 1. Loopback `localhost` vs `127.0.0.1` | Likely fail | Redirect must "exactly match" a `redirect_uris` entry; no loopback/port relaxation documented. |
+| 2. `aud` bound to `<PKTX_PUBLIC_URL>/mcp` (RFC 8707) | Likely fail | No `resource` parameter documented anywhere in Clerk OAuth docs; `aud` is the client id. MCP spec MUST. |
+| 3. Revocation-aware | Fixable | OAuth app can issue opaque access tokens (introspection, instant revoke). JWT default is not. |
+| 4. Consent page + hosted allowlist | Acceptable | Consent always shown (Account Portal or custom page); lose our themed page. |
+| 5. `client_id_metadata_document_supported` | Pass | Advertised when "Publish CIMD support" is on. DCR toggle still exists. |
+
+Also: Clerk's `acceptsToken` helpers are Node-only; Python would need a hand-written verifier.
+
+Payoff (delete `OAuthProxy`, `oauth_store.py`, `oauth_kv`, one secret) does not justify losing (1), (2) and the themed consent page. The proxy keeps MCP auth IdP-agnostic, so it stays.
+
+### Other IdPs (considered, rejected)
+
+- Auth0: CIMD GA (May 2026) but registration appears admin-driven per client URL; RFC 8707 via "resource parameter compatibility mode".
+- Okta: reportedly no `resource` support.
+- WorkOS AuthKit: claims CIMD + DCR + RFC 8707 (vendor claim); strongest on paper.
+- Stytch: partial CIMD, RFC 8707 yes. Descope: CIMD + DCR, RFC 8707 unclear. Keycloak: CIMD experimental, self-host.
+
+Migration cost (Clerk React SDK, REST JWT auth, `user_id` = Clerk `sub` across all tables) outweighs any gain while the proxy works.
+
+### Re-check trigger
+
+Clerk documents RFC 8707 resource indicators **and** loopback redirect tolerance (watch https://clerk.com/changelog). Then a 15-minute probe settles it: authorize with `resource=<PKTX_PUBLIC_URL>/mcp`, inspect `aud`; authorize a CIMD client listing `127.0.0.1` with `redirect_uri=http://localhost:<port>`.
+
+### Additional sources
+
+- https://clerk.com/docs/guides/configure/auth-strategies/oauth/how-clerk-implements-oauth.md
+- https://releases.sh/release/rel_RkU7ogmtV4G8A6NgZpWFf-auth-for-mcp-ga-cimd-registration-and-obo-token-exchange-ready
+- https://workos.com/blog/best-mcp-server-authentication-providers
+- https://zuplo.com/learn/mcp/compatibility/identity-providers
+
 ## Sources
 
 - https://clerk.com/docs/guides/configure/auth-strategies/oauth/client-id-metadata-documents
