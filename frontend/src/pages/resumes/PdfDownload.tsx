@@ -12,6 +12,9 @@ export const PDF_THEMES = [
   { id: 'modern', label: 'Modern' },
   { id: 'compact', label: 'Compact' },
   { id: 'classic', label: 'Classic' },
+  { id: 'jakes', label: "Jake's" },
+  { id: 'executive', label: 'Executive' },
+  { id: 'minimal', label: 'Minimal' },
 ] as const
 
 export type PdfTheme = (typeof PDF_THEMES)[number]['id']

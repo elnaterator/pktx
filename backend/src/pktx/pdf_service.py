@@ -35,7 +35,7 @@ from pktx.json_resume import (
 from pktx.resume_sections import SECTIONS
 
 # Listed in picker order; the first is the default.
-PdfTheme = Literal["modern", "compact", "classic"]
+PdfTheme = Literal["modern", "compact", "classic", "jakes", "executive", "minimal"]
 PDF_THEMES: tuple[str, ...] = get_args(PdfTheme)
 DEFAULT_PDF_THEME: PdfTheme = "modern"
 
@@ -125,9 +125,13 @@ def _entry(
     text: str | None = None,
     bullets: list[str] | None = None,
     tags: str | None = None,
+    employer: bool = False,
 ) -> dict[str, Any]:
     """One block entry: bold heading + right-aligned aside, an italic sub line,
-    then a paragraph, bullets and a tag line. Every key is always present."""
+    then a paragraph, bullets and a tag line. Every key is always present.
+
+    ``employer`` marks a role (heading) at an employer (sub); employer-first
+    themes swap the two rows."""
     return {
         "heading": heading,
         "url": url,
@@ -137,6 +141,7 @@ def _entry(
         "text": text,
         "bullets": bullets or [],
         "tags": tags,
+        "employer": employer,
     }
 
 
@@ -150,6 +155,7 @@ def _work(e: Work) -> dict[str, Any]:
         aside=date_range(e.start_date, e.end_date),
         sub=e.name if e.position else None,
         sub_aside=e.location,
+        employer=bool(e.position and e.name),
         url=e.url,
         text=_join((e.description, e.summary), "\n"),
         bullets=e.highlights,
@@ -161,6 +167,7 @@ def _volunteer(e: Volunteer) -> dict[str, Any]:
         e.position or e.organization,
         aside=date_range(e.start_date, e.end_date),
         sub=e.organization if e.position else None,
+        employer=bool(e.position and e.organization),
         url=e.url,
         text=e.summary,
         bullets=e.highlights,

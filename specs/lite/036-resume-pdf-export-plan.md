@@ -31,7 +31,7 @@ vendored JSON Resume Typst template. Research: `research/resume-pdf-export.md`.
 - [x] Page size: Letter when `basics.location.countryCode` ∈ {US, CA}, else A4.
 - [x] Template ships in the wheel (`backend/src/pktx/templates/resume.typ`), no runtime network fetch, system fonts ignored.
 - [x] `typst` dep pinned; Docker image builds and renders on linux/arm64 (abi3 manylinux wheel).
-- [x] Three styles via `?theme=modern|compact|classic` (unknown → 422), Modern the default: Modern (sans, accent headings), Compact (tight sans, fits a typical 2-page resume on one page), Classic (serif, centred header). Shared layout; themes are values, not separate templates.
+- [x] Six styles via `?theme=` (unknown → 422), Modern the default: Modern (sans, accent headings), Compact (tight sans, fits a typical 2-page resume on one page), Classic (serif, centred header), Jake's (after the popular LaTeX template: Computer Modern, small-caps headings, employer + location over role + dates), Executive (navy name band), Minimal (no rules, letter-spaced grey headings). Shared layout; themes are values, not separate templates.
 - [x] Layout polish: contact as two short lines (reach / online) with no dangling separators, URLs shown without scheme/`www`, profiles by short URL, 10-digit US/CA phones formatted, sticky section + entry headings (no orphaned headings), `Name · N of M` footer on multi-page resumes.
 - [x] Frontend: "Download PDF" button on `ResumeDetailView` header, shows busy state, saves via `saveBlob`, error toast on failure; style picker beside it, remembered per browser (`useStoredState`); Vitest covers it.
 - [x] `make check` passes.
@@ -88,7 +88,7 @@ Frontend: `services/api/export.ts` gains shared `fetchDownload(path, what, fallb
 
 ## Follow-up (same PR, after first review of a real resume)
 
-- [x] Three themes in one template (`themes` dict) + `PdfTheme` literal / `?theme=` query param.
+- [x] Six themes in one template (`themes` = `base + overrides`) + `PdfTheme` literal / `?theme=` query param; `employer` entry flag for employer-first themes.
 - [x] Bundle Lato; pass `font_paths`.
 - [x] Contact groups, `display_url`, `format_phone`, sticky headings, page footer.
 - [x] `PdfDownload` component (style select joined to the button).

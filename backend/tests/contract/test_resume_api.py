@@ -8,6 +8,7 @@ from psycopg import Connection
 from starlette.testclient import TestClient
 
 from pktx.api.routes import create_router
+from pktx.pdf_service import PDF_THEMES
 from pktx.resume_service import ResumeService
 
 
@@ -404,7 +405,7 @@ class TestPdf:
         r = client.get(_url(client, "/pdf"))
         assert r.status_code == 200 and r.content.startswith(b"%PDF-")
 
-    @pytest.mark.parametrize("theme", ["modern", "compact", "classic"])
+    @pytest.mark.parametrize("theme", PDF_THEMES)
     def test_pdf_themes(self, client: TestClient, theme: str) -> None:
         r = client.get(_url(client, f"/pdf?theme={theme}"))
         assert r.status_code == 200 and r.content.startswith(b"%PDF-")

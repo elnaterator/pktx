@@ -214,3 +214,28 @@ def test_multi_page_footer_only_when_needed() -> None:
 
 def test_modern_is_the_default_and_listed_first() -> None:
     assert build_payload({})["theme"] == "modern" == PDF_THEMES[0]
+
+
+def test_employer_flag_only_for_role_at_employer() -> None:
+    doc = {
+        "work": [{"name": "Acme", "position": "Eng"}, {"name": "Solo"}],
+        "volunteer": [{"organization": "Club", "position": "Mentor"}],
+        "education": [{"institution": "Uni", "studyType": "BS"}],
+    }
+    flags = {
+        s["title"]: [e["employer"] for e in s["items"]]
+        for s in build_payload(doc)["sections"]
+    }
+    assert flags == {
+        "Experience": [True, False],
+        "Volunteer": [True],
+        "Education": [False],
+    }
+
+
+def test_jakes_puts_employer_row_first() -> None:
+    doc = {"work": [{"name": "Acme", "position": "Engineer", "startDate": "2020"}]}
+    text = _text(render_resume_pdf(doc, "jakes"))
+    assert text.index("Acme") < text.index("Engineer")
+    text = _text(render_resume_pdf(doc, "modern"))
+    assert text.index("Engineer") < text.index("Acme")
