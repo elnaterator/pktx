@@ -145,7 +145,7 @@ Non-resume MCP tools (`note_tools`, `contact_tools`, `accomplishment_tools`, `li
 
 ## 036 Export resume as PDF - SHIPPED
 
-Download any resume version as a clean, ATS-friendly PDF from the resume page. Reuse the JSON Resume ecosystem instead of a bespoke layout: render server-side with the `typst` Python package (in-process, no Chromium, Lambda-friendly) and one vendored JSON Resume Typst template, data passed via `sys.inputs` (no markup injection), fonts bundled. All stored sections render, empty ones hidden, array order kept. `GET /api/resumes/{id}/pdf`, owner-scoped. Theme picker and MCP access are follow-ups.
+Download any resume version as a clean, ATS-friendly PDF from the resume page. Render server-side with the `typst` Python package (in-process, no Chromium, Lambda-friendly) and our own single-column Typst template, data passed via `sys.inputs` (no markup injection), fonts bundled (Lato, OFL). Six styles from one shared layout, picked next to the download button and remembered: Modern (default), Compact (one-pager), Classic, Jake's, Executive, Minimal. All stored sections render, empty ones hidden, array order kept; headings never stranded at a page bottom; short contact lines and URLs. `GET /api/resumes/{id}/pdf?theme=`, owner-scoped. MCP access is a follow-up; note/cover-letter PDFs are 037.
 Notes: research/resume-pdf-export.md
 
 

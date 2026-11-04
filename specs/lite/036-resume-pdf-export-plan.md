@@ -10,10 +10,14 @@ branch: feat/036-resume-pdf-export
 
 Download any resume version as a clean, ATS-friendly PDF from the resume detail page.
 Resume is already a JSON Resume v1.0.0 document (034), so render it server-side with the
-`typst` Python package (in-process Rust compiler, no Chromium, Lambda-friendly) and one
-vendored JSON Resume Typst template. Research: `research/resume-pdf-export.md`.
+`typst` Python package (in-process Rust compiler, no Chromium, Lambda-friendly) and our own
+Typst template. Research: `research/resume-pdf-export.md`.
 
-- `GET /api/resumes/{id}/pdf` → `application/pdf`, owner-scoped, attachment filename.
+Scope grew in the same PR after reviewing a real resume: layout polish plus six styles with a
+picker (originally out of scope).
+
+- `GET /api/resumes/{id}/pdf?theme=` → `application/pdf`, owner-scoped, attachment filename.
+- Six styles from one shared layout; Modern the default; picker remembered per browser.
 - All stored sections render; empty ones hidden; array order kept.
 - Data passed via `sys.inputs` JSON — never interpolated into Typst source.
 - Fonts deterministic (no system fonts), same output locally and on Lambda (arm64).
@@ -38,42 +42,49 @@ vendored JSON Resume Typst template. Research: `research/resume-pdf-export.md`.
 
 ## Open questions
 
-- [x] Template source — _proposed: write our own `resume.typ` (single-column, ATS-friendly, modelled on stuxf `basic-resume` layout). `fruggiero/typst-jsonresume-cv` has no license, so it can't be vendored._
+- [x] Template source — _decided: our own `resume.typ` (single-column, ATS-friendly). `fruggiero/typst-jsonresume-cv` has no license, so it can't be vendored._
 - [x] Fonts — _decided: Typst's embedded Libertinus Serif (Classic) + bundled Lato static TTFs, OFL (`src/pktx/fonts/lato/`, ~2.7 MB; Typst subsets so PDFs stay ~50 KB), `ignore_system_fonts=True`._
-- [x] Page size — _proposed: derive from `countryCode` (above); no user setting yet._
+- [x] Page size — _decided: derive from `countryCode` (above); no user setting yet._
+- [x] Styles — _decided: Modern (default), Compact, Classic, Jake's, Executive, Minimal; picker order = `PdfTheme` order, first is the default._
 
 ## Design
 
 `pdf_service.py` (new) — pure render, no DB:
 
 ```python
-def render_resume_pdf(doc: dict[str, Any]) -> bytes
+PdfTheme = Literal["modern", "compact", "classic", "jakes", "executive", "minimal"]
+def render_resume_pdf(doc: dict[str, Any], theme: PdfTheme = DEFAULT_PDF_THEME) -> bytes
 ```
 
-- Reads `templates/resume.typ` via `importlib.resources`.
-- `build_payload` flattens each section (per-section builder in `_LAYOUTS`, import-time drift check vs `SECTIONS`) into a generic `entries` (heading/aside/sub/subAside/text/bullets/tags) or `rows` (label/value) layout; formats dates, computes `paper`, drops empty sections, keeps registry order. Template is one generic renderer.
-- Calls `typst.compile(template_bytes, sys_inputs={"resume": json.dumps(payload)}, ignore_system_fonts=True)` (typst 0.15 accepts template bytes directly).
+- Reads `templates/resume.typ` via `importlib.resources`; fonts from a cached
+  `typst.Fonts(include_system_fonts=False, font_paths=[pktx/fonts])` (embedded Libertinus
+  Serif + New Computer Modern, bundled Lato).
+- `build_payload` flattens each section (per-section builder in `_LAYOUTS`, import-time drift check vs `SECTIONS`) into a generic `entries` (heading/aside/sub/subAside/text/bullets/tags) or `rows` (label/value) layout; formats dates, computes `paper`, drops empty sections, keeps registry order. Contact is two groups (reach: email/phone/location; online: website/profiles) with `display_url` and `format_phone`. Work/volunteer entries carry `employer` so employer-first themes (Jake's) swap rows. Template is one generic renderer; each theme is `base + (overrides)` (font, sizes, colours, heading style `inline|ruled|smallcaps|plain`, header `plain|band`, spacing).
+- Calls `typst.compile(template_bytes, sys_inputs={"resume": json.dumps(payload)}, font_paths=_fonts())` (typst 0.15 accepts template bytes directly).
 - Template: `#let r = json(bytes(sys.inputs.resume))`; every string inserted as content via
   value (never `eval`), so markup chars are literal.
 
 Route in `api/routes.py`: `GET /api/resumes/{version_id}/pdf` → `service.get_resume(...)` (404 on
-miss) → `render_resume_pdf(version.data)` → `Response(media_type="application/pdf", headers=Content-Disposition)`. Filename builder `_pdf_filename(name, label, id)`. Register before any `/{version_id}/...` catch-all ordering issue (no conflict: literal `pdf` segment).
+miss) → `render_resume_pdf(version.data, theme)` (`theme: PdfTheme` query param, FastAPI 422s unknown values) → `Response(media_type="application/pdf", headers=Content-Disposition)`. Filename builder `pdf_filename(name, label, id)`. Register before any `/{version_id}/...` catch-all ordering issue (no conflict: literal `pdf` segment).
 
-Frontend: `services/api/export.ts` gains shared `fetchDownload(path, what, fallback)`; `fetchDataExport` + new `fetchResumePdf(id)` use it. `ResumeDetailView` header gets `IconButton`/`Button` "Download PDF" (lucide `FileDown`).
+Frontend: `services/api/export.ts` gains shared `fetchDownload(path, what, fallback)`; `fetchDataExport` + new `fetchResumePdf(id, theme?)` use it. `pages/resumes/PdfDownload` (style `select` joined to a "Download PDF" `Button`, `PDF_THEMES` mirrors `PdfTheme`, choice in `useStoredState`) sits in the `ResumeDetailView` top bar.
 
 **Touches:**
-- `backend/pyproject.toml`, `backend/uv.lock` (mod) — `typst==0.15.*`
+- `backend/pyproject.toml`, `backend/uv.lock` (mod) — `typst>=0.15,<0.16`, dev `pypdf`
 - `backend/src/pktx/pdf_service.py` (new)
 - `backend/src/pktx/templates/resume.typ` (new)
+- `backend/src/pktx/fonts/lato/` (new) — Lato Regular/Italic/Bold/BoldItalic + `OFL.txt`
 - `backend/src/pktx/api/routes.py` (mod)
 - `backend/tests/unit/test_pdf_service.py` (new) — dates, filename, paper, render smoke, injection, section presence via `pypdf` text extraction (new dev dep)
 - `backend/tests/contract/test_resume_api.py` (mod) — `TestPdf`
 - `backend/tests/integration/test_route_scoping.py` (mod)
 - `frontend/src/services/api/export.ts` (mod)
 - `frontend/src/__tests__/services/export.test.ts` (mod)
+- `frontend/src/pages/resumes/PdfDownload.tsx`, `PdfDownload.module.css` (new)
 - `frontend/src/pages/resumes/ResumeDetailView.tsx` (mod)
 - `frontend/src/__tests__/` resume detail test (mod)
-- `AGENTS.md` (mod) — note PDF route + template location
+- `AGENTS.md` (mod) — PDF route, themes, fonts, `_LAYOUTS` step for new sections
+- `specs/lite/roadmap.md`, `research/note-export.md` (mod/new) — 036 text updated; 037 added (note PDF + copy), carried on this branch
 
 ## Steps
 
@@ -88,6 +99,7 @@ Frontend: `services/api/export.ts` gains shared `fetchDownload(path, what, fallb
 
 ## Follow-up (same PR, after first review of a real resume)
 
+- [x] Modern made the default; picker order Modern, Compact, Classic, Jake's, Executive, Minimal.
 - [x] Six themes in one template (`themes` = `base + overrides`) + `PdfTheme` literal / `?theme=` query param; `employer` entry flag for employer-first themes.
 - [x] Bundle Lato; pass `font_paths`.
 - [x] Contact groups, `display_url`, `format_phone`, sticky headings, page footer.
@@ -102,11 +114,12 @@ cd frontend && make check
 make check
 ```
 
-Manual: `make run-local`, open a resume, click Download PDF, eyeball layout + copy-paste text (ATS check).
+Manual: `make run-local`, open a resume, pick each style, click Download PDF, eyeball layout + copy-paste text (ATS check). Visual review done on a real resume rendered in all six styles.
 
 ## Out of scope
 
 - RenderCV; user-uploaded fonts or custom colours.
 - Grouping consecutive roles at the same company under one heading.
 - MCP tool or resource for PDF.
+- Notes / cover-letter PDF and copy to clipboard (037).
 - Per-user page-size setting.
