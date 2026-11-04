@@ -13,7 +13,7 @@ import unicodedata
 from collections.abc import Callable, Iterable
 from functools import cache
 from importlib.resources import files
-from typing import Any
+from typing import Any, Literal, get_args
 
 import typst
 
@@ -34,13 +34,26 @@ from pktx.json_resume import (
 )
 from pktx.resume_sections import SECTIONS
 
+PdfTheme = Literal["classic", "modern", "compact"]
+PDF_THEMES: tuple[str, ...] = get_args(PdfTheme)
+
 _MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
 _LETTER_COUNTRIES = {"US", "CA"}
+_PKG = files("pktx")
 
 
 @cache
 def _template() -> bytes:
-    return files("pktx").joinpath("templates/resume.typ").read_bytes()
+    return _PKG.joinpath("templates/resume.typ").read_bytes()
+
+
+@cache
+def _fonts() -> typst.Fonts:
+    """Typst's embedded fonts plus the bundled ones; system fonts never, so the
+    output is the same on every host. Scanned once per process."""
+    return typst.Fonts(
+        include_system_fonts=False, font_paths=[str(_PKG.joinpath("fonts"))]
+    )
 
 
 def format_date(value: str | None) -> str | None:
@@ -62,6 +75,27 @@ def date_range(start: str | None, end: str | None) -> str | None:
 
 def paper_for(country_code: str | None) -> str:
     return "us-letter" if (country_code or "").upper() in _LETTER_COUNTRIES else "a4"
+
+
+def display_url(url: str) -> str:
+    """``https://www.example.com/me/`` -> ``example.com/me``."""
+    return re.sub(r"^https?://(www\.)?", "", url).rstrip("/")
+
+
+def format_phone(phone: str | None, country_code: str | None) -> str | None:
+    """Bare 10-digit North American numbers -> ``(360) 555-0100``; else as typed."""
+    if (
+        phone
+        and phone.isdigit()
+        and len(phone) == 10
+        and paper_for(country_code) == "us-letter"
+    ):
+        return f"({phone[:3]}) {phone[3:6]}-{phone[6:]}"
+    return phone
+
+
+def _link(text: str | None, url: str | None = None) -> dict[str, str | None]:
+    return {"text": text, "url": url}
 
 
 def _slug(text: str) -> str:
@@ -209,23 +243,23 @@ if set(_LAYOUTS) != set(SECTIONS):
     raise RuntimeError("pdf_service._LAYOUTS is out of sync with SECTIONS")
 
 
-def build_payload(doc: dict[str, Any]) -> dict[str, Any]:
+def build_payload(doc: dict[str, Any], theme: PdfTheme = "classic") -> dict[str, Any]:
     """The template's input: basics plus non-empty sections in registry order."""
     resume: Resume = validate(Resume, doc)
     b = resume.basics
     loc = b.location
-    contact = [
-        {"text": b.email, "url": f"mailto:{b.email}" if b.email else None},
-        {"text": b.phone, "url": None},
-        {
-            "text": _join((loc.city, loc.region, loc.country_code)) if loc else None,
-            "url": None,
-        },
-        {"text": b.url, "url": b.url},
-        *(
-            {"text": _join((p.network, p.username), ": ") or p.url, "url": p.url}
-            for p in b.profiles
-        ),
+    country = loc.country_code if loc else None
+    # Two short lines: how to reach you, then where to find you online.
+    reach = [
+        _link(b.email, f"mailto:{b.email}" if b.email else None),
+        _link(format_phone(b.phone, country)),
+        _link(_join((loc.city, loc.region or loc.country_code)) if loc else None),
+    ]
+    online = [_link(display_url(u), u) for u in (b.url,) if u] + [
+        _link(display_url(p.url), p.url)
+        if p.url
+        else _link(_join((p.network, p.username), ": "))
+        for p in b.profiles
     ]
     sections = []
     for key, d in SECTIONS.items():
@@ -233,21 +267,28 @@ def build_payload(doc: dict[str, Any]) -> dict[str, Any]:
         items = [build(e) for e in getattr(resume, key)]
         if items:
             sections.append({"title": d.label, "layout": layout, "items": items})
+    if theme not in PDF_THEMES:
+        raise ValueError(
+            f"Unknown theme '{theme}'. Must be one of: {', '.join(PDF_THEMES)}"
+        )
+    groups = ([c for c in g if c["text"]] for g in (reach, online))
     return {
-        "paper": paper_for(loc.country_code if loc else None),
+        "theme": theme,
+        "paper": paper_for(country),
         "name": b.name,
         "label": b.label,
-        "contact": [c for c in contact if c["text"]],
+        "contact": [g for g in groups if g],
         "summary": b.summary,
         "sections": sections,
     }
 
 
-def render_resume_pdf(doc: dict[str, Any]) -> bytes:
-    """Compile a JSON Resume document to PDF bytes (system fonts ignored, so
-    the output is the same on every host)."""
-    payload = json.dumps(build_payload(doc), ensure_ascii=False)
+def render_resume_pdf(doc: dict[str, Any], theme: PdfTheme = "classic") -> bytes:
+    """Compile a JSON Resume document to PDF bytes."""
+    payload = json.dumps(build_payload(doc, theme), ensure_ascii=False)
     pdf = typst.compile(
-        _template(), sys_inputs={"resume": payload}, ignore_system_fonts=True
+        _template(),
+        sys_inputs={"resume": payload},
+        font_paths=_fonts(),
     )
     return bytes(pdf)  # pyright: ignore[reportArgumentType]

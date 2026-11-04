@@ -89,9 +89,9 @@ describe('fetchResumePdf', () => {
   it('fetches the resume PDF and uses the server filename', async () => {
     mockExportResponse({ disposition: 'attachment; filename="jane-doe-main.pdf"' })
 
-    const result = await fetchResumePdf(4)
+    const result = await fetchResumePdf(4, 'modern')
 
-    expect(global.fetch).toHaveBeenCalledWith('/api/resumes/4/pdf', undefined)
+    expect(global.fetch).toHaveBeenCalledWith('/api/resumes/4/pdf?theme=modern', undefined)
     expect(result.filename).toBe('jane-doe-main.pdf')
   })
 

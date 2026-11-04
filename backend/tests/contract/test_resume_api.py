@@ -404,5 +404,13 @@ class TestPdf:
         r = client.get(_url(client, "/pdf"))
         assert r.status_code == 200 and r.content.startswith(b"%PDF-")
 
+    @pytest.mark.parametrize("theme", ["classic", "modern", "compact"])
+    def test_pdf_themes(self, client: TestClient, theme: str) -> None:
+        r = client.get(_url(client, f"/pdf?theme={theme}"))
+        assert r.status_code == 200 and r.content.startswith(b"%PDF-")
+
+    def test_pdf_unknown_theme_422(self, client: TestClient) -> None:
+        assert client.get(_url(client, "/pdf?theme=fancy")).status_code == 422
+
     def test_pdf_not_found(self, client: TestClient) -> None:
         assert client.get("/api/resumes/999999/pdf").status_code == 404

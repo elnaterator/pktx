@@ -7,9 +7,12 @@ import pytest
 from pypdf import PdfReader
 
 from pktx.pdf_service import (
+    PDF_THEMES,
     build_payload,
     date_range,
+    display_url,
     format_date,
+    format_phone,
     paper_for,
     pdf_filename,
     render_resume_pdf,
@@ -92,10 +95,10 @@ def test_payload_sections_follow_registry_and_drop_empty() -> None:
     ]
     assert titles == expected
     assert payload["paper"] == "us-letter"
-    assert [c["text"] for c in payload["contact"]] == [
-        "jane@example.com",
-        "Austin, US",
-        "GitHub: jdoe",
+    # Reach line, then online line; profile shown by its short URL.
+    assert [[c["text"] for c in g] for g in payload["contact"]] == [
+        ["jane@example.com", "Austin, US"],
+        ["github.com/jdoe"],
     ]
 
 
@@ -162,3 +165,48 @@ def test_page_size_in_pdf(code: str | None, size: tuple[int, int]) -> None:
     doc = {"basics": {"location": {"countryCode": code}} if code else {}}
     box = PdfReader(io.BytesIO(render_resume_pdf(doc))).pages[0].mediabox
     assert (round(box.width), round(box.height)) == size
+
+
+def test_display_url() -> None:
+    assert display_url("https://www.example.com/me/") == "example.com/me"
+    assert display_url("http://linkedin.com/in/x") == "linkedin.com/in/x"
+
+
+@pytest.mark.parametrize(
+    ("phone", "country", "expected"),
+    [
+        ("3605550100", "US", "(360) 555-0100"),
+        ("3605550100", None, "3605550100"),
+        ("+1 360 555 0100", "US", "+1 360 555 0100"),
+        (None, "US", None),
+    ],
+)
+def test_format_phone(phone: str | None, country: str | None, expected: str) -> None:
+    assert format_phone(phone, country) == expected
+
+
+def test_contact_groups_drop_empty_lines() -> None:
+    payload = build_payload({"basics": {"email": "a@b.co"}})
+    assert payload["contact"] == [[{"text": "a@b.co", "url": "mailto:a@b.co"}]]
+    assert build_payload({})["contact"] == []
+
+
+@pytest.mark.parametrize("theme", PDF_THEMES)
+def test_every_theme_renders_everything(theme: str) -> None:
+    text = _text(render_resume_pdf(_FULL, theme))  # type: ignore[arg-type]
+    assert "Jane Doe" in text and "Refmarker" in text
+
+
+def test_unknown_theme_rejected() -> None:
+    with pytest.raises(ValueError, match="Unknown theme"):
+        build_payload({}, "fancy")  # type: ignore[arg-type]
+
+
+def test_multi_page_footer_only_when_needed() -> None:
+    one = _text(render_resume_pdf({"basics": {"name": "Jane"}}))
+    assert "of 1" not in one
+    long = {"basics": {"name": "Jane"}, "work": [{"name": f"Co{i}"} for i in range(80)]}
+    pages = PdfReader(io.BytesIO(render_resume_pdf(long))).pages
+    assert len(pages) > 1
+    footer = " ".join(pages[1].extract_text().split())
+    assert f"Jane · 2 of {len(pages)}" in footer

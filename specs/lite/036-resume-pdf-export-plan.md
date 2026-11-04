@@ -31,13 +31,15 @@ vendored JSON Resume Typst template. Research: `research/resume-pdf-export.md`.
 - [x] Page size: Letter when `basics.location.countryCode` ∈ {US, CA}, else A4.
 - [x] Template ships in the wheel (`backend/src/pktx/templates/resume.typ`), no runtime network fetch, system fonts ignored.
 - [x] `typst` dep pinned; Docker image builds and renders on linux/arm64 (abi3 manylinux wheel).
-- [x] Frontend: "Download PDF" button on `ResumeDetailView` header, shows busy state, saves via `saveBlob`, error toast on failure; Vitest covers it.
+- [x] Three styles via `?theme=classic|modern|compact` (unknown → 422): Classic (serif, centred header), Modern (sans, accent headings), Compact (tight sans, fits a typical 2-page resume on one page). Shared layout; themes are values, not separate templates.
+- [x] Layout polish: contact as two short lines (reach / online) with no dangling separators, URLs shown without scheme/`www`, profiles by short URL, 10-digit US/CA phones formatted, sticky section + entry headings (no orphaned headings), `Name · N of M` footer on multi-page resumes.
+- [x] Frontend: "Download PDF" button on `ResumeDetailView` header, shows busy state, saves via `saveBlob`, error toast on failure; style picker beside it, remembered per browser (`useStoredState`); Vitest covers it.
 - [x] `make check` passes.
 
 ## Open questions
 
 - [x] Template source — _proposed: write our own `resume.typ` (single-column, ATS-friendly, modelled on stuxf `basic-resume` layout). `fruggiero/typst-jsonresume-cv` has no license, so it can't be vendored._
-- [x] Fonts — _proposed: use Typst's embedded fonts (Libertinus Serif / New Computer Modern) with `ignore_system_fonts=True`; no extra font files. Bundle a custom OFL font later with a theme picker._
+- [x] Fonts — _decided: Typst's embedded Libertinus Serif (Classic) + bundled Lato static TTFs, OFL (`src/pktx/fonts/lato/`, ~2.7 MB; Typst subsets so PDFs stay ~50 KB), `ignore_system_fonts=True`._
 - [x] Page size — _proposed: derive from `countryCode` (above); no user setting yet._
 
 ## Design
@@ -84,6 +86,14 @@ Frontend: `services/api/export.ts` gains shared `fetchDownload(path, what, fallb
 - [x] Docker build smoke: `docker build --platform linux/arm64` + render in container → `%PDF-1.7`.
 - [x] AGENTS.md note; `make check`.
 
+## Follow-up (same PR, after first review of a real resume)
+
+- [x] Three themes in one template (`themes` dict) + `PdfTheme` literal / `?theme=` query param.
+- [x] Bundle Lato; pass `font_paths`.
+- [x] Contact groups, `display_url`, `format_phone`, sticky headings, page footer.
+- [x] `PdfDownload` component (style select joined to the button).
+- [x] Tests: every theme renders everything, unknown theme rejected (unit + 422), contact groups, URL/phone format, footer only on multi-page.
+
 ## Testing
 
 ```bash
@@ -96,7 +106,7 @@ Manual: `make run-local`, open a resume, click Download PDF, eyeball layout + co
 
 ## Out of scope
 
-- Theme picker / multiple templates; RenderCV.
+- RenderCV; user-uploaded fonts or custom colours.
+- Grouping consecutive roles at the same company under one heading.
 - MCP tool or resource for PDF.
 - Per-user page-size setting.
-- Custom bundled fonts.

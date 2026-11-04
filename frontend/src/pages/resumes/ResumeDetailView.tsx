@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Trash2, Pencil, Star, FileDown } from 'lucide-react'
+import { Trash2, Pencil, Star } from 'lucide-react'
 import { ICON_SIZE } from '../../theme'
-import { fetchResumePdf, mapGroupedLinks, saveBlob } from '../../services/api'
+import { mapGroupedLinks } from '../../services/api'
 import {
   resumeKeys,
   useAllTags,
@@ -20,6 +20,7 @@ import SkillsSection from './SkillsSection'
 import GenericListSection from './GenericListSection'
 import AddSectionBar from './AddSectionBar'
 import ResumeJsonView from './ResumeJsonView'
+import PdfDownload from './PdfDownload'
 import Breadcrumb from '../../components/Breadcrumb'
 import { useToast } from '../../components/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -44,7 +45,6 @@ export default function ResumeDetailView() {
   const { success, error } = useToast()
   const [editingLabel, setEditingLabel] = useState(false)
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [downloading, setDownloading] = useState(false)
   /** Sections opened from "Add section" but not yet holding an entry. */
   const [opened, setOpened] = useState<string[]>([])
   const [view, setView] = useState<'resume' | 'json'>('resume')
@@ -94,19 +94,6 @@ export default function ResumeDetailView() {
       success('Default resume updated')
     } catch {
       error('Failed to set default resume')
-    }
-  }
-
-  const handleDownloadPdf = async () => {
-    if (numericId === null) return
-    setDownloading(true)
-    try {
-      const { blob, filename } = await fetchResumePdf(numericId)
-      saveBlob(blob, filename)
-    } catch {
-      error('Failed to export PDF')
-    } finally {
-      setDownloading(false)
     }
   }
 
@@ -189,10 +176,7 @@ export default function ResumeDetailView() {
       >
         <div className={styles.topBar}>
           <div className={styles.topBarActions}>
-            <Button size="sm" onClick={handleDownloadPdf} disabled={downloading} aria-busy={downloading}>
-              <FileDown size={ICON_SIZE.sm} aria-hidden="true" />
-              {downloading ? 'Preparing PDF…' : 'Download PDF'}
-            </Button>
+            <PdfDownload versionId={numericId} />
             {!version.is_default && (
               <Button size="sm" onClick={handleSetDefault}>
                 Set as Default

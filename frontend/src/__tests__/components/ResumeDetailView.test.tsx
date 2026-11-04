@@ -183,8 +183,22 @@ describe('ResumeDetailView PDF download', () => {
     renderView()
     await userEvent.click(await screen.findByRole('button', { name: /download pdf/i }))
     await waitFor(() => expect(api.saveBlob).toHaveBeenCalledWith(blob, 'jane-main.pdf'))
-    expect(api.fetchResumePdf).toHaveBeenCalledWith(1)
+    expect(api.fetchResumePdf).toHaveBeenCalledWith(1, 'classic')
     expect(screen.getByRole('button', { name: /download pdf/i })).toBeEnabled()
+  })
+
+  it('downloads in the picked style and remembers it', async () => {
+    window.localStorage.clear()
+    vi.mocked(api.fetchResumePdf).mockResolvedValue({ blob: new Blob([]), filename: 'r.pdf' })
+    const { unmount } = renderView()
+    await userEvent.selectOptions(await screen.findByLabelText('PDF style'), 'compact')
+    await userEvent.click(screen.getByRole('button', { name: /download pdf/i }))
+    await waitFor(() => expect(api.fetchResumePdf).toHaveBeenCalledWith(1, 'compact'))
+    unmount()
+
+    renderView()
+    expect(await screen.findByLabelText('PDF style')).toHaveValue('compact')
+    window.localStorage.clear()
   })
 
   it('shows a busy state while rendering and an error toast on failure', async () => {
