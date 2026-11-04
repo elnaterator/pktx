@@ -149,6 +149,12 @@ Download any resume version as a clean, ATS-friendly PDF from the resume page. R
 Notes: research/resume-pdf-export.md
 
 
+## 037 Export notes: PDF download and copy to clipboard
+
+Notes are where cover letters get written; employers take them as a PDF upload or pasted plain text. Add both to every note: "Download PDF" reusing the 036 Typst pipeline and themes (name + contact header from the default resume, date, then the note body with markdown rendered safely as data), and "Copy" for plain text with markdown stripped. No new resource type; cover letters stay ordinary notes.
+Notes: research/note-export.md
+
+
 ## 031 Continuous deployment: auto dev, gated prod
 
 Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, builds the image once, auto-deploys to dev, and smoke tests it. Prod deploys the same verified image digest, triggered by a GitHub Release and gated by a `production` Environment with required reviewer. AWS access via GitHub OIDC with per-env roles, Terraform plan on PRs, one-click rollback to a previous release, forward-compatible migrations. Lays the pipeline 022 uses to stand up prod.
