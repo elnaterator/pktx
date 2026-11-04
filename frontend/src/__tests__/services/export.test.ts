@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { fetchDataExport, saveBlob } from '../../services/api/export'
+import { fetchDataExport, fetchResumePdf, saveBlob } from '../../services/api/export'
 
 global.fetch = vi.fn()
 
@@ -78,5 +78,28 @@ describe('saveBlob', () => {
 
     vi.unstubAllGlobals()
     vi.restoreAllMocks()
+  })
+})
+
+describe('fetchResumePdf', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+
+  it('fetches the resume PDF and uses the server filename', async () => {
+    mockExportResponse({ disposition: 'attachment; filename="jane-doe-main.pdf"' })
+
+    const result = await fetchResumePdf(4, 'modern')
+
+    expect(global.fetch).toHaveBeenCalledWith('/api/resumes/4/pdf?theme=modern', undefined)
+    expect(result.filename).toBe('jane-doe-main.pdf')
+  })
+
+  it('falls back to resume-<id>.pdf and reports failures', async () => {
+    mockExportResponse()
+    expect((await fetchResumePdf(4)).filename).toBe('resume-4.pdf')
+
+    mockExportResponse({ ok: false, status: 404 })
+    await expect(fetchResumePdf(4)).rejects.toThrow('PDF export failed (HTTP 404)')
   })
 })

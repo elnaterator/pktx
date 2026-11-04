@@ -1,0 +1,27 @@
+/* Style picker joined to the Download PDF button as one control. */
+.group {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.select {
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-right: 1px solid var(--bg-primary);
+  background-color: var(--bg-raised);
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--font-size-4);
+  cursor: pointer;
+  transition: color var(--transition-fast), background-color var(--transition-fast);
+}
+
+.select:hover:not(:disabled) {
+  background-color: var(--bg-raised-hover);
+  color: var(--text-primary);
+}
+
+.select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}

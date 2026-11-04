@@ -143,10 +143,16 @@ Notes: research/resume-schema.md
 Non-resume MCP tools (`note_tools`, `contact_tools`, `accomplishment_tools`, `link_tools`, 23 sites) catch `ValueError` and return `"Error: ..."` strings. The call looks successful (no `isError`), so `DBSessionToolMiddleware` commits instead of rolling back, and clients can't tell failure from success. Writes also return prose (`"Updated note 3"`), so the assistant has to re-fetch to see ids or the new state. Make every tool raise `ToolError` on invalid input / not found (rollback + `isError: true`) and return the created/updated/deleted object as structured JSON, matching the resume tools from 034. Add a contract test per tool module: failed write leaves data unchanged and reports `isError`. Also align application tools if they differ.
 
 
-## 036 Export resume as PDF
+## 036 Export resume as PDF - SHIPPED
 
-Download any resume version as a clean, ATS-friendly PDF from the resume page. Reuse the JSON Resume ecosystem instead of a bespoke layout: render server-side with the `typst` Python package (in-process, no Chromium, Lambda-friendly) and one vendored JSON Resume Typst template, data passed via `sys.inputs` (no markup injection), fonts bundled. All stored sections render, empty ones hidden, array order kept. `GET /api/resumes/{id}/pdf`, owner-scoped. Theme picker and MCP access are follow-ups.
+Download any resume version as a clean, ATS-friendly PDF from the resume page. Render server-side with the `typst` Python package (in-process, no Chromium, Lambda-friendly) and our own single-column Typst template, data passed via `sys.inputs` (no markup injection), fonts bundled (Lato, OFL). Six styles from one shared layout, picked next to the download button and remembered: Modern (default), Compact (one-pager), Classic, Jake's, Executive, Minimal. All stored sections render, empty ones hidden, array order kept; headings never stranded at a page bottom; short contact lines and URLs. `GET /api/resumes/{id}/pdf?theme=`, owner-scoped. MCP access is a follow-up; note/cover-letter PDFs are 037.
 Notes: research/resume-pdf-export.md
+
+
+## 037 Export notes: PDF download and copy to clipboard
+
+Notes are where cover letters get written; employers take them as a PDF upload or pasted plain text. Add both to every note: "Download PDF" reusing the 036 Typst pipeline and themes (name + contact header from the default resume, date, then the note body with markdown rendered safely as data), and "Copy" for plain text with markdown stripped. No new resource type; cover letters stay ordinary notes.
+Notes: research/note-export.md
 
 
 ## 031 Continuous deployment: auto dev, gated prod
