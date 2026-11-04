@@ -404,7 +404,7 @@ class TestPdf:
         r = client.get(_url(client, "/pdf"))
         assert r.status_code == 200 and r.content.startswith(b"%PDF-")
 
-    @pytest.mark.parametrize("theme", ["classic", "modern", "compact"])
+    @pytest.mark.parametrize("theme", ["modern", "compact", "classic"])
     def test_pdf_themes(self, client: TestClient, theme: str) -> None:
         r = client.get(_url(client, f"/pdf?theme={theme}"))
         assert r.status_code == 200 and r.content.startswith(b"%PDF-")

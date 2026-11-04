@@ -34,10 +34,10 @@ export function fetchDataExport(): Promise<DataExport> {
   return fetchDownload('/export', 'Export', `pktx-export-${today}.json`)
 }
 
-/** Download one resume version rendered as a PDF in the given style. */
-export function fetchResumePdf(id: number, theme = 'classic'): Promise<DataExport> {
-  const query = new URLSearchParams({ theme }).toString()
-  return fetchDownload(`/resumes/${id}/pdf?${query}`, 'PDF export', `resume-${id}.pdf`)
+/** Download one resume version rendered as a PDF (server default style unless given). */
+export function fetchResumePdf(id: number, theme?: string): Promise<DataExport> {
+  const query = theme ? `?${new URLSearchParams({ theme })}` : ''
+  return fetchDownload(`/resumes/${id}/pdf${query}`, 'PDF export', `resume-${id}.pdf`)
 }
 
 /**

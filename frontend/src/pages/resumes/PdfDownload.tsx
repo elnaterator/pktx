@@ -7,11 +7,11 @@ import { useToast } from '../../components/toast'
 import { Button } from '../../components/Button'
 import styles from './PdfDownload.module.css'
 
-/** PDF styles, matching the backend's `PdfTheme`. */
+/** PDF styles in picker order, matching the backend's `PdfTheme`; the first is the default. */
 export const PDF_THEMES = [
-  { id: 'classic', label: 'Classic' },
   { id: 'modern', label: 'Modern' },
   { id: 'compact', label: 'Compact' },
+  { id: 'classic', label: 'Classic' },
 ] as const
 
 export type PdfTheme = (typeof PDF_THEMES)[number]['id']
@@ -21,7 +21,7 @@ const isTheme = (v: unknown): v is PdfTheme => PDF_THEMES.some((t) => t.id === v
 /** Style picker + "Download PDF"; the picked style is remembered per browser. */
 export default function PdfDownload({ versionId }: { versionId: number }) {
   const { error } = useToast()
-  const [theme, setTheme] = useStoredState<PdfTheme>('pktx.pdfTheme', 'classic', isTheme)
+  const [theme, setTheme] = useStoredState<PdfTheme>('pktx.pdfTheme', PDF_THEMES[0].id, isTheme)
   const [downloading, setDownloading] = useState(false)
 
   const download = async () => {

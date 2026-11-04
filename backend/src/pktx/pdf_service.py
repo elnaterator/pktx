@@ -34,8 +34,10 @@ from pktx.json_resume import (
 )
 from pktx.resume_sections import SECTIONS
 
-PdfTheme = Literal["classic", "modern", "compact"]
+# Listed in picker order; the first is the default.
+PdfTheme = Literal["modern", "compact", "classic"]
 PDF_THEMES: tuple[str, ...] = get_args(PdfTheme)
+DEFAULT_PDF_THEME: PdfTheme = "modern"
 
 _MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
 _LETTER_COUNTRIES = {"US", "CA"}
@@ -243,7 +245,9 @@ if set(_LAYOUTS) != set(SECTIONS):
     raise RuntimeError("pdf_service._LAYOUTS is out of sync with SECTIONS")
 
 
-def build_payload(doc: dict[str, Any], theme: PdfTheme = "classic") -> dict[str, Any]:
+def build_payload(
+    doc: dict[str, Any], theme: PdfTheme = DEFAULT_PDF_THEME
+) -> dict[str, Any]:
     """The template's input: basics plus non-empty sections in registry order."""
     resume: Resume = validate(Resume, doc)
     b = resume.basics
@@ -283,7 +287,9 @@ def build_payload(doc: dict[str, Any], theme: PdfTheme = "classic") -> dict[str,
     }
 
 
-def render_resume_pdf(doc: dict[str, Any], theme: PdfTheme = "classic") -> bytes:
+def render_resume_pdf(
+    doc: dict[str, Any], theme: PdfTheme = DEFAULT_PDF_THEME
+) -> bytes:
     """Compile a JSON Resume document to PDF bytes."""
     payload = json.dumps(build_payload(doc, theme), ensure_ascii=False)
     pdf = typst.compile(

@@ -210,3 +210,7 @@ def test_multi_page_footer_only_when_needed() -> None:
     assert len(pages) > 1
     footer = " ".join(pages[1].extract_text().split())
     assert f"Jane · 2 of {len(pages)}" in footer
+
+
+def test_modern_is_the_default_and_listed_first() -> None:
+    assert build_payload({})["theme"] == "modern" == PDF_THEMES[0]

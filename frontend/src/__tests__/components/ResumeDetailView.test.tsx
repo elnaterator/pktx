@@ -183,7 +183,7 @@ describe('ResumeDetailView PDF download', () => {
     renderView()
     await userEvent.click(await screen.findByRole('button', { name: /download pdf/i }))
     await waitFor(() => expect(api.saveBlob).toHaveBeenCalledWith(blob, 'jane-main.pdf'))
-    expect(api.fetchResumePdf).toHaveBeenCalledWith(1, 'classic')
+    expect(api.fetchResumePdf).toHaveBeenCalledWith(1, 'modern')
     expect(screen.getByRole('button', { name: /download pdf/i })).toBeEnabled()
   })
 

@@ -15,7 +15,12 @@ from pktx.contact_service import ContactService
 from pktx.export_service import ExportService
 from pktx.link_service import RESOURCE_TYPES, LinkService
 from pktx.note_service import NoteService
-from pktx.pdf_service import PdfTheme, pdf_filename, render_resume_pdf
+from pktx.pdf_service import (
+    DEFAULT_PDF_THEME,
+    PdfTheme,
+    pdf_filename,
+    render_resume_pdf,
+)
 from pktx.resume_sections import LIST_SECTIONS, describe_sections
 from pktx.resume_service import ResumeService
 from pktx.search_service import SearchService
@@ -169,7 +174,7 @@ def create_router(
     @api.get("/api/resumes/{version_id}/pdf")
     def get_resume_pdf(
         version_id: int,
-        theme: PdfTheme = "classic",
+        theme: PdfTheme = DEFAULT_PDF_THEME,
         current_user: UserContext = Depends(_user_dep),
     ) -> Response:
         """The resume rendered as a downloadable PDF in one of ``PDF_THEMES``."""
