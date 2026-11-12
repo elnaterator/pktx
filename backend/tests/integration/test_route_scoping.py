@@ -70,6 +70,7 @@ def _cases(ids: dict[str, Any]) -> dict[tuple[str, str], tuple[str, Any]]:
     link = {"a_type": "note", "a_id": n, "b_type": "contact", "b_id": ct}
     return {
         ("GET", "/api/resumes/{version_id}"): (f"/api/resumes/{r}", None),
+        ("GET", "/api/resumes/{version_id}/pdf"): (f"/api/resumes/{r}/pdf", None),
         ("PATCH", "/api/resumes/{version_id}"): (f"/api/resumes/{r}", {"label": "x"}),
         ("DELETE", "/api/resumes/{version_id}"): (f"/api/resumes/{r}", None),
         ("PUT", "/api/resumes/{version_id}/data"): (
