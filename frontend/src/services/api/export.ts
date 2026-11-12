@@ -1,5 +1,5 @@
 /**
- * File downloads: the full data export and resume PDFs.
+ * File downloads: the full data export, resume PDFs and note (letter) PDFs.
  */
 
 import { API_BASE, fetchWithErrorHandling, ApiClientError } from './client'
@@ -38,6 +38,21 @@ export function fetchDataExport(): Promise<DataExport> {
 export function fetchResumePdf(id: number, theme?: string): Promise<DataExport> {
   const query = theme ? `?${new URLSearchParams({ theme })}` : ''
   return fetchDownload(`/resumes/${id}/pdf${query}`, 'PDF export', `resume-${id}.pdf`)
+}
+
+/** Today in the browser's time zone as `YYYY-MM-DD`. */
+function localDate(now = new Date()): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+/**
+ * Download one note rendered as a letter PDF, headed by the default resume's
+ * name and contact details and dated today (the reader's local date).
+ */
+export function fetchNotePdf(id: number, theme?: string): Promise<DataExport> {
+  const query = new URLSearchParams({ ...(theme ? { theme } : {}), date: localDate() })
+  return fetchDownload(`/notes/${id}/pdf?${query}`, 'PDF export', `note-${id}.pdf`)
 }
 
 /**

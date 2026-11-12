@@ -1,18 +1,19 @@
-"""Render a JSON Resume document as a PDF.
+"""Render a JSON Resume document, or a note as a letter, to PDF.
 
-The document is flattened in Python into a small layout payload (formatted
-dates, ready-made headings, empty sections dropped) and handed to a vendored
-Typst template through ``sys.inputs``. User text is only ever data the template
-reads with ``json()``; it is never spliced into Typst source, so markup
-characters print literally.
+The source is flattened in Python into a small layout payload (formatted
+dates, ready-made headings, empty sections dropped, markdown as a block tree)
+and handed to a vendored Typst template through ``sys.inputs``. User text is
+only ever data the template reads with ``json()``; it is never spliced into
+Typst source, so markup characters print literally.
 """
 
+import datetime
 import json
 import re
 import unicodedata
 from collections.abc import Callable, Iterable
 from functools import cache
-from importlib.resources import files
+from importlib.resources import as_file, files
 from typing import Any, Literal, get_args
 
 import typst
@@ -32,6 +33,7 @@ from pktx.json_resume import (
     Work,
     validate,
 )
+from pktx.markdown_blocks import parse_markdown
 from pktx.resume_sections import SECTIONS
 
 # Listed in picker order; the first is the default.
@@ -40,13 +42,15 @@ PDF_THEMES: tuple[str, ...] = get_args(PdfTheme)
 DEFAULT_PDF_THEME: PdfTheme = "modern"
 
 _MONTHS = "Jan Feb Mar Apr May Jun Jul Aug Sep Oct Nov Dec".split()
+_MONTH_NAMES = (
+    "January February March April May June July August September October "
+    "November December"
+).split()
 _LETTER_COUNTRIES = {"US", "CA"}
 _PKG = files("pktx")
 
 
-@cache
-def _template() -> bytes:
-    return _PKG.joinpath("templates/resume.typ").read_bytes()
+_TEMPLATES = _PKG.joinpath("templates")
 
 
 @cache
@@ -105,10 +109,23 @@ def _slug(text: str) -> str:
     return re.sub(r"[^a-z0-9]+", "-", ascii_text.lower()).strip("-")
 
 
+def _filename(parts: Iterable[str | None], fallback: str) -> str:
+    return f"{_slug(' '.join(p for p in parts if p)) or fallback}.pdf"
+
+
 def pdf_filename(name: str | None, label: str | None, version_id: int) -> str:
     """``Jane Doe`` + ``Backend`` -> ``jane-doe-backend.pdf`` (ASCII only)."""
-    slug = _slug(" ".join(p for p in (name, label) if p))
-    return f"{slug or f'resume-{version_id}'}.pdf"
+    return _filename((name, label), f"resume-{version_id}")
+
+
+def note_pdf_filename(name: str | None, title: str | None, note_id: int) -> str:
+    """``Jane Doe`` + ``Cover letter: Acme`` -> ``jane-doe-cover-letter-acme.pdf``."""
+    return _filename((name, title), f"note-{note_id}")
+
+
+def format_long_date(on: datetime.date) -> str:
+    """``2026-11-05`` -> ``November 5, 2026`` (locale-independent)."""
+    return f"{_MONTH_NAMES[on.month - 1]} {on.day}, {on.year}"
 
 
 def _join(parts: Iterable[str | None], sep: str = ", ") -> str | None:
@@ -252,11 +269,16 @@ if set(_LAYOUTS) != set(SECTIONS):
     raise RuntimeError("pdf_service._LAYOUTS is out of sync with SECTIONS")
 
 
-def build_payload(
-    doc: dict[str, Any], theme: PdfTheme = DEFAULT_PDF_THEME
-) -> dict[str, Any]:
-    """The template's input: basics plus non-empty sections in registry order."""
-    resume: Resume = validate(Resume, doc)
+def _check_theme(theme: str) -> None:
+    if theme not in PDF_THEMES:
+        raise ValueError(
+            f"Unknown theme '{theme}'. Must be one of: {', '.join(PDF_THEMES)}"
+        )
+
+
+def _header(resume: Resume, theme: PdfTheme) -> dict[str, Any]:
+    """What every document opens with: theme, paper, name, label, contact."""
+    _check_theme(theme)
     b = resume.basics
     loc = b.location
     country = loc.country_code if loc else None
@@ -272,16 +294,6 @@ def build_payload(
         else _link(_join((p.network, p.username), ": "))
         for p in b.profiles
     ]
-    sections = []
-    for key, d in SECTIONS.items():
-        layout, build = _LAYOUTS[key]
-        items = [build(e) for e in getattr(resume, key)]
-        if items:
-            sections.append({"title": d.label, "layout": layout, "items": items})
-    if theme not in PDF_THEMES:
-        raise ValueError(
-            f"Unknown theme '{theme}'. Must be one of: {', '.join(PDF_THEMES)}"
-        )
     groups = ([c for c in g if c["text"]] for g in (reach, online))
     return {
         "theme": theme,
@@ -289,19 +301,70 @@ def build_payload(
         "name": b.name,
         "label": b.label,
         "contact": [g for g in groups if g],
-        "summary": b.summary,
+    }
+
+
+def build_payload(
+    doc: dict[str, Any], theme: PdfTheme = DEFAULT_PDF_THEME
+) -> dict[str, Any]:
+    """The resume template's input: header plus non-empty sections in registry order."""
+    resume: Resume = validate(Resume, doc)
+    sections = []
+    for key, d in SECTIONS.items():
+        layout, build = _LAYOUTS[key]
+        items = [build(e) for e in getattr(resume, key)]
+        if items:
+            sections.append({"title": d.label, "layout": layout, "items": items})
+    return {
+        **_header(resume, theme),
+        "summary": resume.basics.summary,
         "sections": sections,
     }
+
+
+def build_note_payload(
+    content: str,
+    resume_doc: dict[str, Any] | None,
+    theme: PdfTheme = DEFAULT_PDF_THEME,
+    on: datetime.date | None = None,
+) -> dict[str, Any]:
+    """The letter template's input: the resume's header (blank without a
+    resume), the date, and the note's markdown as a block tree."""
+    resume: Resume = validate(Resume, resume_doc or {})
+    on = on or datetime.datetime.now(datetime.UTC).date()
+    return {
+        **_header(resume, theme),
+        "date": format_long_date(on),
+        "blocks": parse_markdown(content),
+    }
+
+
+def _compile(template: str, payload: dict[str, Any]) -> bytes:
+    # Compiled from the templates directory so a template can import its
+    # siblings (theme.typ).
+    with as_file(_TEMPLATES) as root:
+        pdf = typst.compile(
+            root / template,
+            root=root,
+            sys_inputs={"data": json.dumps(payload, ensure_ascii=False)},
+            font_paths=_fonts(),
+        )
+    return bytes(pdf)  # pyright: ignore[reportArgumentType]
 
 
 def render_resume_pdf(
     doc: dict[str, Any], theme: PdfTheme = DEFAULT_PDF_THEME
 ) -> bytes:
     """Compile a JSON Resume document to PDF bytes."""
-    payload = json.dumps(build_payload(doc, theme), ensure_ascii=False)
-    pdf = typst.compile(
-        _template(),
-        sys_inputs={"resume": payload},
-        font_paths=_fonts(),
-    )
-    return bytes(pdf)  # pyright: ignore[reportArgumentType]
+    return _compile("resume.typ", build_payload(doc, theme))
+
+
+def render_note_pdf(
+    content: str,
+    resume_doc: dict[str, Any] | None,
+    theme: PdfTheme = DEFAULT_PDF_THEME,
+    on: datetime.date | None = None,
+) -> bytes:
+    """Compile a note's markdown to a letter: ``resume_doc``'s header, the date
+    (``on``, default today in UTC), then the body."""
+    return _compile("letter.typ", build_note_payload(content, resume_doc, theme, on))

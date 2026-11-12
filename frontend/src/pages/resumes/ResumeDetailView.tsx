@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Trash2, Pencil, Star } from 'lucide-react'
 import { ICON_SIZE } from '../../theme'
-import { mapGroupedLinks } from '../../services/api'
+import { fetchResumePdf, mapGroupedLinks } from '../../services/api'
 import {
   resumeKeys,
   useAllTags,
@@ -20,7 +20,7 @@ import SkillsSection from './SkillsSection'
 import GenericListSection from './GenericListSection'
 import AddSectionBar from './AddSectionBar'
 import ResumeJsonView from './ResumeJsonView'
-import PdfDownload from './PdfDownload'
+import PdfDownload from '../../components/PdfDownload'
 import Breadcrumb from '../../components/Breadcrumb'
 import { useToast } from '../../components/toast'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
@@ -176,7 +176,7 @@ export default function ResumeDetailView() {
       >
         <div className={styles.topBar}>
           <div className={styles.topBarActions}>
-            <PdfDownload versionId={numericId} />
+            <PdfDownload fetchPdf={(theme) => fetchResumePdf(numericId, theme)} />
             {!version.is_default && (
               <Button size="sm" onClick={handleSetDefault}>
                 Set as Default
