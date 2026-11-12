@@ -149,7 +149,7 @@ Download any resume version as a clean, ATS-friendly PDF from the resume page. R
 Notes: research/resume-pdf-export.md
 
 
-## 037 Export notes: PDF download and copy to clipboard - BUILT
+## 037 Export notes: PDF download and copy to clipboard - SHIPPED
 
 Notes are where cover letters get written; employers take them as a PDF upload or pasted plain text. Add both to every note: "Download PDF" reusing the 036 Typst pipeline and themes (name + contact header from the default resume, date, then the note body with markdown rendered safely as data), and "Copy" for plain text with markdown stripped. No new resource type; cover letters stay ordinary notes.
 Notes: research/note-export.md
