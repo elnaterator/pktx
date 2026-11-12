@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
 import { Check, Copy } from 'lucide-react'
 import { ICON_SIZE } from '../../theme'
-import { useToast } from '../toast'
+import { useCopyToClipboard } from '../../hooks/useCopyToClipboard'
 import styles from './Connect.module.css'
 
 interface CopyButtonProps {
@@ -13,25 +12,8 @@ interface CopyButtonProps {
   className?: string
 }
 
-const DONE_MS = 2000
-
 export function CopyButton({ text, label, variant = 'text', className }: CopyButtonProps) {
-  const toast = useToast()
-  const [copied, setCopied] = useState(false)
-  const timer = useRef<ReturnType<typeof setTimeout>>(undefined)
-
-  useEffect(() => () => clearTimeout(timer.current), [])
-
-  const handleClick = async () => {
-    try {
-      await navigator.clipboard.writeText(text)
-      setCopied(true)
-      clearTimeout(timer.current)
-      timer.current = setTimeout(() => setCopied(false), DONE_MS)
-    } catch {
-      toast.error('Copy failed — select the text and copy it manually.')
-    }
-  }
+  const { copied, copy } = useCopyToClipboard()
 
   const Icon = copied ? Check : Copy
   return (
@@ -40,7 +22,7 @@ export function CopyButton({ text, label, variant = 'text', className }: CopyBut
       className={`${styles.copyBtn} ${variant === 'icon' ? styles.copyBtnIcon : ''} ${copied ? styles.copyBtnDone : ''} ${className ?? ''}`}
       aria-label={label}
       title={label}
-      onClick={handleClick}
+      onClick={() => copy(text)}
     >
       <Icon size={variant === 'icon' ? ICON_SIZE.lg : ICON_SIZE.md} aria-hidden="true" />
       {variant === 'text' && <span>{copied ? 'Copied' : 'Copy'}</span>}

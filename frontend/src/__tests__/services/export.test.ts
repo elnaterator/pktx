@@ -3,7 +3,7 @@
  */
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { fetchDataExport, fetchResumePdf, saveBlob } from '../../services/api/export'
+import { fetchDataExport, fetchNotePdf, fetchResumePdf, saveBlob } from '../../services/api/export'
 
 global.fetch = vi.fn()
 
@@ -101,5 +101,36 @@ describe('fetchResumePdf', () => {
 
     mockExportResponse({ ok: false, status: 404 })
     await expect(fetchResumePdf(4)).rejects.toThrow('PDF export failed (HTTP 404)')
+  })
+})
+
+describe('fetchNotePdf', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it('fetches the note PDF dated with the local day and uses the server filename', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(2026, 10, 5, 23, 30))
+    mockExportResponse({ disposition: 'attachment; filename="jane-doe-cover-letter.pdf"' })
+
+    const result = await fetchNotePdf(9, 'classic')
+
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/notes/9/pdf?theme=classic&date=2026-11-05',
+      undefined,
+    )
+    expect(result.filename).toBe('jane-doe-cover-letter.pdf')
+  })
+
+  it('falls back to note-<id>.pdf and reports failures', async () => {
+    mockExportResponse()
+    expect((await fetchNotePdf(9)).filename).toBe('note-9.pdf')
+
+    mockExportResponse({ ok: false, status: 404 })
+    await expect(fetchNotePdf(9)).rejects.toThrow('PDF export failed (HTTP 404)')
   })
 })
