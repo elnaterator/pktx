@@ -10,6 +10,7 @@ import { noteCreateSchema, type NoteCreateInput, type NoteFormInput } from '../.
 import type { Note } from '../../types'
 import { PanelHeader } from '../../components/PanelHeader'
 import { formatDate } from '../../utils/formatDate'
+import { NoteActions } from './NoteActions'
 import styles from './NotePanel.module.css'
 
 interface NotePanelProps {
@@ -100,6 +101,7 @@ export function NotePanel(props: NotePanelProps) {
       <PanelHeader entity="note" title={note?.title} onEdit={onEdit} onDelete={onDelete} />
 
       <div className={styles.meta}>
+        {note && <NoteActions note={note} />}
         {note?.updated_at && (
           <span className={styles.updatedDate}>Updated {formatDate(note.updated_at)}</span>
         )}

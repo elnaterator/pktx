@@ -1,10 +1,10 @@
 import { useState } from 'react'
 import { FileDown } from 'lucide-react'
-import { ICON_SIZE } from '../../theme'
-import { fetchResumePdf, saveBlob } from '../../services/api'
-import { useStoredState } from '../../hooks/useStoredState'
-import { useToast } from '../../components/toast'
-import { Button } from '../../components/Button'
+import { ICON_SIZE } from '../theme'
+import { saveBlob, type DataExport } from '../services/api'
+import { useStoredState } from '../hooks/useStoredState'
+import { useToast } from './toast'
+import { Button } from './Button'
 import styles from './PdfDownload.module.css'
 
 /** PDF styles in picker order, matching the backend's `PdfTheme`; the first is the default. */
@@ -21,8 +21,16 @@ export type PdfTheme = (typeof PDF_THEMES)[number]['id']
 
 const isTheme = (v: unknown): v is PdfTheme => PDF_THEMES.some((t) => t.id === v)
 
-/** Style picker + "Download PDF"; the picked style is remembered per browser. */
-export default function PdfDownload({ versionId }: { versionId: number }) {
+interface PdfDownloadProps {
+  /** Fetches the document rendered in the picked style. */
+  fetchPdf: (theme: PdfTheme) => Promise<DataExport>
+}
+
+/**
+ * Style picker + "Download PDF" for any document the backend renders. The
+ * picked style is remembered per browser and shared by every such control.
+ */
+export default function PdfDownload({ fetchPdf }: PdfDownloadProps) {
   const { error } = useToast()
   const [theme, setTheme] = useStoredState<PdfTheme>('pktx.pdfTheme', PDF_THEMES[0].id, isTheme)
   const [downloading, setDownloading] = useState(false)
@@ -30,7 +38,7 @@ export default function PdfDownload({ versionId }: { versionId: number }) {
   const download = async () => {
     setDownloading(true)
     try {
-      const { blob, filename } = await fetchResumePdf(versionId, theme)
+      const { blob, filename } = await fetchPdf(theme)
       saveBlob(blob, filename)
     } catch {
       error('Failed to export PDF')

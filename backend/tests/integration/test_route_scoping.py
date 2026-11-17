@@ -117,6 +117,7 @@ def _cases(ids: dict[str, Any]) -> dict[tuple[str, str], tuple[str, Any]]:
             None,
         ),
         ("GET", "/api/notes/{note_id}"): (f"/api/notes/{n}", None),
+        ("GET", "/api/notes/{note_id}/pdf"): (f"/api/notes/{n}/pdf", None),
         ("PATCH", "/api/notes/{note_id}"): (f"/api/notes/{n}", {"title": "x"}),
         ("DELETE", "/api/notes/{note_id}"): (f"/api/notes/{n}", None),
         ("GET", "/api/contacts/{contact_id}"): (f"/api/contacts/{ct}", None),

@@ -145,3 +145,63 @@ describe('NoteDetailView', () => {
     })
   })
 })
+
+describe('NoteDetailView export actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    window.localStorage.clear()
+    vi.mocked(api.listAllTags).mockResolvedValue([])
+  })
+
+  it('copies the note as plain text with markdown stripped', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.getNote).mockResolvedValue({
+      ...mockNote,
+      content: 'Dear **team**,\n\n- one\n- [two](https://example.com)',
+    })
+    renderView()
+    await user.click(await screen.findByRole('button', { name: 'Copy text' }))
+    expect(await screen.findByRole('button', { name: 'Copied' })).toBeInTheDocument()
+    expect(await navigator.clipboard.readText()).toBe(
+      'Dear team,\n\n- one\n- two (https://example.com)',
+    )
+  })
+
+  it('disables copy for an empty note but still offers the PDF', async () => {
+    vi.mocked(api.getNote).mockResolvedValue({ ...mockNote, content: '  ' })
+    renderView()
+    expect(await screen.findByRole('button', { name: 'Copy text' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: /download pdf/i })).toBeEnabled()
+  })
+
+  it('downloads the note PDF in the picked style under the server filename', async () => {
+    const user = userEvent.setup()
+    const blob = new Blob(['%PDF-'], { type: 'application/pdf' })
+    vi.mocked(api.getNote).mockResolvedValue(mockNote)
+    vi.mocked(api.fetchNotePdf).mockResolvedValue({ blob, filename: 'jane-cover-letter.pdf' })
+    renderView()
+    await user.selectOptions(await screen.findByLabelText('PDF style'), 'classic')
+    await user.click(screen.getByRole('button', { name: /download pdf/i }))
+    await waitFor(() => expect(api.saveBlob).toHaveBeenCalledWith(blob, 'jane-cover-letter.pdf'))
+    expect(api.fetchNotePdf).toHaveBeenCalledWith(1, 'classic')
+  })
+
+  it('shows an error toast when the PDF fails', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.getNote).mockResolvedValue(mockNote)
+    vi.mocked(api.fetchNotePdf).mockRejectedValue(new Error('PDF export failed (HTTP 500)'))
+    renderView()
+    await user.click(await screen.findByRole('button', { name: /download pdf/i }))
+    expect(await screen.findByText('Failed to export PDF')).toBeInTheDocument()
+    expect(api.saveBlob).not.toHaveBeenCalled()
+  })
+
+  it('hides the export actions while editing', async () => {
+    const user = userEvent.setup()
+    vi.mocked(api.getNote).mockResolvedValue(mockNote)
+    vi.mocked(api.listNoteTags).mockResolvedValue([])
+    renderView()
+    await user.click(await screen.findByRole('button', { name: 'Edit note' }))
+    expect(screen.queryByRole('button', { name: 'Copy text' })).not.toBeInTheDocument()
+  })
+})

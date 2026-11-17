@@ -409,3 +409,67 @@ def _get_tool_fn(mcp: Any, name: str) -> Any:
             return tool.fn
     registered = [t.name for t in tools]
     raise KeyError(f"MCP tool '{name}' not found. Registered: {registered}")
+
+
+# ── Note PDF ──────────────────────────────────────────────────────────────────
+
+
+def _pdf_text(pdf: bytes) -> str:
+    import io
+
+    from pypdf import PdfReader
+
+    return "\n".join(p.extract_text() for p in PdfReader(io.BytesIO(pdf)).pages)
+
+
+class TestNotePdf:
+    def _note(self, client: TestClient, content: str = "Dear **team**,") -> int:
+        resp = client.post(
+            "/api/notes", json={"title": "Cover letter: Acme", "content": content}
+        )
+        return resp.json()["id"]
+
+    def test_download_without_resume_has_no_header(
+        self, db_conn: Connection[Any]
+    ) -> None:
+        client = _make_note_client(db_conn)
+        r = client.get(f"/api/notes/{self._note(client)}/pdf?date=2026-11-05")
+        assert r.status_code == 200
+        assert r.headers["content-type"] == "application/pdf"
+        assert r.content.startswith(b"%PDF-")
+        assert (
+            r.headers["content-disposition"]
+            == 'attachment; filename="cover-letter-acme.pdf"'
+        )
+        text = _pdf_text(r.content)
+        assert "Dear team," in text and "November 5, 2026" in text
+        assert "Cover letter: Acme" not in text  # the title is the filename only
+
+    def test_header_from_default_resume(
+        self, db_conn_with_data: Connection[Any]
+    ) -> None:
+        client = _make_note_client(db_conn_with_data)
+        name = client.get("/api/resumes").json()
+        doc = client.get(f"/api/resumes/{name[0]['id']}").json()["data"]
+        r = client.get(f"/api/notes/{self._note(client)}/pdf")
+        assert r.status_code == 200
+        assert doc["basics"]["name"] in _pdf_text(r.content)
+        assert r.headers["content-disposition"].startswith('attachment; filename="')
+        assert r.headers["content-disposition"].endswith('-cover-letter-acme.pdf"')
+
+    def test_empty_note_renders(self, db_conn: Connection[Any]) -> None:
+        client = _make_note_client(db_conn)
+        r = client.get(f"/api/notes/{self._note(client, '')}/pdf")
+        assert r.status_code == 200 and r.content.startswith(b"%PDF-")
+
+    @pytest.mark.parametrize(
+        "query", ["theme=fancy", "date=tomorrow", "date=2026-13-01"]
+    )
+    def test_bad_query_422(self, db_conn: Connection[Any], query: str) -> None:
+        client = _make_note_client(db_conn)
+        r = client.get(f"/api/notes/{self._note(client)}/pdf?{query}")
+        assert r.status_code == 422
+
+    def test_not_found(self, db_conn: Connection[Any]) -> None:
+        client = _make_note_client(db_conn)
+        assert client.get("/api/notes/999999/pdf").status_code == 404

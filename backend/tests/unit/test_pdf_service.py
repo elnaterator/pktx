@@ -1,5 +1,6 @@
-"""Resume PDF rendering: layout payload, formatting helpers and the compiled PDF."""
+"""PDF rendering: layout payloads, formatting helpers and the compiled PDFs."""
 
+import datetime
 import io
 from typing import Any
 
@@ -8,13 +9,17 @@ from pypdf import PdfReader
 
 from pktx.pdf_service import (
     PDF_THEMES,
+    build_note_payload,
     build_payload,
     date_range,
     display_url,
     format_date,
+    format_long_date,
     format_phone,
+    note_pdf_filename,
     paper_for,
     pdf_filename,
+    render_note_pdf,
     render_resume_pdf,
 )
 from pktx.resume_sections import SECTIONS
@@ -239,3 +244,121 @@ def test_jakes_puts_employer_row_first() -> None:
     assert text.index("Acme") < text.index("Engineer")
     text = _text(render_resume_pdf(doc, "modern"))
     assert text.index("Engineer") < text.index("Acme")
+
+
+# ── Notes as letters ──────────────────────────────────────────────────────────
+
+_DAY = datetime.date(2026, 11, 5)
+_LETTER = """Dear Hiring Manager,
+
+A **Boldmarker** and *Italicmarker* with `Codemarker` and [Linkmarker](https://example.com).
+
+# Headingone
+## Headingtwo
+##### Headingdeep
+
+- Bulletmarker
+  - Nestedmarker
+
+3. Orderedmarker
+
+> Quotemarker
+
+```
+Fencemarker
+```
+
+---
+
+Sincerely,\\
+Jane
+"""
+_LETTER_MARKERS = (
+    "Dear Hiring Manager,",
+    "Boldmarker",
+    "Italicmarker",
+    "Codemarker",
+    "Linkmarker",
+    "Headingone",
+    "Headingtwo",
+    "Headingdeep",
+    "Bulletmarker",
+    "Nestedmarker",
+    "Orderedmarker",
+    "Quotemarker",
+    "Fencemarker",
+    "Sincerely,",
+)
+
+
+def test_format_long_date() -> None:
+    assert format_long_date(_DAY) == "November 5, 2026"
+
+
+def test_note_filename() -> None:
+    assert (
+        note_pdf_filename("Jané Doe", "Cover letter: Acme", 7)
+        == "jane-doe-cover-letter-acme.pdf"
+    )
+    assert note_pdf_filename(None, "Cover letter", 7) == "cover-letter.pdf"
+    assert note_pdf_filename(None, "日本", 7) == "note-7.pdf"
+
+
+def test_note_payload_shares_the_resume_header() -> None:
+    resume, note = build_payload(_FULL), build_note_payload("Hi", _FULL, on=_DAY)
+    for key in ("theme", "paper", "name", "label", "contact"):
+        assert note[key] == resume[key]
+    assert note["date"] == "November 5, 2026"
+    assert note["blocks"] == [
+        {"type": "paragraph", "inlines": [{"type": "text", "text": "Hi"}]}
+    ]
+
+
+@pytest.mark.parametrize("theme", PDF_THEMES)
+def test_letter_renders_every_construct_in_every_theme(theme: str) -> None:
+    text = _text(render_note_pdf(_LETTER, _FULL, theme, _DAY))  # type: ignore[arg-type]
+    for marker in (
+        "Jane Doe",
+        "jane@example.com",
+        "November 5, 2026",
+        *_LETTER_MARKERS,
+    ):
+        assert marker in text, marker
+    assert "3." in text  # ordered lists keep their start
+    assert "**" not in text and "```" not in text and "##" not in text
+
+
+@pytest.mark.parametrize("theme", PDF_THEMES)
+def test_letter_without_resume_has_no_header(theme: str) -> None:
+    pdf = render_note_pdf("Bodymarker", None, theme, _DAY)  # type: ignore[arg-type]
+    assert _text(pdf).split() == ["November", "5,", "2026", "Bodymarker"]
+    box = PdfReader(io.BytesIO(pdf)).pages[0].mediabox
+    assert (round(box.width), round(box.height)) == (595, 842)  # A4
+
+
+def test_empty_letter_is_header_and_date() -> None:
+    text = _text(render_note_pdf("", _FULL, on=_DAY))
+    assert "Jane Doe" in text and "November 5, 2026" in text
+
+
+def test_letter_text_is_data_not_markup() -> None:
+    hostile = (
+        '#import "x" $1+1$ @ref <label> [box] \\ #panic()\n\n'
+        "<script>alert(1)</script>\n\n"
+        "[bad](javascript:alert(1)) `#raw`"
+    )
+    text = _text(render_note_pdf(hostile, _FULL, on=_DAY))
+    for literal in ("#import", "$1+1$", "@ref", "<label>", "[box]", "#panic()"):
+        assert literal in text, literal
+    assert "<script>alert(1)</script>" in text
+    assert "#raw" in text
+
+
+def test_letter_unknown_theme_rejected() -> None:
+    with pytest.raises(ValueError, match="Unknown theme"):
+        render_note_pdf("x", _FULL, "fancy")  # type: ignore[arg-type]
+
+
+def test_letter_date_defaults_to_today() -> None:
+    today = datetime.datetime.now(datetime.UTC).date()
+    assert build_note_payload("x", None)["date"] == format_long_date(today)

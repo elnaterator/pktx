@@ -1,5 +1,6 @@
 """FastAPI route handlers for the pktx REST API."""
 
+import datetime
 from collections.abc import Callable
 from typing import Any
 
@@ -18,7 +19,9 @@ from pktx.note_service import NoteService
 from pktx.pdf_service import (
     DEFAULT_PDF_THEME,
     PdfTheme,
+    note_pdf_filename,
     pdf_filename,
+    render_note_pdf,
     render_resume_pdf,
 )
 from pktx.resume_sections import LIST_SECTIONS, describe_sections
@@ -511,6 +514,36 @@ def create_router(
                 return note_service.get_note(note_id, user_id=current_user.id)
             except ValueError as e:
                 raise HTTPException(status_code=404, detail=str(e))
+
+        @api.get("/api/notes/{note_id}/pdf")
+        def get_note_pdf(
+            note_id: int,
+            theme: PdfTheme = DEFAULT_PDF_THEME,
+            date: datetime.date | None = None,
+            current_user: UserContext = Depends(_user_dep),
+        ) -> Response:
+            """The note as a downloadable letter PDF in one of ``PDF_THEMES``.
+
+            The header (name, contact) comes from the default resume and is left
+            out when there is none. ``date`` is the letter's date; the browser
+            sends its local one, else it is today in UTC.
+            """
+            try:
+                note = note_service.get_note(note_id, user_id=current_user.id)
+            except ValueError as e:
+                raise HTTPException(status_code=404, detail=str(e))
+            try:
+                doc = service.get_resume(user_id=current_user.id)["data"]
+            except ValueError:
+                doc = None
+            filename = note_pdf_filename(
+                (doc or {}).get("basics", {}).get("name"), note["title"], note_id
+            )
+            return Response(
+                content=render_note_pdf(note["content"], doc, theme, date),
+                media_type="application/pdf",
+                headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+            )
 
         @api.patch("/api/notes/{note_id}")
         def update_note(
