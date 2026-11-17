@@ -2,15 +2,15 @@
 # Bootstrap Terraform remote state infrastructure for a given environment.
 # Creates the S3 bucket and DynamoDB table used by backend.tf.
 #
-# Usage: ./infra/bootstrap.sh <dev|prod>
+# Usage: ./infra/bootstrap.sh <dev|prod|shared>
 
 set -euo pipefail
 
 ENV="${1:-}"
 REGION="us-west-2"
 
-if [[ "$ENV" != "dev" && "$ENV" != "prod" ]]; then
-  echo "Usage: $0 <dev|prod>" >&2
+if [[ "$ENV" != "dev" && "$ENV" != "prod" && "$ENV" != "shared" ]]; then
+  echo "Usage: $0 <dev|prod|shared>" >&2
   exit 1
 fi
 

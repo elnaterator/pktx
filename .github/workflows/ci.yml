@@ -1,7 +1,10 @@
 name: CI
 
+# PRs: full checks (Terraform plan lives in plan.yml). Also called by
+# deploy-dev.yml so main is re-checked before anything ships.
 on:
   pull_request:
+  workflow_call:
 
 permissions:
   contents: read
@@ -26,4 +29,9 @@ jobs:
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.75.0
+      # shellcheck ships with the runner image; actionlint is checksum-verified by the Go module proxy.
+      - name: Install actionlint
+        run: |
+          go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
       - run: make check

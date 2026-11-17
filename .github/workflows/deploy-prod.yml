@@ -1,0 +1,98 @@
+name: Deploy prod
+
+# Publishing a GitHub Release (tag v*) promotes the image dev already verified for
+# that commit — never a rebuild. Gated by the `production` Environment (required
+# reviewer). Rollback: run this workflow by hand with an older release tag.
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to deploy (an older tag = rollback)
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-prod
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
+    runs-on: ubuntu-latest
+    environment:
+      name: production
+      url: ${{ steps.apply.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+      TF_IN_AUTOMATION: "true"
+      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+    steps:
+      - name: Validate tag
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] \
+            || { echo "::error::'$TAG' is not a v<semver> release tag"; exit 1; }
+      # Infra + scripts at the release's commit: a rollback restores that
+      # release's infra along with its image.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+      - name: Resolve commit
+        id: commit
+        run: |
+          sha="$(git rev-parse 'HEAD^{commit}')"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "~1.7"
+          terraform_wrapper: false
+      # Checksum-verified by the Go module proxy.
+      - name: Install crane
+        run: |
+          go install github.com/google/go-containerregistry/cmd/crane@v0.22.1
+          echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: pktx-prod-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Ensure ECR repo + SSM params
+        run: scripts/deploy/ensure-base.sh prod
+      - name: Promote dev-verified image (same digest)
+        id: promote
+        env:
+          SHA: ${{ steps.commit.outputs.sha }}
+        run: |
+          digest="$(scripts/deploy/promote.sh "$SHA")"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+      - name: terraform apply (pinned to digest)
+        id: apply
+        env:
+          DIGEST: ${{ steps.promote.outputs.digest }}
+        run: |
+          url="$(scripts/deploy/apply.sh prod "$DIGEST")"
+          echo "url=${url}" >> "$GITHUB_OUTPUT"
+      - name: Smoke test
+        env:
+          URL: ${{ steps.apply.outputs.url }}
+        run: scripts/deploy/smoke.sh "$URL"
+      - name: Summary
+        env:
+          SHA: ${{ steps.commit.outputs.sha }}
+          DIGEST: ${{ steps.promote.outputs.digest }}
+          URL: ${{ steps.apply.outputs.url }}
+        run: |
+          {
+            echo "### Deployed ${TAG} to prod"
+            echo "- commit \`${SHA}\`"
+            echo "- image \`${DIGEST}\` (same digest dev verified)"
+            echo "- ${URL}"
+          } >> "$GITHUB_STEP_SUMMARY"

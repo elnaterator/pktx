@@ -1,14 +1,15 @@
 <!--
 Sync Impact Report
 ===================
-- Version change: 1.5.0 → 1.5.1
+- Version change: 1.5.1 → 1.6.0
 - Modified principles: None
 - Added sections: None
 - Removed sections: None
 - Modified sections:
-  - Development Workflow > General Workflow: Relaxed branch naming to
-    accept `feat-<NNN>-<name>`, `feat/<NNN>-<name>`, and `<NNN>-<name>`
-    formats (PATCH — wording clarification, backwards-compatible).
+  - Development Workflow > General Workflow: added "Deployment" (CI deploys,
+    build once + promote by digest, OIDC-only AWS access) and "Migrations"
+    (expand → contract, forward-compatible) rules; "Release" now covers the
+    GitHub Release → prod deploy (MINOR — materially expanded guidance).
 - Templates requiring updates:
   - .specify/templates/plan-template.md ✅ no changes needed (generic)
   - .specify/templates/spec-template.md ✅ no changes needed (generic)
@@ -148,8 +149,21 @@ runs before committing to verify the codebase is clean.
   changed configuration, modified data formats, new environment
   variables). The README is the primary user-facing documentation
   and MUST stay current with the codebase.
-- **Release**: Version in `pyproject.toml` follows SemVer. Publish
-  to PyPI triggers on tagged releases.
+- **Release**: Version in `pyproject.toml` follows SemVer. A GitHub
+  Release tagged `v<semver>` deploys to prod (after the `production`
+  Environment's required reviewer approves).
+- **Deployment**: CI deploys; laptops do not (`make deploy` is
+  break-glass only). Merge to `main` builds the image exactly once and
+  deploys it to dev; prod MUST run the same image digest dev verified,
+  never a rebuild. The image MUST NOT carry per-environment config.
+  AWS access from CI MUST use GitHub OIDC with per-environment,
+  resource-scoped roles; long-lived AWS keys MUST NOT be stored in
+  GitHub. See `docs/deployment.md`.
+- **Migrations**: Schema migrations MUST be forward-compatible
+  (expand → contract): the previous release MUST keep working against
+  the migrated schema, because dev runs ahead of prod and a rollback
+  runs old code on the new schema. Drop or rename only in a later
+  release once no deployed release uses the old shape.
 
 ## Governance
 
@@ -164,4 +178,4 @@ these principles. Amendments require:
    - PATCH: Wording clarifications or typo fixes.
 3. Propagation check across all `.specify/templates/` files.
 
-**Version**: 1.5.1 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-02-19
+**Version**: 1.6.0 | **Ratified**: 2026-02-07 | **Last Amended**: 2026-11-17

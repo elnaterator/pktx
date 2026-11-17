@@ -81,6 +81,20 @@ def resolve_public_url_optional() -> str | None:
     return value or None
 
 
+def resolve_clerk_publishable_key() -> str:
+    """CLERK_PUBLISHABLE_KEY, injected into the SPA's index.html at serve time.
+
+    Kept out of the image so one build runs in every environment. Falls back to
+    ``VITE_CLERK_PUBLISHABLE_KEY`` so a local ``.env`` needs one name only.
+    Empty when neither is set.
+    """
+    for name in ("CLERK_PUBLISHABLE_KEY", "VITE_CLERK_PUBLISHABLE_KEY"):
+        value = os.environ.get(name, "").strip()
+        if value:
+            return value
+    return ""
+
+
 def resolve_extra_client_redirect_uris() -> list[str]:
     """Resolve extra client redirect-URI patterns from PKTX_EXTRA_CLIENT_REDIRECT_URIS.
 

@@ -17,8 +17,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - VITE_CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
     ports:
       - "8000:8000"
     depends_on:
@@ -32,6 +30,8 @@ services:
       - PKTX_PUBLIC_URL=${PKTX_PUBLIC_URL}
       - CLERK_JWKS_URL=${CLERK_JWKS_URL}
       - CLERK_ISSUER=${CLERK_ISSUER}
+      # Injected into index.html at serve time (the image carries no per-env config).
+      - CLERK_PUBLISHABLE_KEY=${VITE_CLERK_PUBLISHABLE_KEY}
       - CLERK_OAUTH_CLIENT_ID=${CLERK_OAUTH_CLIENT_ID}
       - CLERK_OAUTH_CLIENT_SECRET=${CLERK_OAUTH_CLIENT_SECRET}
       - CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET}

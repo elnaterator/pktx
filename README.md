@@ -43,7 +43,7 @@ Once running:
 
 | Variable | Description |
 |---|---|
-| `VITE_CLERK_PUBLISHABLE_KEY` | Clerk publishable key (`pk_test_...`) |
+| `CLERK_PUBLISHABLE_KEY` | Clerk publishable key (`pk_test_...`), injected into `index.html` at serve time. `VITE_CLERK_PUBLISHABLE_KEY` is accepted as a fallback and is what `vite dev` reads |
 | `VITE_MCP_SERVER_URL` | Optional. Connect-tab MCP URL override. Defaults to `<page origin>/mcp` at runtime; only set it for `vite dev`, where the SPA (:5173) and backend (:8000) differ (e.g. `http://localhost:8000/mcp`) |
 | `PKTX_PUBLIC_URL` | Externally reachable base URL (e.g. `https://pktx.example.com`) — required; the OAuth proxy advertises this as the authorization server and metadata base |
 | `CLERK_JWKS_URL` | Clerk JWKS endpoint |

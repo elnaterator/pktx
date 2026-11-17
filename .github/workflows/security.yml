@@ -1,7 +1,7 @@
 name: Security
 
 # PRs gate on new findings; the weekly run catches CVEs published against code that
-# hasn't changed (mostly base-image OS packages). Deploys stay manual (make deploy).
+# hasn't changed (mostly base-image OS packages). Deploys: deploy-dev.yml / deploy-prod.yml.
 on:
   pull_request:
   schedule:
