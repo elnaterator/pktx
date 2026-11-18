@@ -50,3 +50,32 @@ Environment with a required reviewer (you).**
 - Overlap: 022 stands up prod environment. CD item builds the pipeline; first prod
   release via it can be 022's kickoff. Keep 022 for the soak/beta-readiness part.
 - `make deploy` kept for local break-glass, refactored to share steps with CI.
+
+## Follow-up: runtime secrets out of Terraform (2026-11-17, from 031)
+
+031 kept the existing secret flow: SSM SecureString → `data "aws_ssm_parameter"` →
+Lambda env vars. Consequences:
+
+- Every secret value sits in Terraform state (S3, encrypted, private) and in the Lambda
+  config (KMS-encrypted env vars).
+- Both the read-only PR plan role and each deploy role need `kms:Decrypt` via SSM on
+  `/pktx/<env>/*`, so a compromised CI job can read that env's secrets.
+- Rotating a secret needs a Terraform apply.
+
+Target: Lambda env carries **parameter names** only (e.g. `PKTX_SSM_PREFIX=/pktx/<env>`);
+the app fetches SecureStrings at cold start (one `GetParametersByPath`, cached for the
+instance lifetime) using the exec role it already has (`ssm_read` policy). Terraform keeps
+creating placeholder parameters (`ignore_changes = [value]`) but drops the secret data
+sources. Then:
+
+- Deploy + plan roles lose `/pktx/<env>/*` decrypt (keep `ssm:DescribeParameters` /
+  metadata reads so Terraform can manage the placeholders; check whether the provider's
+  `aws_ssm_parameter` refresh still decrypts and, if so, whether `insecure_value` or
+  managing placeholders outside TF is cleaner).
+- Rotation = `put-parameter` + recycle instances (`update-function-configuration` no-op
+  or publish), no apply.
+- Local / docker-compose keep plain env vars: SSM lookup only when the prefix env is set.
+
+Cost: ~50–150 ms extra cold start for one SSM call (keep-warm hides most of it); a
+startup failure mode if SSM is unreachable (fail fast with a clear log line).
+`CLERK_PUBLISHABLE_KEY` is not secret and can stay a plain env var.
