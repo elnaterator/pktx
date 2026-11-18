@@ -25,9 +25,11 @@ publish release v* ──► deploy-prod.yml ──► [production Environment: 
 
   | Role | Trusted subject | Can |
   |---|---|---|
-  | `pktx-gha-plan` | `repo:elnaterator/pktx:pull_request` | Read only (no state lock, no writes) |
-  | `pktx-gha-deploy-dev` | `repo:elnaterator/pktx:environment:dev` | Manage `pktx-dev*` resources and `/pktx/dev/*` only |
-  | `pktx-gha-deploy-prod` | `repo:elnaterator/pktx:environment:production` | Manage `pktx-prod*` resources and `/pktx/prod/*` only, plus read `pktx-dev` images to promote |
+  | `pktx-gha-plan` | `<prefix>:pull_request` | Read only (no state lock, no writes) |
+  | `pktx-gha-deploy-dev` | `<prefix>:environment:dev` | Manage `pktx-dev*` resources and `/pktx/dev/*` only |
+  | `pktx-gha-deploy-prod` | `<prefix>:environment:production` | Manage `pktx-prod*` resources and `/pktx/prod/*` only, plus read `pktx-dev` images to promote |
+
+  `<prefix>` is the repo's OIDC subject prefix. This repo uses GitHub's immutable subject claims, so it is `repo:elnaterator@1914672/pktx@1152434568` (owner and repo ids, not just names): a renamed or re-created repo can't assume the roles. It is the `github_sub_prefix` variable in `infra/shared`.
 
   Deploy roles can only create or modify IAM roles named `pktx-<env>-*` that carry the env's permissions boundary (`pktx-<env>-lambda-boundary`). They cannot remove a boundary, delete ECR repos or images, or touch the other env. Plan runs only on same-repo PRs; fork PRs get no OIDC token.
 - **Deploys never overlap.** Each env has one concurrency group and never cancels a run in progress. A newer queued run replaces an older queued one, so the tip of `main` is what lands.
@@ -300,7 +302,7 @@ aws dynamodb delete-table --region us-west-2 --table-name pktx-terraform-locks-{
 
 | Symptom | Likely cause | Resolution |
 |---------|-------------|------------|
-| `configure-aws-credentials`: "Not authorized to perform sts:AssumeRoleWithWebIdentity" | Environment name or repo doesn't match the role's trusted subject, or `infra/shared` not applied | Check the Environment is `dev` / `production` exactly; `terraform -chdir=infra/shared apply` |
+| `configure-aws-credentials`: "Not authorized to perform sts:AssumeRoleWithWebIdentity" | Token `sub` doesn't match the role's trusted subject: wrong Environment name, or the repo's OIDC subject prefix changed | Check the Environment is `dev` / `production` exactly; compare `gh api repos/elnaterator/pktx/actions/oidc/customization/sub` with `github_sub_prefix`, then `terraform -chdir=infra/shared apply` |
 | Deploy step `AccessDenied` on a new resource type | A Terraform change added a resource the deploy role can't manage | Extend the env's statement in `infra/shared/main.tf` (resource-scoped), apply it by hand |
 | `deploy-prod`: "no pktx-dev:verified-<sha>" | That commit never passed a dev deploy | Merge to main / re-run **Deploy dev** for it, or release a commit that did |
 | Smoke: `GET / lacks the injected Clerk publishable key` | `clerk_publishable_key` SSM value still `TO_BE_SET` / empty | Set it, re-run the deploy |

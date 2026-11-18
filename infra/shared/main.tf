@@ -46,8 +46,8 @@ resource "aws_iam_openid_connect_provider" "github" {
 # Trust only this repo, only the exact subject (PR / GitHub Environment).
 data "aws_iam_policy_document" "trust" {
   for_each = merge(
-    { plan = "repo:${var.github_repository}:pull_request" },
-    { for env, cfg in var.environments : env => "repo:${var.github_repository}:environment:${cfg.github_environment}" },
+    { plan = "${var.github_sub_prefix}:pull_request" },
+    { for env, cfg in var.environments : env => "${var.github_sub_prefix}:environment:${cfg.github_environment}" },
   )
 
   statement {

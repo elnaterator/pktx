@@ -4,10 +4,19 @@ variable "aws_region" {
   default     = "us-west-2"
 }
 
-variable "github_repository" {
-  description = "owner/name of the GitHub repository whose workflows may assume the CI roles."
+variable "github_sub_prefix" {
+  description = <<-EOF
+    Prefix of the GitHub OIDC `sub` claim for this repo. The repo uses immutable
+    subject claims (owner and repo ids, not just names), so a renamed or re-created
+    repo can't claim these roles. Read it with:
+      gh api repos/<owner>/<repo>/actions/oidc/customization/sub --jq .sub_claim_prefix
+  EOF
   type        = string
-  default     = "elnaterator/pktx"
+  default     = "repo:elnaterator@1914672/pktx@1152434568"
+  validation {
+    condition     = can(regex("^repo:[^:]+$", var.github_sub_prefix))
+    error_message = "github_sub_prefix must look like repo:<owner>[@id]/<repo>[@id] (no trailing context)."
+  }
 }
 
 variable "environments" {
