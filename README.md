@@ -152,7 +152,7 @@ Install once before any `make` targets:
 | [uv](https://docs.astral.sh/uv/getting-started/installation/) | latest | `curl -LsSf https://astral.sh/uv/install.sh \| sh` |
 | [Node.js](https://nodejs.org/en/download) | 22+ | Official installer or preferred version manager |
 | [Docker](https://docs.docker.com/get-docker/) | Any | Official installer |
-| [Terraform](https://developer.hashicorp.com/terraform/install) | 1.7+ | Official installer (infra work only) |
+| [Terraform](https://developer.hashicorp.com/terraform/install) | 1.11+ | Official installer (infra work only) |
 | [Trivy](https://trivy.dev/latest/getting-started/installation/) | 0.75+ | `brew install trivy` (IaC scan in `make check`) |
 | [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) | 2.x | Official installer (infra work only) |
 

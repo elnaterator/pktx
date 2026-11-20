@@ -24,6 +24,7 @@ jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     environment:
       name: production
       url: ${{ steps.apply.outputs.url }}
@@ -52,7 +53,7 @@ jobs:
           echo "sha=${sha}" >> "$GITHUB_OUTPUT"
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
-          terraform_version: "~1.7"
+          terraform_version: "1.17.2"
           terraform_wrapper: false
       # Checksum-verified by the Go module proxy.
       - name: Install crane

@@ -25,7 +25,6 @@ locals {
   kms_key    = "arn:aws:kms:${local.region}:${local.account}:key/*"
   iam_role   = "arn:aws:iam::${local.account}:role"
   iam_policy = "arn:aws:iam::${local.account}:policy"
-  ddb_table  = "arn:aws:dynamodb:${local.region}:${local.account}:table"
 
   state_stacks = concat(keys(var.environments), ["shared"])
 }
@@ -226,21 +225,21 @@ resource "aws_iam_role" "deploy" {
 data "aws_iam_policy_document" "deploy" {
   for_each = var.environments
 
-  # --- Terraform state + lock (this env only) ---
+  # --- Terraform state + S3 native lock file (this env only) ---
   statement {
     sid       = "State"
     actions   = ["s3:GetObject", "s3:PutObject"]
     resources = ["arn:aws:s3:::pktx-terraform-state-${each.key}/${each.key}/terraform.tfstate"]
   }
   statement {
+    sid       = "StateLock"
+    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    resources = ["arn:aws:s3:::pktx-terraform-state-${each.key}/${each.key}/terraform.tfstate.tflock"]
+  }
+  statement {
     sid       = "StateList"
     actions   = ["s3:ListBucket"]
     resources = ["arn:aws:s3:::pktx-terraform-state-${each.key}"]
-  }
-  statement {
-    sid       = "StateLock"
-    actions   = ["dynamodb:DescribeTable", "dynamodb:GetItem", "dynamodb:PutItem", "dynamodb:DeleteItem"]
-    resources = ["${local.ddb_table}/pktx-terraform-locks-${each.key}"]
   }
 
   # --- Account-wide reads that cannot be resource-scoped ---

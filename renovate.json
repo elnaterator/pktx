@@ -77,5 +77,20 @@
       ],
       "allowedVersions": "/^3\\.11(\\.|-|$)/"
     }
+  ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Terraform CLI version pinned in GitHub workflows",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/.+\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "terraform_version: \"(?<currentValue>\\d+\\.\\d+\\.\\d+)\""
+      ],
+      "depNameTemplate": "hashicorp/terraform",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.*)$"
+    }
   ]
 }

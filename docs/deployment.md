@@ -7,7 +7,7 @@ pktx runs on **AWS Lambda** (arm64) as a container image stored in **ECR**. All 
 | `infra/shared` | GitHub OIDC provider, CI roles, Lambda permissions boundaries | The owner, by hand (CI only plans it) |
 | `infra/dev`, `infra/prod` | ECR repo, Lambda + Function URL, IAM exec role, KMS key, SSM parameters, logs, alarm, keep-warm | CI (`deploy-dev.yml`, `deploy-prod.yml`); `make deploy` as break-glass |
 
-Each stack has its own state bucket and lock table.
+Each stack has its own state bucket; Terraform locks state with an S3 lock file (`use_lockfile`), so there are no DynamoDB tables. CI runs Terraform 1.17 with the AWS provider 6.x; provider versions and hashes are pinned in each stack's committed `.terraform.lock.hcl`.
 
 ## How a change ships
 
@@ -44,7 +44,7 @@ publish release v* ──► deploy-prod.yml ──► [production Environment: 
 
 | Tool | Install | Used for |
 |------|---------|---------|
-| [Terraform](https://developer.hashicorp.com/terraform/install) 1.7+ | `brew install terraform` | everything |
+| [Terraform](https://developer.hashicorp.com/terraform/install) 1.11+ (CI: 1.17) | `brew install terraform` | everything |
 | [AWS CLI](https://aws.amazon.com/cli/) 2.x | `brew install awscli` | bootstrap, secrets |
 | Docker with `buildx` | Docker Desktop | break-glass `make deploy ENV=dev` |
 | [crane](https://github.com/google/go-containerregistry) | `brew install crane` | break-glass `make deploy ENV=prod` |
@@ -88,7 +88,7 @@ Non-secret configuration (`extra_client_redirect_uris`, `authorized_parties`, si
 ./infra/bootstrap.sh prod
 ```
 
-Each creates a versioned, encrypted, private S3 bucket `pktx-terraform-state-<stack>` and a DynamoDB lock table `pktx-terraform-locks-<stack>`. These are not Terraform-managed (that would be circular).
+Each creates a versioned, encrypted, private S3 bucket `pktx-terraform-state-<stack>`, which holds the state and its lock file. It is not Terraform-managed (that would be circular).
 
 ### 2. CI identity (`infra/shared`)
 
@@ -286,14 +286,10 @@ Run it with owner credentials. Deploy roles cannot delete ECR repos.
 terraform -chdir=infra/{env} destroy -var "image_digest=$(scripts/deploy/current-digest.sh {env})"
 ```
 
-The S3 state bucket and DynamoDB lock table are not destroyed by `terraform destroy` (they are not Terraform-managed). Delete them manually if needed:
+The S3 state bucket is not destroyed by `terraform destroy` (it is not Terraform-managed). Delete it manually if needed:
 
 ```bash
 aws s3 rb s3://pktx-terraform-state-{env} --force
-```
-
-```bash
-aws dynamodb delete-table --region us-west-2 --table-name pktx-terraform-locks-{env}
 ```
 
 ---
