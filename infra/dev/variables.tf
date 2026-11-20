@@ -13,10 +13,12 @@ variable "aws_region" {
   default     = "us-west-2"
 }
 
-variable "image_tag" {
-  description = "ECR image tag for the Lambda function to run."
+variable "image_digest" {
+  description = <<-EOT
+    Digest (sha256:...) of the image Lambda runs. No default: always passed by
+    scripts/deploy/apply.sh (deploy) or scripts/deploy/current-digest.sh (plan).
+  EOT
   type        = string
-  default     = "latest"
 }
 
 variable "memory_size" {

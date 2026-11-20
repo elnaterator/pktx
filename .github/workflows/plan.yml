@@ -1,0 +1,59 @@
+name: Terraform plan
+
+# Read-only plan of every stack on same-repo PRs, posted as one sticky comment.
+# Separate from ci.yml because ci.yml is also a reusable workflow, and a called
+# workflow may not request more permissions (id-token, pull-requests) than its caller.
+# Runs on every PR (no paths filter) so it can be a required status check;
+# a skipped job (fork PR, not bootstrapped) counts as passing.
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  plan:
+    # Same-repo PRs only: fork PRs get no OIDC token, and the plan role reads
+    # state. Skipped until the owner has bootstrapped infra/shared (see docs).
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository
+      && vars.AWS_PLAN_ROLE_ARN != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+      pull-requests: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          role-session-name: pktx-plan-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: terraform plan
+        id: plan
+        env:
+          STACKS: ${{ vars.TF_PLAN_STACKS || 'shared dev prod' }}
+        run: |
+          set +e
+          # shellcheck disable=SC2086 # STACKS is a space-separated list
+          scripts/deploy/plan.sh $STACKS > plan.md
+          echo "status=$?" >> "$GITHUB_OUTPUT"
+          cat plan.md >> "$GITHUB_STEP_SUMMARY"
+      - uses: marocchino/sticky-pull-request-comment@5770ad5eb8f42dd2c4f34da00c94c5381e49af88 # v3.0.5
+        with:
+          header: terraform-plan
+          path: plan.md
+      - name: Fail on plan errors
+        if: steps.plan.outputs.status != '0'
+        run: exit 1

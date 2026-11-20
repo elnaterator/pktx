@@ -155,9 +155,9 @@ Notes are where cover letters get written; employers take them as a PDF upload o
 Notes: research/note-export.md
 
 
-## 031 Continuous deployment: auto dev, gated prod
+## 031 Continuous deployment: auto dev, gated prod - SHIPPED
 
-Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, builds the image once, auto-deploys to dev, and smoke tests it. Prod deploys the same verified image digest, triggered by a GitHub Release and gated by a `production` Environment with required reviewer. AWS access via GitHub OIDC with per-env roles, Terraform plan on PRs, one-click rollback to a previous release, forward-compatible migrations. Lays the pipeline 022 uses to stand up prod.
+Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, builds the image once, auto-deploys to dev, and smoke tests it. Prod deploys the same verified image digest, triggered by a GitHub Release and gated by a `production` Environment with required reviewer. AWS access via GitHub OIDC with per-env roles, Terraform plan on PRs, one-click rollback to a previous release, forward-compatible migrations. Lays the pipeline 022 uses to stand up prod. Must ensure secure practices for credential management and AWS roles.
 Notes: research/continuous-deployment.md
 
 

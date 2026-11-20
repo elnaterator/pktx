@@ -3,10 +3,10 @@ data "aws_caller_identity" "current" {}
 # ECR repository for the application container image
 resource "aws_ecr_repository" "app" {
   #checkov:skip=CKV_AWS_136:Default AWS-managed encryption is sufficient for a personal app; KMS CMK adds cost/complexity without meaningful benefit
-  #checkov:skip=CKV_AWS_51:Mutable image tags are required for the dev/prod deployment workflow (same :latest or :sha tag is re-pushed per environment)
   name = "pktx-${var.environment}"
-  #trivy:ignore:AWS-0031 Mutable tags required: deploy re-pushes the same tag per environment
-  image_tag_mutability = "MUTABLE"
+  # Tags are write-once (`sha-<git sha>`, `verified-<git sha>`): what was tested
+  # is what runs. Lambda is pinned by digest regardless.
+  image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true
@@ -15,9 +15,44 @@ resource "aws_ecr_repository" "app" {
   tags = var.tags
 }
 
+# Keep enough history for one-click rollback; drop orphans from failed pushes.
+resource "aws_ecr_lifecycle_policy" "app" {
+  repository = aws_ecr_repository.app.name
+
+  policy = jsonencode({
+    rules = [
+      {
+        rulePriority = 1
+        description  = "Expire untagged images after 7 days"
+        selection = {
+          tagStatus   = "untagged"
+          countType   = "sinceImagePushed"
+          countUnit   = "days"
+          countNumber = 7
+        }
+        action = { type = "expire" }
+      },
+      {
+        rulePriority = 2
+        description  = "Keep the newest ${var.images_to_keep} release images"
+        selection = {
+          tagStatus     = "tagged"
+          tagPrefixList = ["sha-"]
+          countType     = "imageCountMoreThan"
+          countNumber   = var.images_to_keep
+        }
+        action = { type = "expire" }
+      },
+    ]
+  })
+}
+
 # IAM role assumed by the Lambda function at runtime
 resource "aws_iam_role" "lambda_exec" {
   name = "pktx-${var.environment}-lambda-exec"
+  # CI deploy roles may only create/modify roles that carry this boundary
+  # (infra/shared). Null keeps the module usable without the shared stack.
+  permissions_boundary = var.permissions_boundary_arn
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -154,13 +189,13 @@ resource "aws_lambda_function" "app" {
   #checkov:skip=CKV_AWS_50:X-Ray tracing deferred to future — adds cost/complexity not warranted for a personal app (research Decision 4)
   #checkov:skip=CKV_AWS_117:No VPC required for a personal app with no private resources to isolate
   #checkov:skip=CKV_AWS_116:No DLQ required — Lambda errors are surfaced via CloudWatch alarm; async retry not applicable to synchronous HTTP workload
-  #checkov:skip=CKV_AWS_272:Code signing not warranted for a personal app; images are built and pushed by the developer directly
+  #checkov:skip=CKV_AWS_272:Code signing not warranted for a personal app; images are built by CI and pinned by digest
   #checkov:skip=CKV_AWS_115:No reserved concurrency limit set — personal app with low traffic; limiting concurrency would cause avoidable throttling
   #checkov:skip=CKV2_AWS_75:Open CORS is intentional — app must be accessible from any browser origin and MCP clients
   function_name = "pktx-${var.environment}"
   role          = aws_iam_role.lambda_exec.arn
   package_type  = "Image"
-  image_uri     = "${aws_ecr_repository.app.repository_url}:${var.image_tag}"
+  image_uri     = "${aws_ecr_repository.app.repository_url}@${var.image_digest}"
   architectures = ["arm64"]
   memory_size   = var.memory_size
   timeout       = var.timeout

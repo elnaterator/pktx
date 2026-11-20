@@ -1,11 +1,13 @@
 """pktx server — FastAPI REST API + MCP tools, with --stdio backward compat."""
 
 import argparse
+import html
 import json
 import logging
 import os
 from collections.abc import AsyncIterator, Awaitable, Callable, MutableMapping
 from contextlib import asynccontextmanager
+from pathlib import Path
 from typing import Any, TypeVar
 
 import anyio
@@ -19,6 +21,7 @@ from fastmcp.server.middleware import Middleware
 from mcp.types import Icon
 from psycopg_pool import ConnectionPool
 from starlette.exceptions import HTTPException as StarletteHTTPException
+from starlette.responses import HTMLResponse, Response
 from starlette.routing import Route as StarletteRoute
 
 from pktx.accomplishment_service import AccomplishmentService
@@ -35,6 +38,7 @@ from pktx.config import (
     MAX_REQUEST_BODY_BYTES,
     configure_logging,
     resolve_authorized_parties,
+    resolve_clerk_publishable_key,
     resolve_cors_origins,
     resolve_db_url,
     resolve_frontend_dir,
@@ -66,6 +70,9 @@ from pktx.tools.resume_tools import register_resume_tools
 
 logger = logging.getLogger("pktx")
 
+# Placeholder in frontend/index.html, filled from CLERK_PUBLISHABLE_KEY at startup.
+CLERK_KEY_PLACEHOLDER = "%PKTX_CLERK_PUBLISHABLE_KEY%"
+
 Scope = MutableMapping[str, Any]
 Message = MutableMapping[str, Any]
 Receive = Callable[[], Awaitable[Message]]
@@ -82,14 +89,31 @@ class SPAStaticFiles(StaticFiles):
 
     API routes and MCP routes are registered before this mount and take
     priority, so /api/*, /health, and /mcp/* are never intercepted.
+
+    index.html is rendered once with runtime config (the Clerk publishable
+    key) substituted for its placeholder, so a single image serves every
+    environment. It is sent ``no-cache`` so a deploy is picked up at once;
+    the hashed assets it references stay cacheable.
     """
 
+    def __init__(self, *, directory: str, publishable_key: str = "") -> None:
+        super().__init__(directory=directory, html=True)
+        raw = (Path(directory) / "index.html").read_text(encoding="utf-8")
+        self._index_html = raw.replace(
+            CLERK_KEY_PLACEHOLDER, html.escape(publishable_key, quote=True)
+        )
+
+    def _index_response(self) -> Response:
+        return HTMLResponse(self._index_html, headers={"Cache-Control": "no-cache"})
+
     async def get_response(self, path: str, scope):  # type: ignore[override]
+        if path.strip("/") in ("", ".", "index.html"):
+            return self._index_response()
         try:
             return await super().get_response(path, scope)
         except StarletteHTTPException as exc:
             if exc.status_code == 404:
-                return await super().get_response("index.html", scope)
+                return self._index_response()
             raise
 
 
@@ -548,7 +572,10 @@ def create_app(
     if frontend_dir is not None:
         app.mount(
             "/",
-            SPAStaticFiles(directory=str(frontend_dir), html=True),
+            SPAStaticFiles(
+                directory=str(frontend_dir),
+                publishable_key=resolve_clerk_publishable_key(),
+            ),
             name="frontend",
         )
 

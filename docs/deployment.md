@@ -1,240 +1,245 @@
 # Deploying to AWS
 
-pktx runs on **AWS Lambda** (arm64) as a container image stored in **ECR**. All AWS resources are defined in Terraform under `infra/`. There are two environments: `dev` and `prod`, each with isolated state.
+pktx runs on **AWS Lambda** (arm64) as a container image stored in **ECR**. All AWS resources are defined in Terraform under `infra/`:
 
-**CI never touches AWS.** It has no AWS credentials; deploys are always performed manually by the developer with `make deploy`.
+| Stack | What | Applied by |
+|---|---|---|
+| `infra/shared` | GitHub OIDC provider, CI roles, Lambda permissions boundaries | The owner, by hand (CI only plans it) |
+| `infra/dev`, `infra/prod` | ECR repo, Lambda + Function URL, IAM exec role, KMS key, SSM parameters, logs, alarm, keep-warm | CI (`deploy-dev.yml`, `deploy-prod.yml`); `make deploy` as break-glass |
+
+Each stack has its own state bucket; Terraform locks state with an S3 lock file (`use_lockfile`), so there are no DynamoDB tables. CI runs Terraform 1.17 with the AWS provider 6.x; provider versions and hashes are pinned in each stack's committed `.terraform.lock.hcl`.
+
+## How a change ships
+
+```
+PR ──► ci.yml: make check                          plan.yml: terraform plan (shared, dev, prod) → sticky PR comment
+merge to main ──► deploy-dev.yml: make check ──► build image ONCE → pktx-dev:sha-<sha>
+                  └─► terraform apply dev @digest ──► smoke test ──► tag pktx-dev:verified-<sha>
+publish release v* ──► deploy-prod.yml ──► [production Environment: you approve]
+                  └─► copy the verified digest → pktx-prod:sha-<sha> ──► terraform apply prod @digest ──► smoke test
+```
+
+- **Build once, promote the artifact.** The image has no per-environment config: the server injects the Clerk publishable key into `index.html` at serve time (`CLERK_PUBLISHABLE_KEY`). Prod runs the byte-identical image dev ran and smoke-tested. `deploy-prod` refuses a commit with no `verified-<sha>` image and checks the prod digest equals the dev digest.
+- **Lambda is pinned by digest through Terraform** (`image_uri = repo@sha256:…`). ECR tags are immutable. Terraform state and what's running never drift.
+- **No AWS keys in GitHub.** Workflows log in through GitHub OIDC. Each role trusts exactly one subject:
+
+  | Role | Trusted subject | Can |
+  |---|---|---|
+  | `pktx-gha-plan` | `<prefix>:pull_request` | Read only (no state lock, no writes) |
+  | `pktx-gha-deploy-dev` | `<prefix>:environment:dev` | Manage `pktx-dev*` resources and `/pktx/dev/*` only |
+  | `pktx-gha-deploy-prod` | `<prefix>:environment:production` | Manage `pktx-prod*` resources and `/pktx/prod/*` only, plus read `pktx-dev` images to promote |
+
+  `<prefix>` is the repo's OIDC subject prefix. This repo uses GitHub's immutable subject claims, so it is `repo:elnaterator@1914672/pktx@1152434568` (owner and repo ids, not just names): a renamed or re-created repo can't assume the roles. It is the `github_sub_prefix` variable in `infra/shared`.
+
+  Deploy roles can only create or modify IAM roles named `pktx-<env>-*` that carry the env's permissions boundary (`pktx-<env>-lambda-boundary`). They cannot remove a boundary, delete ECR repos or images, or touch the other env. Plan runs only on same-repo PRs; fork PRs get no OIDC token.
+- **Deploys never overlap.** Each env has one concurrency group and never cancels a run in progress. A newer queued run replaces an older queued one, so the tip of `main` is what lands.
+- **Smoke test** (`scripts/deploy/smoke.sh`) after every deploy checks three things. A failure fails the run, and a dev image that fails is never marked verified.
+  - `GET /health` returns 200.
+  - Unauthenticated `POST /mcp` returns 401 with an OAuth challenge.
+  - `GET /` serves the SPA with the injected key.
 
 ---
 
-## Prerequisites
+## Prerequisites (owner laptop)
 
-### Tools
-
-| Tool | Version | Install |
+| Tool | Install | Used for |
 |------|---------|---------|
-| [Terraform](https://developer.hashicorp.com/terraform/install) | 1.7+ | `brew install terraform` |
-| [AWS CLI](https://aws.amazon.com/cli/) | 2.x | `brew install awscli` |
-| [Docker](https://docs.docker.com/get-docker/) with `buildx` | Any | Docker Desktop |
-| [jq](https://jqlang.org/) | Any | `brew install jq` (used by `make deploy`) |
+| [Terraform](https://developer.hashicorp.com/terraform/install) 1.11+ (CI: 1.17) | `brew install terraform` | everything |
+| [AWS CLI](https://aws.amazon.com/cli/) 2.x | `brew install awscli` | bootstrap, secrets |
+| Docker with `buildx` | Docker Desktop | break-glass `make deploy ENV=dev` |
+| [crane](https://github.com/google/go-containerregistry) | `brew install crane` | break-glass `make deploy ENV=prod` |
+| actionlint, shellcheck | `brew install actionlint shellcheck` | `make check` |
 
-### AWS credentials
-
-Configure the AWS CLI before running any commands:
-
-```bash
-aws configure
-# or set AWS_PROFILE if using named profiles
-```
+Owner AWS credentials (`aws configure` / `AWS_PROFILE`) are needed only for the one-time bootstrap, setting secrets and break-glass deploys.
 
 ### Values to collect
 
-Each environment needs these values in SSM Parameter Store (Phase 2). Collect them first:
+Each environment needs these values in SSM Parameter Store. Collect them first:
 
 | SSM parameter (`/pktx/{env}/…`) | Where it comes from |
 |---|---|
 | `database_url` | Neon console → connection string (`?sslmode=require`) |
 | `clerk_secret_key` | Clerk → API Keys (`sk_test_…` dev, `sk_live_…` prod) |
-| `clerk_publishable_key` | Clerk → API Keys (`pk_test_…` / `pk_live_…`); baked into the frontend at build time |
+| `clerk_publishable_key` | Clerk → API Keys (`pk_test_…` / `pk_live_…`); injected into `index.html` at serve time |
 | `clerk_issuer` | Clerk → API Keys → Frontend API URL (`https://<your-app>.clerk.accounts.dev`) |
 | `clerk_jwks_url` | `<clerk_issuer>/.well-known/jwks.json` |
 | `clerk_webhook_secret` | Clerk → Webhooks → endpoint `<pktx_public_url>/api/webhooks/clerk` → signing secret (`whsec_…`) |
-| `pktx_public_url` | The app's public origin: the Lambda function URL (known after Phase 4) or your custom domain |
+| `pktx_public_url` | The app's public origin: the Lambda function URL (known after the first deploy) or your custom domain |
 | `clerk_oauth_client_id` | Clerk → OAuth applications → app with redirect URI `<pktx_public_url>/auth/callback` |
 | `clerk_oauth_client_secret` | Same OAuth application |
 
-Non-secret configuration (`extra_client_redirect_uris`, `authorized_parties`, `image_tag`, sizing) lives in `infra/{env}/terraform.tfvars`.
+Non-secret configuration (`extra_client_redirect_uris`, `authorized_parties`, sizing) lives in `infra/{env}/terraform.tfvars`. The image digest is never in tfvars; the deploy scripts pass it.
 
 ---
 
 ## One-Time Bootstrap
 
-Run these steps once per environment before the first `terraform init`. These resources are not managed by Terraform (bootstrapping them with Terraform would be circular).
-
-### Create remote state infrastructure
-
-Replace `dev` with `prod` and repeat for the prod environment.
+### 1. Remote state (per stack)
 
 ```bash
-# S3 bucket for Terraform state
-aws s3api create-bucket \
-  --region us-west-2 \
-  --bucket pktx-terraform-state-dev \
-  --create-bucket-configuration LocationConstraint=us-west-2
-
-aws s3api put-bucket-versioning \
-  --bucket pktx-terraform-state-dev \
-  --versioning-configuration Status=Enabled
-
-aws s3api put-bucket-encryption \
-  --bucket pktx-terraform-state-dev \
-  --server-side-encryption-configuration \
-  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
-
-# DynamoDB table for state locking
-aws dynamodb create-table \
-  --region us-west-2 \
-  --table-name pktx-terraform-locks-dev \
-  --attribute-definitions AttributeName=LockID,AttributeType=S \
-  --key-schema AttributeName=LockID,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
+./infra/bootstrap.sh shared
 ```
 
----
-
-## First-Time Provisioning
-
-The first deploy of an environment needs several phases: Lambda can't be created until an image exists in ECR, and the image build needs the Clerk publishable key from SSM. After that, `make deploy` does everything; Phase 2 (real secret values) is always manual.
-
-### Phase 1 — Create ECR and the SSM placeholders
-
-Don't run `make deploy` yet: its image build would bake in the `TO_BE_SET` publishable key.
-
 ```bash
-terraform -chdir=infra/dev init
-terraform -chdir=infra/dev apply \
-  -target=module.lambda.aws_ecr_repository.app \
-  $(for p in database_url clerk_secret_key clerk_publishable_key clerk_issuer clerk_jwks_url \
-      clerk_webhook_secret pktx_public_url clerk_oauth_client_id clerk_oauth_client_secret; \
-    do printf -- '-target=aws_ssm_parameter.%s ' $p; done)
+./infra/bootstrap.sh dev
 ```
 
-This creates the ECR repository and every SSM parameter with the placeholder value `TO_BE_SET`. Terraform ignores later value changes (`lifecycle.ignore_changes = [value]`), so it never reverts what you set next.
-
-### Phase 2 — Set secrets in SSM Parameter Store
-
-Overwrite each placeholder with the values collected above:
-
 ```bash
-# Repeat for every parameter in the table above
-aws ssm put-parameter \
-  --region us-west-2 \
-  --name /pktx/{env}/database_url \
-  --value "postgresql://user:pass@ep-xxx.us-west-2.aws.neon.tech/neondb?sslmode=require" \
-  --type SecureString \
-  --overwrite
+./infra/bootstrap.sh prod
 ```
 
-`pktx_public_url` (and the Clerk webhook and OAuth redirect URIs that depend on it) can only be filled in once the function URL exists. Leave it for the first pass, finish Phase 4, then set it and run `make deploy` again.
+Each creates a versioned, encrypted, private S3 bucket `pktx-terraform-state-<stack>`, which holds the state and its lock file. It is not Terraform-managed (that would be circular).
 
-Check that nothing is still a placeholder:
+### 2. CI identity (`infra/shared`)
 
 ```bash
-aws ssm get-parameters-by-path \
-  --region us-west-2 \
-  --path /pktx/{env}/ \
-  --with-decryption \
+terraform -chdir=infra/shared init
+```
+
+```bash
+terraform -chdir=infra/shared apply
+```
+
+```bash
+terraform -chdir=infra/shared output
+```
+
+If the account already has a GitHub OIDC provider, import it first. The address is `aws_iam_openid_connect_provider.github`, and the ID is `arn:aws:iam::<account>:oidc-provider/token.actions.githubusercontent.com`.
+
+Re-apply this stack by hand whenever a PR changes it. CI never applies it, because a role must not be able to widen its own permissions.
+
+### 3. GitHub settings
+
+All of these are free on a public repo.
+
+1. **Settings → Environments → `dev`**: deployment branches = `main` only. Variable `AWS_ROLE_ARN` = `deploy_role_arns["dev"]`.
+2. **Settings → Environments → `production`**:
+   - **Required reviewers** = you.
+   - Deployment branches and tags = **Selected**, add the tag rule `v*`.
+   - Variable `AWS_ROLE_ARN` = `deploy_role_arns["prod"]`.
+3. **Settings → Secrets and variables → Actions → Variables (repository)**:
+   - `AWS_PLAN_ROLE_ARN` = `plan_role_arn`. Until this is set, `plan.yml` skips.
+   - Optional: `AWS_REGION` (default `us-west-2`).
+   - Optional: `TF_PLAN_STACKS` (default `shared dev prod`). Drop `prod` until prod's state exists.
+4. **Rulesets → `main`**: add `check` and `plan` to the required status checks (alongside `image` and `iac-secrets`).
+
+There are no AWS secrets to add. If you find an `AWS_ACCESS_KEY_ID` in repo secrets, delete it.
+
+### 4. First deploy of an environment
+
+The first deploy of an env needs real secret values before the app can start.
+
+1. Create the ECR repo and the SSM placeholders. With owner creds, run the first command below. Or merge to `main`: the first CI step does the same thing, and later steps fail until secrets are set.
+2. Overwrite every placeholder with the real values (next command).
+3. Check that nothing is still a placeholder (the `get-parameters-by-path` command below should print `[]`).
+4. Deploy. For dev: merge to `main`, re-run the failed **Deploy dev** run, or run `make deploy ENV=dev`. For prod: publish a release (see below).
+
+```bash
+scripts/deploy/ensure-base.sh dev
+```
+
+```bash
+aws ssm put-parameter --region us-west-2 --name /pktx/dev/database_url \
+  --value "postgresql://..." --type SecureString --overwrite
+```
+
+```bash
+aws ssm get-parameters-by-path --region us-west-2 --path /pktx/dev/ --with-decryption \
   --query "Parameters[?Value=='TO_BE_SET'].Name"
-# Expected: []
 ```
 
-### Phase 3 + 4 — Build, push, full apply
+`pktx_public_url` (and the Clerk webhook and OAuth redirect URIs that depend on it) can only be set once the function URL exists. Deploy once, set it, then deploy again.
 
-```bash
-make deploy ENV=dev
-```
-
-Review the full apply plan carefully. Expected new resources include:
-
-- `module.lambda.aws_iam_role.lambda_exec` and its policies (`ecr_pull`, `ssm_read`, `lambda_env_kms`, `cw_logs` attachment)
-- `module.lambda.aws_kms_key.lambda_env` (encrypts the Lambda environment variables)
-- `module.lambda.aws_lambda_function.app`, `aws_lambda_function_url.app`, and the URL permissions
-- `module.lambda.aws_cloudwatch_event_rule.keep_warm` + target + permission (when `keep_warm_enabled`)
-- `module.observability.aws_cloudwatch_log_group.lambda` and `aws_cloudwatch_metric_alarm.errors`
-
-Test it:
-
-```bash
-curl "$(terraform -chdir=infra/dev output -raw lambda_function_url)health"   # URL ends in /
-# Expected: {"status":"ok"}
-```
+Terraform creates each SSM parameter with `TO_BE_SET` and ignores later value changes (`lifecycle.ignore_changes = [value]`), so it never reverts what you set.
 
 ---
 
-## Subsequent Deploys
+## Releasing to prod
+
+1. Make sure the commit has deployed to dev: the **Deploy dev** run for it must be green. That run tags the image `verified-<sha>`.
+2. Publish a release, either from **GitHub → Releases → Draft a new release** (tag `vX.Y.Z` on that commit, generate notes) or with `gh` (command below).
+3. Approve the waiting **production** deployment in the Actions run.
+4. The workflow copies the verified image into `pktx-prod`, applies Terraform at the release's commit, and smoke tests.
 
 ```bash
-make deploy ENV=dev
-# or
-make deploy ENV=prod
+gh release create v1.4.0 --target <sha> --generate-notes
 ```
 
-This runs five steps:
+### Rollback
 
-1. `terraform init` (idempotent)
-2. Targeted apply: ensures ECR and the SSM parameters exist (no-op after the first deploy)
-3. `docker buildx build --platform linux/arm64` with `VITE_CLERK_PUBLISHABLE_KEY` read from SSM, then push `:latest` to ECR
-4. Full `terraform apply` (prompts for confirmation); this also refreshes the Lambda env vars from SSM
-5. `aws lambda update-function-code` pinned to the pushed image's digest, so Lambda runs the new image even when Terraform saw no change
+Re-deploy an earlier release in one step. Infra and image both go back to that release (Terraform runs from the tag's commit), and it still needs approval.
 
-The function URL is printed at the end.
+```bash
+gh workflow run deploy-prod.yml -f tag=v1.3.2
+```
 
-> **Note**: `make deploy` always pushes `:latest`. To pin a prod tag, push it manually and set `image_tag` in `infra/prod/terraform.tfvars` before applying.
+The prod ECR repo keeps the 30 newest release images (`images_to_keep`). Older tags have to be promoted again from dev, and only while dev still has them.
+
+Rollback is safe only if the older code can read the current schema; see the next section.
 
 ---
 
-## Updating Secrets
+## Database migrations: expand → contract
 
-SSM parameter *values* are managed outside Terraform. Lambda does **not** read SSM at runtime: Terraform reads each parameter during `apply` and writes it into the function's environment variables. Rotating a secret is therefore two steps:
+Dev runs ahead of prod, and a rollback runs old code against a schema that has already migrated. Every migration in `backend/src/pktx/migrations.py` must therefore be **forward-compatible**: the previous release must keep working against the new schema.
 
-```bash
-aws ssm put-parameter \
-  --region us-west-2 \
-  --name /pktx/prod/database_url \
-  --value "postgresql://..." \
-  --type SecureString \
-  --overwrite
-
-terraform -chdir=infra/prod apply   # or: make deploy ENV=prod
-```
-
-The apply updates the function configuration, which also recycles warm instances.
+- **Expand first:** add nullable columns or tables, and backfill. Never rename or drop a column that released code still reads or writes.
+- **Contract later:** drop or rename only in a later release, once no deployed release (including the rollback target) uses the old shape.
+- A change that can't be split this way needs an explicit plan in its roadmap item, covering downtime, a feature flag, or giving up rollback for that release.
 
 ---
 
-## Updating Infrastructure Only (No New Image)
+## Updating secrets
 
-If you changed Terraform files but not application code:
+SSM parameter *values* live outside Terraform. Lambda does **not** read SSM at runtime: Terraform reads each parameter during `apply` and writes it into the function's environment variables (encrypted with the env's KMS key). Rotating a secret is two steps:
+
+1. Write the new value to SSM (first command below).
+2. Re-apply that env. For dev, re-run the latest **Deploy dev** run (Actions → Re-run all jobs). For prod, run **Deploy prod** with the release that is currently live (second command below).
 
 ```bash
-cd infra/{env}
-terraform plan   # review changes
-terraform apply
+aws ssm put-parameter --region us-west-2 --name /pktx/prod/database_url \
+  --value "postgresql://..." --type SecureString --overwrite
 ```
+
+```bash
+gh workflow run deploy-prod.yml -f tag=<current release>
+```
+
+The apply updates the function configuration, which also recycles warm instances. Secrets are therefore also present in Terraform state. Each state bucket is private and encrypted, and only that env's deploy role and the read-only plan role can read it.
 
 ---
 
-## Pushing a New Image Without Terraform Changes
+## Break-glass: `make deploy`
 
-`make deploy` is the supported path. If you need to do it by hand, mirror its steps 3 and 5:
+Use this when GitHub Actions is down. It needs owner AWS credentials and a clean working tree. It runs the same `scripts/deploy/*` steps as CI:
 
 ```bash
-ECR_URL=$(terraform -chdir=infra/{env} output -raw ecr_repository_url)
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-CLERK_PK=$(aws ssm get-parameter --region us-west-2 --name /pktx/{env}/clerk_publishable_key \
-  --with-decryption --query Parameter.Value --output text)
+make deploy ENV=dev    # ensure-base → build-push sha-<HEAD> → apply (prompts) → smoke → mark verified
+```
 
-aws ecr get-login-password --region us-west-2 | \
-  docker login --username AWS --password-stdin \
-  ${ACCOUNT_ID}.dkr.ecr.us-west-2.amazonaws.com
+```bash
+make deploy ENV=prod   # ensure-base → promote verified-<HEAD> → apply (prompts) → smoke
+```
 
-docker buildx build --platform linux/arm64 --provenance=false \
-  --build-arg VITE_CLERK_PUBLISHABLE_KEY=${CLERK_PK} \
-  --load -t ${ECR_URL}:latest .
-docker push ${ECR_URL}:latest
+`ENV=prod` skips the reviewer gate (owner credentials), but it still refuses an image that dev has not verified.
 
-DIGEST=$(aws ecr describe-images --region us-west-2 --repository-name pktx-{env} \
-  --image-ids imageTag=latest --query 'imageDetails[0].imageDigest' --output text)
-aws lambda update-function-code \
-  --region us-west-2 \
-  --function-name pktx-{env} \
-  --image-uri ${ECR_URL}@${DIGEST}
+### Infra-only change
+
+Merge it; CI applies dev with the current image. For prod, publish a release. You can plan locally first:
+
+```bash
+terraform -chdir=infra/dev plan -var "image_digest=$(scripts/deploy/current-digest.sh dev)"
 ```
 
 ---
 
 ## Security Scanning and Updates (one-time GitHub settings)
 
-CI is two workflows, neither with AWS access: `ci.yml` runs `make check` on PRs, and `security.yml` scans the built image and the repo with Trivy on every PR and every Monday. `renovate.json` drives dependency updates. Turn these repo settings on (all free on a public repo):
+- `ci.yml` runs `make check` on PRs.
+- `security.yml` scans the built image and the repo with Trivy on every PR and every Monday.
+- `renovate.json` drives dependency updates, including the SHA-pinned actions in the deploy workflows.
+
+Turn these repo settings on:
 
 1. **Install Renovate.** Add https://github.com/apps/renovate to this repo only. It
    opens an onboarding PR that picks up `renovate.json`, then a "Dependency Dashboard"
@@ -242,17 +247,16 @@ CI is two workflows, neither with AWS access: `ci.yml` runs `make check` on PRs,
 2. **Settings → General → Pull Requests → Allow auto-merge**: on, so Renovate can merge
    patch updates.
 3. **Settings → Rules → Rulesets →** the ruleset that targets `main` → **Require status
-   checks to pass** → add `check`, `image` and `iac-secrets`. Without them, auto-merge
-   would merge untested updates. A check only shows in the picker after it has run once,
-   for example on the PR that added `security.yml`.
+   checks to pass** → add `check`, `plan`, `image` and `iac-secrets`. Without them,
+   auto-merge would merge untested updates. A check only shows in the picker after it
+   has run once.
 4. **Settings → Advanced Security** (older UI: *Code security*):
    - Dependabot **alerts**: on. Dependabot **security updates**: off, because Renovate
      opens the PRs.
    - **Secret Protection** → on, then **Push protection** → on.
    - **CodeQL analysis** → Set up → **Default** (Python, JavaScript/TypeScript, Actions).
 
-Findings land in **Security → Code scanning**. The weekly run only rebuilds and scans;
-ship a patched image with `make deploy` as usual.
+Findings land in **Security → Code scanning**. The weekly run only rebuilds and scans. To ship a patched base image, merge the Renovate PR; dev deploys on merge, then release to prod.
 
 **Deferred: ECR enhanced scanning (Amazon Inspector).** This rescans the image already
 deployed in ECR as new CVEs are published, which CI can't do. It costs a little per
@@ -276,16 +280,16 @@ Users can take their own data out at any time via **Export my data** in the acco
 
 > **Warning**: This is irreversible. All AWS resources (Lambda, ECR images, IAM roles, SSM parameters, CloudWatch data) are deleted.
 
+Run it with owner credentials. Deploy roles cannot delete ECR repos.
+
 ```bash
-cd infra/{env}
-terraform destroy
+terraform -chdir=infra/{env} destroy -var "image_digest=$(scripts/deploy/current-digest.sh {env})"
 ```
 
-The S3 state bucket and DynamoDB locks table are not destroyed by `terraform destroy` (they are not Terraform-managed). Delete them manually if needed:
+The S3 state bucket is not destroyed by `terraform destroy` (it is not Terraform-managed). Delete it manually if needed:
 
 ```bash
 aws s3 rb s3://pktx-terraform-state-{env} --force
-aws dynamodb delete-table --region us-west-2 --table-name pktx-terraform-locks-{env}
 ```
 
 ---
@@ -294,12 +298,15 @@ aws dynamodb delete-table --region us-west-2 --table-name pktx-terraform-locks-{
 
 | Symptom | Likely cause | Resolution |
 |---------|-------------|------------|
+| `configure-aws-credentials`: "Not authorized to perform sts:AssumeRoleWithWebIdentity" | Token `sub` doesn't match the role's trusted subject: wrong Environment name, or the repo's OIDC subject prefix changed | Check the Environment is `dev` / `production` exactly; compare `gh api repos/elnaterator/pktx/actions/oidc/customization/sub` with `github_sub_prefix`, then `terraform -chdir=infra/shared apply` |
+| Deploy step `AccessDenied` on a new resource type | A Terraform change added a resource the deploy role can't manage | Extend the env's statement in `infra/shared/main.tf` (resource-scoped), apply it by hand |
+| `deploy-prod`: "no pktx-dev:verified-<sha>" | That commit never passed a dev deploy | Merge to main / re-run **Deploy dev** for it, or release a commit that did |
+| Smoke: `GET / lacks the injected Clerk publishable key` | `clerk_publishable_key` SSM value still `TO_BE_SET` / empty | Set it, re-run the deploy |
 | Lambda returns 502 | App failed to start; Web Adapter never received a readiness response | Check logs: `aws logs tail /aws/lambda/pktx-{env} --follow` |
 | Lambda returns 500 | App started but errored on a request | Check logs for Python traceback |
-| App errors on a missing/odd config value | An SSM parameter is still `TO_BE_SET`, or was changed without a re-apply | Run the placeholder check in Phase 2, then `terraform apply` |
-| `exec format error` in Lambda logs | Image built for the wrong architecture | Build with `--platform linux/arm64` (use `make deploy`) |
-| Sign-in fails in the deployed SPA | Image built without `VITE_CLERK_PUBLISHABLE_KEY` | Rebuild via `make deploy` (reads it from SSM) |
-| `docker push` fails with "denied" | ECR auth token expired (valid 12h) | Re-run `aws ecr get-login-password \| docker login ...` |
-| `terraform plan` fails "image not found" | ECR image not yet pushed | Run `make deploy` (it pushes before the full apply) |
-| `terraform init` fails "bucket not found" | S3 state bucket not bootstrapped | Complete One-Time Bootstrap above |
-| MCP sign-in fails at `/authorize` with a redirect URI error | Hosted client callback not allowlisted | Add it to `extra_client_redirect_uris` in `terraform.tfvars`, then apply |
+| App errors on a missing/odd config value | An SSM parameter is still `TO_BE_SET`, or was changed without a re-apply | Run the placeholder check, then re-run the deploy |
+| `exec format error` in Lambda logs | Image built for the wrong architecture | CI builds on an arm64 runner; locally use `make deploy` (`--platform linux/arm64`) |
+| Build fails pulling `public.ecr.aws/...` (429) | ECR Public anonymous rate limit | `build-push.sh` retries 3×; re-run the job |
+| `terraform init` fails "bucket not found" | State bucket not bootstrapped | `./infra/bootstrap.sh <stack>` |
+| PR plan fails for `prod` | Prod not bootstrapped yet | Set repo variable `TF_PLAN_STACKS=shared dev` until it is |
+| MCP sign-in fails at `/authorize` with a redirect URI error | Hosted client callback not allowlisted | Add it to `extra_client_redirect_uris` in `terraform.tfvars`, merge |

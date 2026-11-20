@@ -8,11 +8,14 @@ import App from './App.tsx'
 import { queryClient } from './services/queryClient'
 import { ToastProvider } from './components/toast'
 import { clerkAppearance } from './theme/clerk'
+import { resolveClerkPublishableKey } from './utils/clerkPublishableKey'
 
-const publishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+const publishableKey = resolveClerkPublishableKey()
 
 if (!publishableKey) {
-  throw new Error('VITE_CLERK_PUBLISHABLE_KEY is not set')
+  throw new Error(
+    'Clerk publishable key missing: set CLERK_PUBLISHABLE_KEY (server) or VITE_CLERK_PUBLISHABLE_KEY (vite dev)',
+  )
 }
 
 createRoot(document.getElementById('root')!).render(

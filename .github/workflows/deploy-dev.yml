@@ -1,0 +1,82 @@
+name: Deploy dev
+
+# Every merge to main: re-run all checks, build the image once, deploy it to dev
+# pinned by digest, smoke test, then tag it verified-<sha> so prod may promote it.
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Deploys never overlap or get cancelled mid-apply. A newer queued run replaces
+# an older queued one, so main's tip is what lands.
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+
+jobs:
+  check:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: check
+    # Native arm64 runner: the Lambda image is arm64, no QEMU emulation.
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    environment:
+      name: dev
+      url: ${{ steps.apply.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+      TF_IN_AUTOMATION: "true"
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: pktx-dev-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Ensure ECR repo + SSM params
+        run: scripts/deploy/ensure-base.sh dev
+      - name: Build + push image (once)
+        id: build
+        run: |
+          digest="$(scripts/deploy/build-push.sh "$GITHUB_SHA")"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+      - name: terraform apply (pinned to digest)
+        id: apply
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          url="$(scripts/deploy/apply.sh dev "$DIGEST")"
+          echo "url=${url}" >> "$GITHUB_OUTPUT"
+      - name: Smoke test
+        env:
+          URL: ${{ steps.apply.outputs.url }}
+        run: scripts/deploy/smoke.sh "$URL"
+      - name: Mark verified (prod may promote this image)
+        run: scripts/deploy/mark-verified.sh "$GITHUB_SHA"
+      - name: Summary
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          URL: ${{ steps.apply.outputs.url }}
+        run: |
+          {
+            echo "### Deployed to dev"
+            echo "- commit \`${GITHUB_SHA}\`"
+            echo "- image \`${DIGEST}\` (tagged \`verified-${GITHUB_SHA}\`)"
+            echo "- ${URL}"
+            echo
+            echo "Promote to prod by publishing a release (tag \`v*\`) on this commit."
+          } >> "$GITHUB_STEP_SUMMARY"

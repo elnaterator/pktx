@@ -15,21 +15,27 @@ module "observability" {
   }
 }
 
+data "aws_caller_identity" "current" {}
+
 module "lambda" {
   source = "../modules/lambda"
 
   environment          = var.environment
   aws_region           = var.aws_region
-  image_tag            = var.image_tag
+  image_digest         = var.image_digest
   memory_size          = var.memory_size
   timeout              = var.timeout
   ssm_parameter_prefix = "/pktx/${var.environment}"
+
+  # Created by infra/shared; required for CI deploy roles to manage the exec role.
+  permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/pktx-${var.environment}-lambda-boundary"
 
   environment_variables = {
     PKTX_DB_URL               = data.aws_ssm_parameter.database_url.value
     PKTX_PUBLIC_URL           = data.aws_ssm_parameter.pktx_public_url.value
     CLERK_JWKS_URL            = data.aws_ssm_parameter.clerk_jwks_url.value
     CLERK_ISSUER              = data.aws_ssm_parameter.clerk_issuer.value
+    CLERK_PUBLISHABLE_KEY     = data.aws_ssm_parameter.clerk_publishable_key.value
     CLERK_OAUTH_CLIENT_ID     = data.aws_ssm_parameter.clerk_oauth_client_id.value
     CLERK_OAUTH_CLIENT_SECRET = data.aws_ssm_parameter.clerk_oauth_client_secret.value
     CLERK_WEBHOOK_SECRET      = data.aws_ssm_parameter.clerk_webhook_secret.value
@@ -216,6 +222,12 @@ data "aws_ssm_parameter" "database_url" {
   name            = aws_ssm_parameter.database_url.name
   with_decryption = true
   depends_on      = [aws_ssm_parameter.database_url]
+}
+
+data "aws_ssm_parameter" "clerk_publishable_key" {
+  name            = aws_ssm_parameter.clerk_publishable_key.name
+  with_decryption = true
+  depends_on      = [aws_ssm_parameter.clerk_publishable_key]
 }
 
 data "aws_ssm_parameter" "clerk_jwks_url" {

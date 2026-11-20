@@ -8,9 +8,19 @@ variable "aws_region" {
   type        = string
 }
 
-variable "image_tag" {
-  description = "ECR image tag for Lambda to run."
+variable "image_digest" {
+  description = "Digest (sha256:...) of the image in this env's ECR repo that Lambda runs."
   type        = string
+  validation {
+    condition     = can(regex("^sha256:[0-9a-f]{64}$", var.image_digest))
+    error_message = "image_digest must look like sha256:<64 hex chars>."
+  }
+}
+
+variable "images_to_keep" {
+  description = "Release images (tag prefix sha-) kept in ECR for rollback."
+  type        = number
+  default     = 30
 }
 
 variable "memory_size" {
@@ -47,4 +57,10 @@ variable "tags" {
   description = "AWS resource tags applied to all resources in this module."
   type        = map(string)
   default     = {}
+}
+
+variable "permissions_boundary_arn" {
+  description = "Permissions boundary for the Lambda execution role (infra/shared: pktx-<env>-lambda-boundary)."
+  type        = string
+  default     = null
 }
