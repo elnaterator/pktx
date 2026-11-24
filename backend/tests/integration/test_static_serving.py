@@ -116,7 +116,7 @@ class TestStaticFileServing:
         response = client.get("/health")
 
         assert response.status_code == 200
-        assert response.json() == {"status": "ok"}
+        assert response.json()["status"] == "ok"
 
     def test_mcp_endpoint_still_works(self, app_with_frontend):
         """Test that MCP endpoint is not affected."""

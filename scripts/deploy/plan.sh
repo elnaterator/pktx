@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Read-only `terraform plan` of one or more stacks, rendered as Markdown for a PR
-# comment. dev/prod plan against the digest Lambda runs now, so the plan shows
+# comment. dev/prod plan against the digest + version Lambda runs now, so the plan shows
 # infra drift only. Never takes the state lock. The AWS account id is masked.
 # Exits non-zero if any stack failed to plan (the report still covers all).
 # Usage: plan.sh <stack>...        (stack: shared | dev | prod)
@@ -17,7 +17,10 @@ echo "Commit \`${GITHUB_SHA:-$(git -C "$REPO_ROOT" rev-parse HEAD)}\`"
 for stack in "$@"; do
   [[ "$stack" == "shared" ]] || require_env_name "$stack"
   vars=()
-  [[ "$stack" == "shared" ]] || vars=(-var "image_digest=$("$(dirname "$0")/current-digest.sh" "$stack")")
+  [[ "$stack" == "shared" ]] || vars=(
+    -var "image_digest=$("$(dirname "$0")/current-digest.sh" "$stack")"
+    -var "app_version=$("$(dirname "$0")/current-version.sh" "$stack")"
+  )
 
   out="$(mktemp)"
   if tf_init "$stack" 2>"$out" \

@@ -1,28 +1,35 @@
 #!/usr/bin/env bash
 # Post-deploy smoke test. Fails (non-zero) on the first broken check.
-#   1. GET  /health  -> 200 (retried: cold start / new image pull)
+#   1. GET  /health  -> 200 (retried: cold start / new image pull), reporting
+#      <expected version> when given (catches a stale instance or a missed var)
 #   2. POST /mcp     -> 401 + Bearer resource_metadata challenge (OAuth-protected)
 #   3. GET  /.well-known/oauth-protected-resource/mcp -> 200 RFC 9728 metadata
 #   4. GET  /        -> 200 + server-injected Clerk publishable key
 # Lambda Function URLs reserve WWW-Authenticate and rename it to
 # x-amzn-Remapped-www-authenticate, so check 2 accepts either name. MCP clients
 # that miss the header fall back to the well-known metadata, which check 3 covers.
-# Usage: smoke.sh <base url>
+# Usage: smoke.sh <base url> [expected version]
 set -euo pipefail
 
 base="${1:-}"
 [[ "$base" =~ ^https?:// ]] || { echo "usage: $0 <base url>" >&2; exit 2; }
 base="${base%/}"
+want_version="${2:-}"
 fail() { echo "smoke FAIL: $*" >&2; exit 1; }
 
+has_version() { [[ -z "$want_version" ]] || grep -qF "\"version\":\"${want_version}\"" <<<"$1"; }
+health=""
 for attempt in $(seq 1 12); do
-  code="$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 "${base}/health" || true)"
-  [[ "$code" == "200" ]] && break
-  echo "  /health -> ${code:-none} (attempt ${attempt}/12)" >&2
+  health="$(curl -s --max-time 10 -w '\n%{http_code}' "${base}/health" || true)"
+  code="$(tail -n1 <<<"$health")"
+  health="$(sed '$d' <<<"$health")"
+  [[ "$code" == "200" ]] && has_version "$health" && break
+  echo "  /health -> ${code:-none} ${health:0:120} (attempt ${attempt}/12)" >&2
   sleep 5
 done
 [[ "$code" == "200" ]] || fail "/health returned ${code:-none}"
-echo "ok  GET /health 200"
+has_version "$health" || fail "/health reports ${health}, want version ${want_version}"
+echo "ok  GET /health 200${want_version:+ (version ${want_version})}"
 
 headers="$(curl -s -D - -o /dev/null --max-time 15 -X POST "${base}/mcp" \
   -H 'Content-Type: application/json' -H 'Accept: application/json, text/event-stream' \

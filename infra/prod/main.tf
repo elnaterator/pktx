@@ -43,6 +43,7 @@ module "lambda" {
 
   environment_variables = {
     PKTX_SSM_PREFIX = "/pktx/${var.environment}"
+    PKTX_VERSION    = var.app_version
 
     # Public configuration (served to browsers / OAuth clients), so tfvars.
     PKTX_PUBLIC_URL       = var.public_url

@@ -1,4 +1,4 @@
-.PHONY: build run run-local lint test check format tf-lint tf-check ci-lint deploy setup help
+.PHONY: build run run-local lint test check format tf-lint tf-check ci-lint deploy release setup help
 
 AWS_REGION ?= us-west-2
 
@@ -66,10 +66,16 @@ endif
 	  scripts/deploy/ensure-base.sh $(ENV); \
 	  if [ "$(ENV)" = "dev" ]; then \
 	    DIGEST=$$(scripts/deploy/build-push.sh $$SHA); \
+	    VERSION=dev-$$(git rev-parse --short=7 HEAD); \
 	  else \
 	    DIGEST=$$(scripts/deploy/promote.sh $$SHA); \
+	    VERSION=$$(git tag --points-at HEAD --list 'v*' --sort=-version:refname | head -n1); \
+	    VERSION=$${VERSION:-prod-$$(git rev-parse --short=7 HEAD)}; \
 	  fi; \
-	  URL=$$(scripts/deploy/apply.sh $(ENV) $$DIGEST); \
-	  scripts/deploy/smoke.sh $$URL; \
+	  URL=$$(scripts/deploy/apply.sh $(ENV) $$DIGEST $$VERSION); \
+	  scripts/deploy/smoke.sh $$URL $$VERSION; \
 	  if [ "$(ENV)" = "dev" ]; then scripts/deploy/mark-verified.sh $$SHA; fi; \
 	  echo "==> Deployed $$SHA ($$DIGEST) to $(ENV): $$URL"
+
+release: ## Publish a CalVer GitHub Release (vYYYY.MM.DD[.N]) for SHA (default origin/main); triggers the prod deploy. DRY_RUN=1 to preview.
+	DRY_RUN=$(DRY_RUN) scripts/deploy/release.sh $(SHA)

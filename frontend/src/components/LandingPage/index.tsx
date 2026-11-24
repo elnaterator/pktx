@@ -1,5 +1,6 @@
 import { SignInButton } from '@clerk/clerk-react'
 import { Button } from '../Button'
+import VersionBadge from '../VersionBadge'
 import styles from './LandingPage.module.css'
 
 export default function LandingPage() {
@@ -49,6 +50,7 @@ export default function LandingPage() {
           </div>
         </section>
       </main>
+      <VersionBadge />
     </div>
   )
 }

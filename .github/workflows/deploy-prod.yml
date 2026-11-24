@@ -38,7 +38,7 @@ jobs:
       - name: Validate tag
         run: |
           [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] \
-            || { echo "::error::'$TAG' is not a v<semver> release tag"; exit 1; }
+            || { echo "::error::'$TAG' is not a release tag (vYYYY.MM.DD[.N])"; exit 1; }
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           ref: refs/tags/${{ env.TAG }}
@@ -101,7 +101,7 @@ jobs:
         env:
           DIGEST: ${{ steps.promote.outputs.digest }}
         run: |
-          url="$(scripts/deploy/apply.sh prod "$DIGEST")"
+          url="$(scripts/deploy/apply.sh prod "$DIGEST" "$TAG")"
           echo "url=${url}" >> "$GITHUB_OUTPUT"
           {
             echo "### Deployed ${TAG} to prod"
@@ -125,4 +125,4 @@ jobs:
       - name: Smoke test
         env:
           URL: ${{ needs.deploy.outputs.url }}
-        run: scripts/deploy/smoke.sh "$URL"
+        run: scripts/deploy/smoke.sh "$URL" "$TAG"

@@ -45,11 +45,27 @@ def _make_full_client(svc: ResumeService, app_svc: ApplicationService) -> TestCl
 
 
 class TestHealthEndpoint:
-    def test_health_returns_ok(self, service: ResumeService) -> None:
+    def test_health_returns_ok(
+        self, service: ResumeService, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.delenv("PKTX_VERSION", raising=False)
+        monkeypatch.delenv("PKTX_GIT_SHA", raising=False)
         client = _make_client(service)
         resp = client.get("/health")
         assert resp.status_code == 200
-        assert resp.json() == {"status": "ok"}
+        assert resp.json() == {"status": "ok", "version": "local", "sha": ""}
+
+    def test_health_reports_deployed_version(
+        self, service: ResumeService, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setenv("PKTX_VERSION", "v2026.11.24.1")
+        monkeypatch.setenv("PKTX_GIT_SHA", "a" * 40)
+        resp = _make_client(service).get("/health")
+        assert resp.json() == {
+            "status": "ok",
+            "version": "v2026.11.24.1",
+            "sha": "a" * 40,
+        }
 
 
 class TestApplicationEndpoints:

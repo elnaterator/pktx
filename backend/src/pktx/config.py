@@ -95,6 +95,23 @@ def resolve_clerk_publishable_key() -> str:
     return ""
 
 
+def resolve_app_version() -> str:
+    """PKTX_VERSION: the release running here, set at deploy time (not in the image).
+
+    Prod gets the release tag (``vYYYY.MM.DD[.N]``), dev ``dev-<short sha>``;
+    anything else (local, compose, tests) reports ``local``.
+    """
+    return os.environ.get("PKTX_VERSION", "").strip() or "local"
+
+
+def resolve_git_sha() -> str:
+    """PKTX_GIT_SHA: commit the image was built from (Docker build arg).
+
+    Empty locally.
+    """
+    return os.environ.get("PKTX_GIT_SHA", "").strip()
+
+
 def resolve_extra_client_redirect_uris() -> list[str]:
     """Resolve extra client redirect-URI patterns from PKTX_EXTRA_CLIENT_REDIRECT_URIS.
 

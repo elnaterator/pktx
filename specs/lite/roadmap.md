@@ -167,6 +167,11 @@ Secrets flow SSM → Terraform data sources → Lambda env vars, so they sit in 
 Notes: research/continuous-deployment.md
 
 
+## 039 Release versioning: CalVer tags and visible app version - BUILT
+
+Releases are tagged `v<semver>` by hand with no scheme, and nothing shows which build is running. Adopt CalVer (`vYYYY.MM.DD`, `.N` for repeat releases the same day; package versions pinned to `0.0.0`), add `make release` to publish the GitHub Release that triggers the prod deploy, and expose the running version: a small low-contrast version footer at the bottom of the UI, `version` + `sha` on `/health`, and MCP `serverInfo.version`. The version comes from deploy-time config, so the image stays build-once and dev and prod keep the same digest. Follow-up from 031.
+
+
 ## 021 Error tracking and feedback loop
 Add error tracking (Sentry free tier or similar) for backend and frontend, wired to alert the developer on new errors. Add one low-friction in-app feedback channel (footer link to a form or shared chat). Goal: see errors before beta users report them, and make giving feedback effortless.
 

@@ -5,6 +5,7 @@ import Navigation from './components/Navigation'
 import UserMenu from './components/UserMenu'
 import ConnectButton from './components/ConnectButton'
 import MobileTabBar from './components/MobileTabBar'
+import VersionBadge from './components/VersionBadge'
 import { setTokenGetter } from './services/api'
 import LandingPage from './components/LandingPage'
 import AppRoutes from './router'
@@ -40,6 +41,7 @@ function AuthenticatedApp() {
         <main>
           <AppRoutes />
         </main>
+        <VersionBadge className="app-footer" />
         <MobileTabBar />
       </div>
     </div>

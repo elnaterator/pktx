@@ -38,7 +38,7 @@ Each stage is its own job, so the run graph in the Actions tab reads as the pipe
   Deploy roles can only create or modify IAM roles named `pktx-<env>-*` that carry the env's permissions boundary (`pktx-<env>-lambda-boundary`). They cannot remove a boundary, delete ECR repos or images, or touch the other env. Plan runs only on same-repo PRs; fork PRs get no OIDC token.
 - **Deploys never overlap.** Each env has one concurrency group and never cancels a run in progress. A newer queued run replaces an older queued one, so the tip of `main` is what lands.
 - **Smoke test** (`scripts/deploy/smoke.sh`) after every deploy checks three things. A failure fails the run, and a dev image that fails is never marked verified.
-  - `GET /health` returns 200.
+  - `GET /health` returns 200 and reports the version just deployed (`dev-<sha>` or the release tag).
   - Unauthenticated `POST /mcp` returns 401 with an OAuth challenge.
   - `GET /` serves the SPA with the injected key.
 
@@ -157,13 +157,19 @@ scripts/deploy/check-secrets.sh dev
 
 ## Releasing to prod
 
+Releases are CalVer: `vYYYY.MM.DD` (UTC date), with `.1`, `.2`, ... for further releases the same day (`v2026.11.24`, `v2026.11.24.1`). The version records when prod got a build; compatibility is kept by how changes are made (expand → contract migrations, additive MCP tool changes), not signalled by the number. `pyproject.toml` and `package.json` stay at `0.0.0`.
+
 1. Make sure the commit has deployed to dev: the **Deploy dev** run for it must be green. That run tags the image `verified-<sha>`.
-2. Publish a release, either from **GitHub → Releases → Draft a new release** (tag `vX.Y.Z` on that commit, generate notes) or with `gh` (command below).
+2. Run `make release` (below). It checks the Deploy dev run, picks the next free tag for today, asks for confirmation and publishes the release with generated notes. Publishing the release creates the tag; don't push one separately.
 3. Approve the waiting **production** deployment in the Actions run.
 4. The workflow copies the verified image into `pktx-prod`, applies Terraform at the release's commit, and smoke tests.
 
+**Which version is running.** The image carries its commit (`PKTX_GIT_SHA`, a Docker build arg). The version is deploy-time config, so one image still serves both envs: Terraform var `app_version` → Lambda env `PKTX_VERSION`, set by `apply.sh` to the release tag in prod and `dev-<short sha>` in dev (`local` when unset). It shows in three places: a faint footer at the bottom of every UI page (links to the release), `GET /health` (`version`, `sha`) and MCP `serverInfo.version`. `terraform plan` reads the running value back (`scripts/deploy/current-version.sh`), so plans show no version drift.
+
 ```bash
-gh release create v1.4.0 --target <sha> --generate-notes
+make release                      # origin/main
+make release SHA=<sha>            # a specific dev-verified commit
+make release DRY_RUN=1            # print the tag and commit, publish nothing
 ```
 
 ### Rollback
@@ -171,7 +177,7 @@ gh release create v1.4.0 --target <sha> --generate-notes
 Re-deploy an earlier release in one step. Infra and image both go back to that release (Terraform runs from the tag's commit), and it still needs approval.
 
 ```bash
-gh workflow run deploy-prod.yml -f tag=v1.3.2
+gh workflow run deploy-prod.yml -f tag=v2026.11.20
 ```
 
 The prod ECR repo keeps the 30 newest release images (`images_to_keep`). Older tags have to be promoted again from dev, and only while dev still has them.
