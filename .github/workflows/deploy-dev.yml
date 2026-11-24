@@ -1,7 +1,9 @@
 name: Deploy dev
 
-# Every merge to main: re-run all checks, build the image once, deploy it to dev
-# pinned by digest, smoke test, then tag it verified-<sha> so prod may promote it.
+# Every merge to main:
+#   CI checks ─► Build image ─► Deploy dev ─► Smoke test dev ─► Mark verified
+# The image is built once and pinned by digest; only an image that passed the dev
+# smoke test is tagged verified-<sha>, which is what deploy-prod.yml promotes.
 on:
   push:
     branches: [main]
@@ -15,24 +17,31 @@ concurrency:
   group: deploy-dev
   cancel-in-progress: false
 
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  TF_IN_AUTOMATION: "true"
+
 jobs:
-  check:
+  checks:
+    name: CI checks
     uses: ./.github/workflows/ci.yml
 
-  deploy:
-    needs: check
+  build:
+    name: Build image
+    needs: checks
     # Native arm64 runner: the Lambda image is arm64, no QEMU emulation.
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
+    # The dev deploy role trusts the `dev` environment; `deployment: false` uses
+    # it for credentials without recording a deployment (only "Deploy dev" does).
     environment:
       name: dev
-      url: ${{ steps.apply.outputs.url }}
+      deployment: false
     permissions:
       contents: read
       id-token: write
-    env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
-      TF_IN_AUTOMATION: "true"
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -45,8 +54,9 @@ jobs:
       - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
         with:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
-          role-session-name: pktx-dev-${{ github.run_id }}
+          role-session-name: pktx-dev-build-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
+      # The ECR repo must exist before the first push.
       - name: Ensure ECR repo + SSM params
         run: scripts/deploy/ensure-base.sh dev
       - name: Build + push image (once)
@@ -54,23 +64,85 @@ jobs:
         run: |
           digest="$(scripts/deploy/build-push.sh "$GITHUB_SHA")"
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
+          echo "Built \`pktx-dev:sha-${GITHUB_SHA}\` → \`${digest}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy dev
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment:
+      name: dev
+      url: ${{ steps.apply.outputs.url }}
+    permissions:
+      contents: read
+      id-token: write
+    outputs:
+      url: ${{ steps.apply.outputs.url }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
+        with:
+          terraform_version: "1.17.2"
+          terraform_wrapper: false
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: pktx-dev-deploy-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
       - name: terraform apply (pinned to digest)
         id: apply
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
+          DIGEST: ${{ needs.build.outputs.digest }}
         run: |
           url="$(scripts/deploy/apply.sh dev "$DIGEST")"
           echo "url=${url}" >> "$GITHUB_OUTPUT"
+
+  smoke:
+    name: Smoke test dev
+    needs: deploy
+    # Plain HTTP checks against the public URL: no AWS credentials.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/deploy
       - name: Smoke test
         env:
-          URL: ${{ steps.apply.outputs.url }}
+          URL: ${{ needs.deploy.outputs.url }}
         run: scripts/deploy/smoke.sh "$URL"
-      - name: Mark verified (prod may promote this image)
+
+  verify:
+    name: Mark verified for prod
+    needs: [build, deploy, smoke]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment:
+      name: dev
+      deployment: false
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+          sparse-checkout: scripts/deploy
+      - uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6.3.0
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          role-session-name: pktx-dev-verify-${{ github.run_id }}
+          aws-region: ${{ env.AWS_REGION }}
+      - name: Tag verified-<sha> (prod may promote this image)
         run: scripts/deploy/mark-verified.sh "$GITHUB_SHA"
       - name: Summary
         env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-          URL: ${{ steps.apply.outputs.url }}
+          DIGEST: ${{ needs.build.outputs.digest }}
+          URL: ${{ needs.deploy.outputs.url }}
         run: |
           {
             echo "### Deployed to dev"

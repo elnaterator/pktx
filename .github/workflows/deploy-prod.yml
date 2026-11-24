@@ -1,8 +1,9 @@
 name: Deploy prod
 
 # Publishing a GitHub Release (tag v*) promotes the image dev already verified for
-# that commit — never a rebuild. Gated by the `production` Environment (required
-# reviewer). Rollback: run this workflow by hand with an older release tag.
+# that commit — never a rebuild:
+#   Resolve release ─► Deploy prod (production reviewer) ─► Smoke test prod
+# Rollback: run this workflow by hand with an older release tag.
 on:
   release:
     types: [published]
@@ -20,37 +21,60 @@ concurrency:
   group: deploy-prod
   cancel-in-progress: false
 
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
+  TF_IN_AUTOMATION: "true"
+  TAG: ${{ github.event.release.tag_name || inputs.tag }}
+
 jobs:
-  deploy:
+  resolve:
+    name: Resolve release
     if: github.event_name == 'workflow_dispatch' || startsWith(github.event.release.tag_name, 'v')
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      sha: ${{ steps.commit.outputs.sha }}
+    steps:
+      - name: Validate tag
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] \
+            || { echo "::error::'$TAG' is not a v<semver> release tag"; exit 1; }
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: refs/tags/${{ env.TAG }}
+          persist-credentials: false
+          sparse-checkout: scripts/deploy
+      - name: Resolve commit
+        id: commit
+        run: |
+          sha="$(git rev-parse 'HEAD^{commit}')"
+          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
+          echo "Release \`${TAG}\` → commit \`${sha}\`" >> "$GITHUB_STEP_SUMMARY"
+
+  deploy:
+    name: Deploy prod
+    needs: resolve
+    runs-on: ubuntu-latest
     timeout-minutes: 20
+    # Required reviewer gate. Promote + apply share this one job so the run
+    # asks for approval once.
     environment:
       name: production
       url: ${{ steps.apply.outputs.url }}
     permissions:
       contents: read
       id-token: write
+    outputs:
+      url: ${{ steps.apply.outputs.url }}
     env:
-      AWS_REGION: ${{ vars.AWS_REGION || 'us-west-2' }}
-      TF_IN_AUTOMATION: "true"
-      TAG: ${{ github.event.release.tag_name || inputs.tag }}
+      SHA: ${{ needs.resolve.outputs.sha }}
     steps:
-      - name: Validate tag
-        run: |
-          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]] \
-            || { echo "::error::'$TAG' is not a v<semver> release tag"; exit 1; }
       # Infra + scripts at the release's commit: a rollback restores that
       # release's infra along with its image.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: refs/tags/${{ env.TAG }}
+          ref: ${{ needs.resolve.outputs.sha }}
           persist-credentials: false
-      - name: Resolve commit
-        id: commit
-        run: |
-          sha="$(git rev-parse 'HEAD^{commit}')"
-          echo "sha=${sha}" >> "$GITHUB_OUTPUT"
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: "1.17.2"
@@ -69,8 +93,6 @@ jobs:
         run: scripts/deploy/ensure-base.sh prod
       - name: Promote dev-verified image (same digest)
         id: promote
-        env:
-          SHA: ${{ steps.commit.outputs.sha }}
         run: |
           digest="$(scripts/deploy/promote.sh "$SHA")"
           echo "digest=${digest}" >> "$GITHUB_OUTPUT"
@@ -81,19 +103,26 @@ jobs:
         run: |
           url="$(scripts/deploy/apply.sh prod "$DIGEST")"
           echo "url=${url}" >> "$GITHUB_OUTPUT"
-      - name: Smoke test
-        env:
-          URL: ${{ steps.apply.outputs.url }}
-        run: scripts/deploy/smoke.sh "$URL"
-      - name: Summary
-        env:
-          SHA: ${{ steps.commit.outputs.sha }}
-          DIGEST: ${{ steps.promote.outputs.digest }}
-          URL: ${{ steps.apply.outputs.url }}
-        run: |
           {
             echo "### Deployed ${TAG} to prod"
             echo "- commit \`${SHA}\`"
             echo "- image \`${DIGEST}\` (same digest dev verified)"
-            echo "- ${URL}"
+            echo "- ${url}"
           } >> "$GITHUB_STEP_SUMMARY"
+
+  smoke:
+    name: Smoke test prod
+    needs: [resolve, deploy]
+    # Plain HTTP checks against the public URL: no AWS credentials.
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ needs.resolve.outputs.sha }}
+          persist-credentials: false
+          sparse-checkout: scripts/deploy
+      - name: Smoke test
+        env:
+          URL: ${{ needs.deploy.outputs.url }}
+        run: scripts/deploy/smoke.sh "$URL"

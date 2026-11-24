@@ -6,7 +6,7 @@ help:
 	@echo "  build     - Install Python dependencies"
 	@echo "  run       - Start HTTP server locally"
 	@echo "  lint      - Run ruff check + format check + pyright"
-	@echo "  test      - Run pytest"
+	@echo "  test      - Run pytest (parallel, max 4 workers; one postgres container each)"
 	@echo "  typecheck - Run pyright"
 	@echo "  audit     - Scan locked runtime deps for known CVEs (pip-audit)"
 	@echo "  check     - Run lint + typecheck + audit + test"
@@ -24,7 +24,7 @@ lint:
 	uv run pyright
 
 test:
-	uv run pytest
+	uv run pytest -n auto --maxprocesses=4
 
 typecheck:
 	uv run pyright

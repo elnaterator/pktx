@@ -12,12 +12,16 @@ Each stack has its own state bucket; Terraform locks state with an S3 lock file 
 ## How a change ships
 
 ```
-PR ──► ci.yml: make check                          plan.yml: terraform plan (shared, dev, prod) → sticky PR comment
-merge to main ──► deploy-dev.yml: make check ──► build image ONCE → pktx-dev:sha-<sha>
-                  └─► terraform apply dev @digest ──► smoke test ──► tag pktx-dev:verified-<sha>
-publish release v* ──► deploy-prod.yml ──► [production Environment: you approve]
-                  └─► copy the verified digest → pktx-prod:sha-<sha> ──► terraform apply prod @digest ──► smoke test
+PR ──► ci.yml: Frontend | Backend | Infra + CI lint (parallel) ──► check     plan.yml: terraform plan (shared, dev, prod) → sticky PR comment
+merge to main ──► deploy-dev.yml (one job each):
+                  CI checks ──► Build image (ONCE → pktx-dev:sha-<sha>) ──► Deploy dev (terraform apply @digest)
+                  ──► Smoke test dev ──► Mark verified for prod (tag pktx-dev:verified-<sha>)
+publish release v* ──► deploy-prod.yml (one job each):
+                  Resolve release ──► Deploy prod [production Environment: you approve]
+                  (copy the verified digest → pktx-prod:sha-<sha>, terraform apply prod @digest) ──► Smoke test prod
 ```
+
+Each stage is its own job, so the run graph in the Actions tab reads as the pipeline. Jobs that only need credentials (build, mark verified) use the `dev` environment with `deployment: false`, so the environment's history records one deployment per run. Smoke-test jobs get no AWS credentials. `check` is the ruleset's required status; it passes only when all three CI jobs pass.
 
 - **Build once, promote the artifact.** The image has no per-environment config: the server injects the Clerk publishable key into `index.html` at serve time (`CLERK_PUBLISHABLE_KEY`). Prod runs the byte-identical image dev ran and smoke-tested. `deploy-prod` refuses a commit with no `verified-<sha>` image and checks the prod digest equals the dev digest.
 - **Lambda is pinned by digest through Terraform** (`image_uri = repo@sha256:…`). ECR tags are immutable. Terraform state and what's running never drift.
