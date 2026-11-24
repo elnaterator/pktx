@@ -2,6 +2,8 @@ name: CI
 
 # PRs: full checks (Terraform plan lives in plan.yml). Also called by
 # deploy-dev.yml so main is re-checked before anything ships.
+# Same targets as `make check`, split into parallel jobs: wall time is the
+# slowest job, not the sum.
 on:
   pull_request:
   workflow_call:
@@ -10,9 +12,10 @@ permissions:
   contents: read
 
 jobs:
-  check:
+  frontend:
+    name: Frontend
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -20,13 +23,39 @@ jobs:
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: make -C frontend check
+
+  backend:
+    name: Backend
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.11"
       - uses: astral-sh/setup-uv@38f3f104447c67c051c4a08e39b64a148898af3a # v4.2.0
+        with:
+          enable-cache: true
+          cache-dependency-glob: backend/uv.lock
+      - run: make -C backend check
+
+  infra:
+    name: Infra + CI lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
       - uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3.1.2
         with:
           terraform_version: "1.17.2"
+          terraform_wrapper: false
       - uses: aquasecurity/setup-trivy@81e514348e19b6112ce2a7e3ecbafe19c1e1f567 # v0.3.1
         with:
           version: v0.75.0
@@ -35,4 +64,19 @@ jobs:
         run: |
           go install github.com/rhysd/actionlint/cmd/actionlint@v1.7.12
           echo "$(go env GOPATH)/bin" >> "$GITHUB_PATH"
-      - run: make check
+      - run: make tf-check ci-lint
+
+  # Required status check in the main-branch ruleset: one stable name that
+  # passes only when every job above passed.
+  check:
+    needs: [frontend, backend, infra]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: All CI jobs passed
+        env:
+          RESULTS: ${{ join(needs.*.result, ' ') }}
+        run: |
+          echo "results: ${RESULTS}"
+          for r in $RESULTS; do [[ "$r" == "success" ]] || exit 1; done
