@@ -232,3 +232,4 @@ secret. Required env in production: `PKTX_PUBLIC_URL`, `CLERK_ISSUER`,
 - 017-oauth-dcr-proxy: MCP auth moved to FastMCP `OAuthProxy` (local DCR, loopback-tolerant), proxy state persisted in PostgreSQL (`oauth_kv`, schema v13); new env `CLERK_OAUTH_CLIENT_ID` / `CLERK_OAUTH_CLIENT_SECRET`
 - feat-015-tags-handling: Added Python 3.11+ (backend); TypeScript 5.x / React 18 (frontend) + FastAPI ≥0.100.0, FastMCP ≥2.3.0, React 18, Vite 6, Vitest 2 — all existing, no new deps
 - feature/002-ci-pipeline: Added Python 3.11 (minimum supported per pyproject.toml) + GitHub Actions, `astral-sh/setup-uv` action
+
