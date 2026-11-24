@@ -161,7 +161,7 @@ Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, 
 Notes: research/continuous-deployment.md
 
 
-## 038 Runtime secrets out of Terraform state and Lambda env - BUILT
+## 038 Runtime secrets out of Terraform state and Lambda env - SHIPPED
 
 Secrets flow SSM → Terraform data sources → Lambda env vars, so they sit in Terraform state and CI plan + deploy roles must be able to decrypt them. Have the app read its SSM SecureStrings at cold start (env carries parameter names only), drop the secret data sources, and remove `/pktx/<env>/*` decrypt from the CI roles. Rotation becomes put-parameter + recycle, no apply. Follow-up from 031.
 Notes: research/continuous-deployment.md
