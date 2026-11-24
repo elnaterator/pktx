@@ -40,8 +40,17 @@ variable "ssm_parameter_prefix" {
   type        = string
 }
 
+variable "secret_names" {
+  description = "SecureString names under ssm_parameter_prefix the app reads at cold start; the exec role may read exactly these."
+  type        = list(string)
+  validation {
+    condition     = length(var.secret_names) > 0
+    error_message = "secret_names must list at least one parameter."
+  }
+}
+
 variable "environment_variables" {
-  description = "Environment variables injected into the Lambda function at runtime."
+  description = "Environment variables injected into the Lambda function at runtime. Never secrets: those are read from SSM by the app (secret_names). Still marked sensitive so plans never echo values from older states."
   type        = map(string)
   default     = {}
   sensitive   = true

@@ -4,10 +4,10 @@
 # This stack is applied by the owner only (`terraform -chdir=infra/shared apply`),
 # never by CI: a role must not be able to widen its own permissions. CI only plans it.
 #
-# Deploy roles are resource-scoped to their env (pktx-<env>* names, /pktx/<env>/*
-# SSM, keys tagged environment=<env>, that env's state). Roles they create must
-# carry the env's permissions boundary, so a deploy role cannot mint a role more
-# powerful than the Lambda execution role.
+# Deploy roles are resource-scoped to their env (pktx-<env>* names, keys tagged
+# environment=<env>, that env's state) and cannot read SSM: app secrets never pass
+# through CI (038). Roles they create must carry the env's permissions boundary,
+# so a deploy role cannot mint a role more powerful than the Lambda execution role.
 
 data "aws_caller_identity" "current" {}
 
@@ -70,8 +70,8 @@ data "aws_iam_policy_document" "trust" {
 
 # ---------------------------------------------------------------------------
 # Plan role: read-only, used by `terraform plan` on same-repo pull requests.
-# Reading SSM SecureStrings (and the state that mirrors them) is unavoidable for
-# a full refresh, so decrypt is allowed only through SSM for /pktx/*.
+# No SSM access at all: app secrets are read by the Lambda at runtime and never
+# pass through Terraform (038).
 # ---------------------------------------------------------------------------
 
 resource "aws_iam_role" "plan" {
@@ -94,7 +94,6 @@ data "aws_iam_policy_document" "plan" {
       "cloudwatch:DescribeAlarms",
       "kms:ListAliases",
       "logs:DescribeLogGroups",
-      "ssm:DescribeParameters",
     ]
     resources = ["*"]
   }
@@ -114,9 +113,6 @@ data "aws_iam_policy_document" "plan" {
       "lambda:List*",
       "logs:ListTagsForResource",
       "logs:ListTagsLogGroup",
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-      "ssm:ListTagsForResource",
     ]
     resources = [
       "${local.alarm}:pktx-*",
@@ -124,28 +120,12 @@ data "aws_iam_policy_document" "plan" {
       "${local.event_rule}/pktx-*",
       "${local.lambda_fn}:pktx-*",
       "${local.log_group}:/aws/lambda/pktx-*",
-      "${local.ssm_param}/pktx/*",
     ]
   }
   statement {
     sid       = "KmsRead"
     actions   = ["kms:DescribeKey", "kms:GetKeyPolicy", "kms:GetKeyRotationStatus", "kms:ListResourceTags"]
     resources = [local.kms_key]
-  }
-  statement {
-    sid       = "SsmDecrypt"
-    actions   = ["kms:Decrypt"]
-    resources = [local.kms_key]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${local.region}.amazonaws.com"]
-    }
-    condition {
-      test     = "StringLike"
-      variable = "kms:EncryptionContext:PARAMETER_ARN"
-      values   = ["${local.ssm_param}/pktx/*"]
-    }
   }
   statement {
     sid       = "StateRead"
@@ -250,7 +230,6 @@ data "aws_iam_policy_document" "deploy" {
       "ecr:GetAuthorizationToken",
       "kms:ListAliases",
       "logs:DescribeLogGroups",
-      "ssm:DescribeParameters",
     ]
     resources = ["*"]
   }
@@ -407,36 +386,6 @@ data "aws_iam_policy_document" "deploy" {
       values   = [each.key]
     }
   }
-  statement {
-    sid       = "KmsViaSsm"
-    actions   = ["kms:Decrypt", "kms:Encrypt", "kms:GenerateDataKey"]
-    resources = [local.kms_key]
-    condition {
-      test     = "StringEquals"
-      variable = "kms:ViaService"
-      values   = ["ssm.${local.region}.amazonaws.com"]
-    }
-    condition {
-      test     = "StringLike"
-      variable = "kms:EncryptionContext:PARAMETER_ARN"
-      values   = ["${local.ssm_param}/pktx/${each.key}/*"]
-    }
-  }
-
-  # --- SSM parameters (values are set by the owner; TF keeps placeholders) ---
-  statement {
-    sid = "Ssm"
-    actions = [
-      "ssm:AddTagsToResource",
-      "ssm:GetParameter",
-      "ssm:GetParameters",
-      "ssm:ListTagsForResource",
-      "ssm:PutParameter",
-      "ssm:RemoveTagsFromResource",
-    ]
-    resources = ["${local.ssm_param}/pktx/${each.key}/*"]
-  }
-
   # --- Observability + keep-warm ---
   statement {
     sid = "Logs"

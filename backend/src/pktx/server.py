@@ -61,6 +61,7 @@ from pktx.link_service import LinkService
 from pktx.note_service import NoteService
 from pktx.oauth_theme import ICON_DATA_URI, ThemedAuthPagesMiddleware
 from pktx.resume_service import ResumeService
+from pktx.secrets import load_ssm_secrets
 from pktx.tools.accomplishment_tools import register_accomplishment_tools
 from pktx.tools.application_tools import register_application_tools
 from pktx.tools.contact_tools import register_contact_tools
@@ -609,8 +610,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    configure_logging()
+    load_ssm_secrets()  # before any resolve_*: fills secret env vars in AWS
+
     if args.stdio:
-        configure_logging()
         user_id = resolve_stdio_user_id()
         pool = init_pool(resolve_db_url(), resolve_pool_min(), resolve_pool_max())
         _pool = pool

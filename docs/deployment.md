@@ -5,7 +5,7 @@ pktx runs on **AWS Lambda** (arm64) as a container image stored in **ECR**. All 
 | Stack | What | Applied by |
 |---|---|---|
 | `infra/shared` | GitHub OIDC provider, CI roles, Lambda permissions boundaries | The owner, by hand (CI only plans it) |
-| `infra/dev`, `infra/prod` | ECR repo, Lambda + Function URL, IAM exec role, KMS key, SSM parameters, logs, alarm, keep-warm | CI (`deploy-dev.yml`, `deploy-prod.yml`); `make deploy` as break-glass |
+| `infra/dev`, `infra/prod` | ECR repo, Lambda + Function URL, IAM exec role, KMS key, logs, alarm, keep-warm | CI (`deploy-dev.yml`, `deploy-prod.yml`); `make deploy` as break-glass |
 
 Each stack has its own state bucket; Terraform locks state with an S3 lock file (`use_lockfile`), so there are no DynamoDB tables. CI runs Terraform 1.17 with the AWS provider 6.x; provider versions and hashes are pinned in each stack's committed `.terraform.lock.hcl`.
 
@@ -30,8 +30,8 @@ Each stage is its own job, so the run graph in the Actions tab reads as the pipe
   | Role | Trusted subject | Can |
   |---|---|---|
   | `pktx-gha-plan` | `<prefix>:pull_request` | Read only (no state lock, no writes) |
-  | `pktx-gha-deploy-dev` | `<prefix>:environment:dev` | Manage `pktx-dev*` resources and `/pktx/dev/*` only |
-  | `pktx-gha-deploy-prod` | `<prefix>:environment:production` | Manage `pktx-prod*` resources and `/pktx/prod/*` only, plus read `pktx-dev` images to promote |
+  | `pktx-gha-deploy-dev` | `<prefix>:environment:dev` | Manage `pktx-dev*` resources only; no SSM access |
+  | `pktx-gha-deploy-prod` | `<prefix>:environment:production` | Manage `pktx-prod*` resources only, plus read `pktx-dev` images to promote; no SSM access |
 
   `<prefix>` is the repo's OIDC subject prefix. This repo uses GitHub's immutable subject claims, so it is `repo:elnaterator@1914672/pktx@1152434568` (owner and repo ids, not just names): a renamed or re-created repo can't assume the roles. It is the `github_sub_prefix` variable in `infra/shared`.
 
@@ -58,21 +58,25 @@ Owner AWS credentials (`aws configure` / `AWS_PROFILE`) are needed only for the 
 
 ### Values to collect
 
-Each environment needs these values in SSM Parameter Store. Collect them first:
+**Secrets** live only in SSM Parameter Store as SecureStrings under `/pktx/{env}/`. Terraform and CI never see them: the app reads them at cold start with its execution role (`backend/src/pktx/secrets.py`, triggered by the `PKTX_SSM_PREFIX` env var). The list is `secret_names` in `infra/{env}/main.tf`.
 
 | SSM parameter (`/pktx/{env}/…`) | Where it comes from |
 |---|---|
 | `database_url` | Neon console → connection string (`?sslmode=require`) |
 | `clerk_secret_key` | Clerk → API Keys (`sk_test_…` dev, `sk_live_…` prod) |
-| `clerk_publishable_key` | Clerk → API Keys (`pk_test_…` / `pk_live_…`); injected into `index.html` at serve time |
-| `clerk_issuer` | Clerk → API Keys → Frontend API URL (`https://<your-app>.clerk.accounts.dev`) |
-| `clerk_jwks_url` | `<clerk_issuer>/.well-known/jwks.json` |
-| `clerk_webhook_secret` | Clerk → Webhooks → endpoint `<pktx_public_url>/api/webhooks/clerk` → signing secret (`whsec_…`) |
-| `pktx_public_url` | The app's public origin: the Lambda function URL (known after the first deploy) or your custom domain |
-| `clerk_oauth_client_id` | Clerk → OAuth applications → app with redirect URI `<pktx_public_url>/auth/callback` |
-| `clerk_oauth_client_secret` | Same OAuth application |
+| `clerk_webhook_secret` | Clerk → Webhooks → endpoint `<public_url>/api/webhooks/clerk` → signing secret (`whsec_…`) |
+| `clerk_oauth_client_secret` | Clerk → OAuth applications → the app below |
 
-Non-secret configuration (`extra_client_redirect_uris`, `authorized_parties`, sizing) lives in `infra/{env}/terraform.tfvars`. The image digest is never in tfvars; the deploy scripts pass it.
+**Public configuration** lives in `infra/{env}/terraform.tfvars` (none of it is secret: it is served to browsers or appears in OAuth redirects):
+
+| tfvar | Where it comes from |
+|---|---|
+| `public_url` | The app's public origin: the Lambda function URL (known after the first deploy) or your custom domain |
+| `clerk_publishable_key` | Clerk → API Keys (`pk_test_…` / `pk_live_…`); injected into `index.html` at serve time |
+| `clerk_issuer` | Clerk → API Keys → Frontend API URL; the JWKS URL is derived from it |
+| `clerk_oauth_client_id` | Clerk → OAuth applications → app with redirect URI `<public_url>/auth/callback` |
+
+`extra_client_redirect_uris`, `authorized_parties` and sizing are tfvars too. The image digest is never in tfvars; the deploy scripts pass it.
 
 ---
 
@@ -131,16 +135,12 @@ There are no AWS secrets to add. If you find an `AWS_ACCESS_KEY_ID` in repo secr
 
 ### 4. First deploy of an environment
 
-The first deploy of an env needs real secret values before the app can start.
+The app refuses to start until its secrets exist. With owner creds:
 
-1. Create the ECR repo and the SSM placeholders. With owner creds, run the first command below. Or merge to `main`: the first CI step does the same thing, and later steps fail until secrets are set.
-2. Overwrite every placeholder with the real values (next command).
-3. Check that nothing is still a placeholder (the `get-parameters-by-path` command below should print `[]`).
-4. Deploy. For dev: merge to `main`, re-run the failed **Deploy dev** run, or run `make deploy ENV=dev`. For prod: publish a release (see below).
-
-```bash
-scripts/deploy/ensure-base.sh dev
-```
+1. Fill in the env's public config in `infra/{env}/terraform.tfvars`.
+2. Create each secret (repeat per name in `secret_names`; first command below).
+3. Check them (second command; prints names only, never values).
+4. Deploy. For dev: merge to `main`, or run `make deploy ENV=dev`. For prod: publish a release (see below).
 
 ```bash
 aws ssm put-parameter --region us-west-2 --name /pktx/dev/database_url \
@@ -148,13 +148,10 @@ aws ssm put-parameter --region us-west-2 --name /pktx/dev/database_url \
 ```
 
 ```bash
-aws ssm get-parameters-by-path --region us-west-2 --path /pktx/dev/ --with-decryption \
-  --query "Parameters[?Value=='TO_BE_SET'].Name"
+scripts/deploy/check-secrets.sh dev
 ```
 
-`pktx_public_url` (and the Clerk webhook and OAuth redirect URIs that depend on it) can only be set once the function URL exists. Deploy once, set it, then deploy again.
-
-Terraform creates each SSM parameter with `TO_BE_SET` and ignores later value changes (`lifecycle.ignore_changes = [value]`), so it never reverts what you set.
+`public_url` (and the Clerk webhook and OAuth redirect URIs that depend on it) can only be known once the function URL exists unless you use a custom domain. Deploy once, set it, then deploy again.
 
 ---
 
@@ -179,7 +176,7 @@ gh workflow run deploy-prod.yml -f tag=v1.3.2
 
 The prod ECR repo keeps the 30 newest release images (`images_to_keep`). Older tags have to be promoted again from dev, and only while dev still has them.
 
-Rollback is safe only if the older code can read the current schema; see the next section.
+Rollback is safe only if the older code can read the current schema (see the next section), and never to a release older than 038 (see "Updating secrets").
 
 ---
 
@@ -195,10 +192,7 @@ Dev runs ahead of prod, and a rollback runs old code against a schema that has a
 
 ## Updating secrets
 
-SSM parameter *values* live outside Terraform. Lambda does **not** read SSM at runtime: Terraform reads each parameter during `apply` and writes it into the function's environment variables (encrypted with the env's KMS key). Rotating a secret is two steps:
-
-1. Write the new value to SSM (first command below).
-2. Re-apply that env. For dev, re-run the latest **Deploy dev** run (Actions → Re-run all jobs). For prod, run **Deploy prod** with the release that is currently live (second command below).
+Secrets live only in SSM; nothing secret is in Terraform state or the Lambda configuration. Each instance reads them once at cold start, so rotating is: write the new value, then recycle instances. No apply, no deploy.
 
 ```bash
 aws ssm put-parameter --region us-west-2 --name /pktx/prod/database_url \
@@ -206,10 +200,24 @@ aws ssm put-parameter --region us-west-2 --name /pktx/prod/database_url \
 ```
 
 ```bash
-gh workflow run deploy-prod.yml -f tag=<current release>
+aws lambda update-function-configuration --region us-west-2 --function-name pktx-prod \
+  --description "secrets rotated $(date -u +%FT%TZ)"
 ```
 
-The apply updates the function configuration, which also recycles warm instances. Secrets are therefore also present in Terraform state. Each state bucket is private and encrypted, and only that env's deploy role and the read-only plan role can read it.
+Changing the configuration retires warm instances; the next request cold-starts and reads the new value. The next apply resets the description, which is harmless.
+
+A public config change (tfvars) ships like any infra change: merge, and release for prod.
+
+### One-time cutover from Terraform-held secrets (038)
+
+Before 038, Terraform read every SSM value and wrote it into state and the Lambda env. After the 038 release has reached prod:
+
+1. Apply `infra/shared` by hand: CI roles lose all SSM read and decrypt. Apply only now, not earlier: the cutover deploy itself still runs under the old roles.
+2. Delete the now-unused non-secret parameters (`pktx_public_url`, `clerk_publishable_key`, `clerk_issuer`, `clerk_jwks_url`, `clerk_oauth_client_id`) in both envs.
+3. Rotate all four secrets (Neon password, Clerk secret key, webhook signing secret, OAuth client secret), then recycle (above).
+4. Delete state-bucket object versions written before the cutover: they still hold the old values (`aws s3api list-object-versions --bucket pktx-terraform-state-<env>`, then `delete-object --version-id` for each old version).
+
+**Rollback across 038 is not supported**: a pre-038 tag's Terraform would try to re-create the SSM parameters it no longer manages, and a pre-038 image expects secrets in env vars. Fix forward instead.
 
 ---
 
@@ -218,7 +226,7 @@ The apply updates the function configuration, which also recycles warm instances
 Use this when GitHub Actions is down. It needs owner AWS credentials and a clean working tree. It runs the same `scripts/deploy/*` steps as CI:
 
 ```bash
-make deploy ENV=dev    # ensure-base → build-push sha-<HEAD> → apply (prompts) → smoke → mark verified
+make deploy ENV=dev    # ensure-base (ECR) → build-push sha-<HEAD> → apply (prompts) → smoke → mark verified
 ```
 
 ```bash
@@ -282,7 +290,7 @@ Users can take their own data out at any time via **Export my data** in the acco
 
 ## Destroying an Environment
 
-> **Warning**: This is irreversible. All AWS resources (Lambda, ECR images, IAM roles, SSM parameters, CloudWatch data) are deleted.
+> **Warning**: This is irreversible. All AWS resources (Lambda, ECR images, IAM roles, CloudWatch data) are deleted. SSM secrets are not Terraform-managed; delete them by hand with `aws ssm delete-parameters`.
 
 Run it with owner credentials. Deploy roles cannot delete ECR repos.
 
@@ -306,10 +314,11 @@ aws s3 rb s3://pktx-terraform-state-{env} --force
 | Deploy step `AccessDenied` on a new resource type | A Terraform change added a resource the deploy role can't manage | Extend the env's statement in `infra/shared/main.tf` (resource-scoped), apply it by hand |
 | `deploy-prod`: "no pktx-dev:verified-<sha>" | That commit never passed a dev deploy | Merge to main / re-run **Deploy dev** for it, or release a commit that did |
 | Response has `x-amzn-Remapped-www-authenticate` instead of `WWW-Authenticate` | Lambda Function URLs reserve that header and rename it (Cloudflare passes it through) | Expected; MCP clients fall back to `/.well-known/oauth-protected-resource/mcp`, which the smoke test checks too. To restore the standard header, add a Cloudflare response header transform rule that copies it back |
-| Smoke: `GET / lacks the injected Clerk publishable key` | `clerk_publishable_key` SSM value still `TO_BE_SET` / empty | Set it, re-run the deploy |
+| Smoke: `GET / lacks the injected Clerk publishable key` | `clerk_publishable_key` tfvar wrong / empty | Fix it in `terraform.tfvars`, merge |
 | Lambda returns 502 | App failed to start; Web Adapter never received a readiness response | Check logs: `aws logs tail /aws/lambda/pktx-{env} --follow` |
 | Lambda returns 500 | App started but errored on a request | Check logs for Python traceback |
-| App errors on a missing/odd config value | An SSM parameter is still `TO_BE_SET`, or was changed without a re-apply | Run the placeholder check, then re-run the deploy |
+| Lambda logs `SecretsError: SSM secrets not ready: /pktx/<env>/<name> (missing)` | A secret does not exist, or is still `TO_BE_SET` | `scripts/deploy/check-secrets.sh <env>`, set it, recycle |
+| Lambda logs `SecretsError: could not read secrets under …: AccessDeniedException` | Exec role can't read the parameter (name not in `secret_names`, or boundary changed) | Add it to `secret_names` in `infra/<env>/main.tf`, merge |
 | `exec format error` in Lambda logs | Image built for the wrong architecture | CI builds on an arm64 runner; locally use `make deploy` (`--platform linux/arm64`) |
 | Build fails pulling `public.ecr.aws/...` (429) | ECR Public anonymous rate limit | `build-push.sh` retries 3×; re-run the job |
 | `terraform init` fails "bucket not found" | State bucket not bootstrapped | `./infra/bootstrap.sh <stack>` |

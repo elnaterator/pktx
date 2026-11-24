@@ -73,3 +73,38 @@ variable "authorized_parties" {
   type        = list(string)
   default     = []
 }
+
+# Public app configuration. None of these are secrets: the publishable key and
+# issuer are served to browsers and the OAuth client id appears in authorize
+# redirects. Secrets live only in SSM (see secret_names in main.tf).
+variable "public_url" {
+  description = "Public base URL of the app (PKTX_PUBLIC_URL), no trailing slash."
+  type        = string
+  validation {
+    condition     = can(regex("^https://[^/]+$", var.public_url))
+    error_message = "public_url must be https://host with no path or trailing slash."
+  }
+}
+
+variable "clerk_publishable_key" {
+  description = "Clerk publishable key (pk_test_/pk_live_), injected into index.html."
+  type        = string
+  validation {
+    condition     = can(regex("^pk_(test|live)_", var.clerk_publishable_key))
+    error_message = "clerk_publishable_key must start with pk_test_ or pk_live_."
+  }
+}
+
+variable "clerk_issuer" {
+  description = "Clerk frontend API URL (JWT issuer); the JWKS URL is derived from it."
+  type        = string
+  validation {
+    condition     = can(regex("^https://[^/]+$", var.clerk_issuer))
+    error_message = "clerk_issuer must be https://host with no path or trailing slash."
+  }
+}
+
+variable "clerk_oauth_client_id" {
+  description = "Client id of the Clerk OAuth app the MCP OAuth proxy uses upstream."
+  type        = string
+}

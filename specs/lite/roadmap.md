@@ -161,6 +161,12 @@ Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, 
 Notes: research/continuous-deployment.md
 
 
+## 038 Runtime secrets out of Terraform state and Lambda env - BUILT
+
+Secrets flow SSM → Terraform data sources → Lambda env vars, so they sit in Terraform state and CI plan + deploy roles must be able to decrypt them. Have the app read its SSM SecureStrings at cold start (env carries parameter names only), drop the secret data sources, and remove `/pktx/<env>/*` decrypt from the CI roles. Rotation becomes put-parameter + recycle, no apply. Follow-up from 031.
+Notes: research/continuous-deployment.md
+
+
 ## 021 Error tracking and feedback loop
 Add error tracking (Sentry free tier or similar) for backend and frontend, wired to alert the developer on new errors. Add one low-friction in-app feedback channel (footer link to a form or shared chat). Goal: see errors before beta users report them, and make giving feedback effortless.
 
@@ -189,9 +195,3 @@ Notes: research/clerk-native-cimd.md
 Set up Storybook targeting `frontend/src/components/`. Stories per primitive (`Breadcrumb`, `ConfirmDialog`, `EditableSection`, `LinkPickerModal`, `TagInput`, `LinksPanel`, etc.) with props matrix + a11y addon. Enables isolated visual review and future visual-regression testing (Chromatic). Defer until shared component set stabilizes. I want to set up a playwright test suite to validate the behavior of the running UI as well as validation of look and feel. It should not be part of the CI pipeline yet.
 
 **Deferred (2026-05-23):** Too early. The shared component set is still churning — 014 (compact lists) and 015 (reusable search component) will reshape the exact primitives Storybook would document, so stories + visual baselines would rot immediately. Playwright e2e has standalone value, but keeping it out of CI on a solo project means it won't run and will rot. Revisit after 013/014/015 settle the UI; then add a thin CI-gated Playwright smoke suite first, and Storybook only if a real shared-primitive library or collaborators emerge. Plan drafted at `specs/lite/012-storybook-playwright-plan.md` (on hold).
-
-
-## 038 Runtime secrets out of Terraform state and Lambda env
-
-Secrets flow SSM → Terraform data sources → Lambda env vars, so they sit in Terraform state and CI plan + deploy roles must be able to decrypt them. Have the app read its SSM SecureStrings at cold start (env carries parameter names only), drop the secret data sources, and remove `/pktx/<env>/*` decrypt from the CI roles. Rotation becomes put-parameter + recycle, no apply. Follow-up from 031.
-Notes: research/continuous-deployment.md
