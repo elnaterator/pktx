@@ -161,7 +161,7 @@ Deploys are manual `make deploy` from a laptop. Merge to main runs full checks, 
 Notes: research/continuous-deployment.md
 
 
-## 021 Error tracking and feedback loop
+## 021 Error tracking and feedback loop - PLANNED
 Add error tracking (Sentry free tier or similar) for backend and frontend, wired to alert the developer on new errors. Add one low-friction in-app feedback channel (footer link to a form or shared chat). Goal: see errors before beta users report them, and make giving feedback effortless.
 
 
