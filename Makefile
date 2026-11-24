@@ -1,4 +1,4 @@
-.PHONY: build run run-local lint test check format tf-lint tf-check ci-lint deploy setup help
+.PHONY: build run run-local lint test check format tf-lint tf-check ci-lint deploy release setup help
 
 AWS_REGION ?= us-west-2
 
@@ -73,3 +73,6 @@ endif
 	  scripts/deploy/smoke.sh $$URL; \
 	  if [ "$(ENV)" = "dev" ]; then scripts/deploy/mark-verified.sh $$SHA; fi; \
 	  echo "==> Deployed $$SHA ($$DIGEST) to $(ENV): $$URL"
+
+release: ## Publish a CalVer GitHub Release (vYYYY.MM.DD[.N]) for SHA (default origin/main); triggers the prod deploy. DRY_RUN=1 to preview.
+	DRY_RUN=$(DRY_RUN) scripts/deploy/release.sh $(SHA)
