@@ -30,27 +30,36 @@ module "lambda" {
   # Created by infra/shared; required for CI deploy roles to manage the exec role.
   permissions_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/pktx-${var.environment}-lambda-boundary"
 
+  # Secrets are not passed in: the app reads these SecureStrings under
+  # /pktx/<env>/ at cold start with the exec role (backend/src/pktx/secrets.py),
+  # so no secret value reaches Terraform state or the Lambda config. Owners set
+  # them out of band (docs/deployment.md); keep in sync with SECRET_PARAMETERS.
+  secret_names = [
+    "database_url",
+    "clerk_secret_key",
+    "clerk_webhook_secret",
+    "clerk_oauth_client_secret",
+  ]
+
   environment_variables = {
-    PKTX_DB_URL               = data.aws_ssm_parameter.database_url.value
-    PKTX_PUBLIC_URL           = data.aws_ssm_parameter.pktx_public_url.value
-    CLERK_JWKS_URL            = data.aws_ssm_parameter.clerk_jwks_url.value
-    CLERK_ISSUER              = data.aws_ssm_parameter.clerk_issuer.value
-    CLERK_PUBLISHABLE_KEY     = data.aws_ssm_parameter.clerk_publishable_key.value
-    CLERK_OAUTH_CLIENT_ID     = data.aws_ssm_parameter.clerk_oauth_client_id.value
-    CLERK_OAUTH_CLIENT_SECRET = data.aws_ssm_parameter.clerk_oauth_client_secret.value
-    CLERK_WEBHOOK_SECRET      = data.aws_ssm_parameter.clerk_webhook_secret.value
-    CLERK_SECRET_KEY          = data.aws_ssm_parameter.clerk_secret_key.value
+    PKTX_SSM_PREFIX = "/pktx/${var.environment}"
+
+    # Public configuration (served to browsers / OAuth clients), so tfvars.
+    PKTX_PUBLIC_URL       = var.public_url
+    CLERK_PUBLISHABLE_KEY = var.clerk_publishable_key
+    CLERK_ISSUER          = var.clerk_issuer
+    CLERK_JWKS_URL        = "${var.clerk_issuer}/.well-known/jwks.json"
+    CLERK_OAUTH_CLIENT_ID = var.clerk_oauth_client_id
 
     # Redirect URIs allowed for hosted MCP clients, on top of the loopback
-    # patterns the app always allows. Not a secret, so it lives in tfvars
-    # rather than SSM.
+    # patterns the app always allows.
     PKTX_EXTRA_CLIENT_REDIRECT_URIS = join(",", var.extra_client_redirect_uris)
 
     # Allowed `azp` origins for REST session JWTs. Empty → the app defaults to
     # the PKTX_PUBLIC_URL origin; otherwise that origin is kept and the extra
     # origins are appended.
     CLERK_AUTHORIZED_PARTIES = length(var.authorized_parties) == 0 ? "" : join(",", concat(
-      [regex("^[^:/]+://[^/]+", data.aws_ssm_parameter.pktx_public_url.value)],
+      [regex("^[^:/]+://[^/]+", var.public_url)],
       var.authorized_parties,
     ))
   }
@@ -63,211 +72,79 @@ module "lambda" {
   depends_on = [module.observability]
 }
 
-# SSM SecureString parameters for runtime secrets.
-# Terraform creates each parameter with a placeholder value. Real values must be
-# set manually before the first full terraform apply (see docs/deployment.md, Phase 2):
-#   aws ssm put-parameter --name /pktx/dev/database_url --value "..." \
-#     --type SecureString --overwrite
-#
-# lifecycle.ignore_changes = [value] prevents Terraform from reverting
-# developer-set values on subsequent applies.
+# SSM parameters used to be Terraform-managed (placeholders + decrypting data
+# sources), which put every secret in state and required CI to decrypt them.
+# Forget them without deleting: secrets stay in SSM, owned out of band; the
+# non-secret ones are now tfvars and get deleted by hand after cutover.
 
-resource "aws_ssm_parameter" "database_url" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/database_url"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.database_url
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "clerk_secret_key" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/clerk_secret_key"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.clerk_secret_key
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "pktx_public_url" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/pktx_public_url"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.pktx_public_url
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "clerk_oauth_client_id" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/clerk_oauth_client_id"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.clerk_oauth_client_id
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "clerk_oauth_client_secret" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/clerk_oauth_client_secret"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.clerk_oauth_client_secret
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "clerk_publishable_key" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/clerk_publishable_key"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.clerk_publishable_key
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "clerk_jwks_url" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/clerk_jwks_url"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.clerk_jwks_url
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "clerk_issuer" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/clerk_issuer"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.clerk_issuer
 
   lifecycle {
-    ignore_changes = [value]
-  }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
+    destroy = false
   }
 }
 
-resource "aws_ssm_parameter" "clerk_webhook_secret" {
-  #checkov:skip=CKV_AWS_337:Default AWS-managed SSM key (alias/aws/ssm) is sufficient; KMS CMK adds recurring cost without meaningful benefit for a personal app
-  name  = "/pktx/${var.environment}/clerk_webhook_secret"
-  type  = "SecureString"
-  value = "TO_BE_SET"
+removed {
+  from = aws_ssm_parameter.clerk_webhook_secret
 
   lifecycle {
-    ignore_changes = [value]
+    destroy = false
   }
-
-  tags = {
-    environment = var.environment
-    managed_by  = "terraform"
-  }
-}
-
-# Data sources read the current (possibly developer-overridden) value from SSM
-# on every terraform apply, so Lambda env vars always reflect the live secret.
-data "aws_ssm_parameter" "database_url" {
-  name            = aws_ssm_parameter.database_url.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.database_url]
-}
-
-data "aws_ssm_parameter" "clerk_publishable_key" {
-  name            = aws_ssm_parameter.clerk_publishable_key.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.clerk_publishable_key]
-}
-
-data "aws_ssm_parameter" "clerk_jwks_url" {
-  name            = aws_ssm_parameter.clerk_jwks_url.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.clerk_jwks_url]
-}
-
-data "aws_ssm_parameter" "clerk_issuer" {
-  name            = aws_ssm_parameter.clerk_issuer.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.clerk_issuer]
-}
-
-data "aws_ssm_parameter" "clerk_webhook_secret" {
-  name            = aws_ssm_parameter.clerk_webhook_secret.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.clerk_webhook_secret]
-}
-
-data "aws_ssm_parameter" "clerk_secret_key" {
-  name            = aws_ssm_parameter.clerk_secret_key.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.clerk_secret_key]
-}
-
-data "aws_ssm_parameter" "pktx_public_url" {
-  name            = aws_ssm_parameter.pktx_public_url.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.pktx_public_url]
-}
-
-data "aws_ssm_parameter" "clerk_oauth_client_id" {
-  name            = aws_ssm_parameter.clerk_oauth_client_id.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.clerk_oauth_client_id]
-}
-
-data "aws_ssm_parameter" "clerk_oauth_client_secret" {
-  name            = aws_ssm_parameter.clerk_oauth_client_secret.name
-  with_decryption = true
-  depends_on      = [aws_ssm_parameter.clerk_oauth_client_secret]
 }

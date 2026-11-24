@@ -1,5 +1,9 @@
 data "aws_caller_identity" "current" {}
 
+locals {
+  ssm_param_arn = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_parameter_prefix}"
+}
+
 # ECR repository for the application container image
 resource "aws_ecr_repository" "app" {
   #checkov:skip=CKV_AWS_136:Default AWS-managed encryption is sufficient for a personal app; KMS CMK adds cost/complexity without meaningful benefit
@@ -94,7 +98,9 @@ resource "aws_iam_role_policy" "ecr_pull" {
   })
 }
 
-# Allow Lambda to read application secrets from SSM Parameter Store
+# Allow the app to read its secrets from SSM Parameter Store at cold start
+# (backend/src/pktx/secrets.py). Exactly the named parameters; decrypt only
+# through SSM for this env's path (AWS-managed alias/aws/ssm key).
 resource "aws_iam_role_policy" "ssm_read" {
   name = "ssm-read"
   role = aws_iam_role.lambda_exec.id
@@ -103,21 +109,18 @@ resource "aws_iam_role_policy" "ssm_read" {
     Version = "2012-10-17"
     Statement = [
       {
-        Effect = "Allow"
-        Action = [
-          "ssm:GetParameter",
-          "ssm:GetParameters",
-        ]
-        Resource = "arn:aws:ssm:${var.aws_region}:${data.aws_caller_identity.current.account_id}:parameter${var.ssm_parameter_prefix}/*"
+        Effect   = "Allow"
+        Action   = ["ssm:GetParameters"]
+        Resource = [for n in var.secret_names : "${local.ssm_param_arn}/${n}"]
       },
       {
-        Effect = "Allow"
-        Action = [
-          "kms:Decrypt",
-          "kms:DescribeKey",
-        ]
-        # AWS-managed SSM key; resource scope not supported for alias/aws/ssm
-        Resource = "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:key/alias/aws/ssm"
+        Effect   = "Allow"
+        Action   = ["kms:Decrypt"]
+        Resource = "arn:aws:kms:${var.aws_region}:${data.aws_caller_identity.current.account_id}:key/*"
+        Condition = {
+          StringEquals = { "kms:ViaService" = "ssm.${var.aws_region}.amazonaws.com" }
+          StringLike   = { "kms:EncryptionContext:PARAMETER_ARN" = "${local.ssm_param_arn}/*" }
+        }
       }
     ]
   })

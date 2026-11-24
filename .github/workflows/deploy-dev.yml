@@ -57,7 +57,7 @@ jobs:
           role-session-name: pktx-dev-build-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
       # The ECR repo must exist before the first push.
-      - name: Ensure ECR repo + SSM params
+      - name: Ensure ECR repo
         run: scripts/deploy/ensure-base.sh dev
       - name: Build + push image (once)
         id: build

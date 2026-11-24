@@ -89,7 +89,7 @@ jobs:
           role-to-assume: ${{ vars.AWS_ROLE_ARN }}
           role-session-name: pktx-prod-${{ github.run_id }}
           aws-region: ${{ env.AWS_REGION }}
-      - name: Ensure ECR repo + SSM params
+      - name: Ensure ECR repo
         run: scripts/deploy/ensure-base.sh prod
       - name: Promote dev-verified image (same digest)
         id: promote

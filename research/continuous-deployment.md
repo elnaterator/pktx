@@ -79,3 +79,11 @@ sources. Then:
 Cost: ~50–150 ms extra cold start for one SSM call (keep-warm hides most of it); a
 startup failure mode if SSM is unreachable (fail fast with a clear log line).
 `CLERK_PUBLISHABLE_KEY` is not secret and can stay a plain env var.
+
+**Done in 038 (2026-11-23).** As above, with two changes: Terraform no longer manages the
+secret parameters at all (the provider's `aws_ssm_parameter` refresh always decrypts, so
+keeping placeholders would keep CI's decrypt grant; `removed` blocks forget them, the owner
+sets them, `scripts/deploy/check-secrets.sh` checks them), and the app uses
+`GetParameters` on an explicit name list instead of `GetParametersByPath`, so the exec role
+reads exactly four parameters. Non-secret config moved to tfvars. Measured locally:
+~0.5 s for boto3 import + one call from a laptop; in-region cold start is less.
