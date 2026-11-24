@@ -80,6 +80,12 @@ RUN useradd --system --uid 10001 --no-create-home pktx \
 COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:0.8.4@sha256:e2653f741cd15851ba4f13f3cc47d29f2d14377c7d11737bfa272baa1b569007 /lambda-adapter /opt/extensions/lambda-adapter
 ENV AWS_LWA_PORT=8000
 
+# Commit this image was built from (reported by /health and the UI). Set last:
+# it differs on every build, so keep it after the cached layers. The release
+# version is deploy-time config (PKTX_VERSION), since one image serves dev and prod.
+ARG GIT_SHA=""
+ENV PKTX_GIT_SHA=${GIT_SHA}
+
 # Expose default port
 EXPOSE 8000
 

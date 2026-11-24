@@ -20,6 +20,12 @@ require_sha() {
   [[ "${1:-}" =~ ^[0-9a-f]{40}$ ]] || die "expected a full 40-char git sha, got '${1:-}'"
 }
 
+# Release tag (vYYYY.MM.DD[.N]), dev-<short sha> or prod-<short sha> (break-glass).
+require_version() {
+  [[ "${1:-}" =~ ^(v[0-9]+(\.[0-9]+)*|(dev|prod)-[0-9a-f]{7,40})$ ]] \
+    || die "expected a version like v2026.11.24 or dev-<sha>, got '${1:-}'"
+}
+
 require_digest() {
   [[ "${1:-}" =~ ^sha256:[0-9a-f]{64}$ ]] || die "expected sha256:<64 hex>, got '${1:-}'"
 }

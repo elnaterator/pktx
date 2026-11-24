@@ -1,0 +1,38 @@
+/* In-flow page footer: seen only when scrolled to the bottom. Same column as
+   main (max-width + padding), so the text lines up with the page content. */
+.footer {
+  width: 100%;
+  max-width: 1364px;
+  margin: 0 auto;
+  padding: var(--space-6) var(--space-9);
+  background-color: var(--bg-primary);
+}
+
+.version {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-2);
+  line-height: 1;
+  color: var(--text-muted);
+  opacity: 0.35;
+  white-space: nowrap;
+}
+
+.version:hover,
+.version:focus-within {
+  opacity: 0.8;
+}
+
+.link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .footer {
+    padding: var(--space-4) var(--space-6);
+  }
+}

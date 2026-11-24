@@ -66,11 +66,14 @@ endif
 	  scripts/deploy/ensure-base.sh $(ENV); \
 	  if [ "$(ENV)" = "dev" ]; then \
 	    DIGEST=$$(scripts/deploy/build-push.sh $$SHA); \
+	    VERSION=dev-$$(git rev-parse --short=7 HEAD); \
 	  else \
 	    DIGEST=$$(scripts/deploy/promote.sh $$SHA); \
+	    VERSION=$$(git tag --points-at HEAD --list 'v*' --sort=-version:refname | head -n1); \
+	    VERSION=$${VERSION:-prod-$$(git rev-parse --short=7 HEAD)}; \
 	  fi; \
-	  URL=$$(scripts/deploy/apply.sh $(ENV) $$DIGEST); \
-	  scripts/deploy/smoke.sh $$URL; \
+	  URL=$$(scripts/deploy/apply.sh $(ENV) $$DIGEST $$VERSION); \
+	  scripts/deploy/smoke.sh $$URL $$VERSION; \
 	  if [ "$(ENV)" = "dev" ]; then scripts/deploy/mark-verified.sh $$SHA; fi; \
 	  echo "==> Deployed $$SHA ($$DIGEST) to $(ENV): $$URL"
 

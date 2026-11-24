@@ -12,6 +12,7 @@ from pktx.accomplishment_service import AccomplishmentService
 from pktx.application_service import ApplicationService
 from pktx.auth import UserContext
 from pktx.communication_service import ContactCommunicationService
+from pktx.config import resolve_app_version, resolve_git_sha
 from pktx.contact_service import ContactService
 from pktx.export_service import ExportService
 from pktx.link_service import RESOURCE_TYPES, LinkService
@@ -118,7 +119,12 @@ def create_router(
 
     @router.get("/health")
     def health() -> dict[str, str]:
-        return {"status": "ok"}
+        # version/sha are public (open-source repo); smoke.sh checks the version.
+        return {
+            "status": "ok",
+            "version": resolve_app_version(),
+            "sha": resolve_git_sha(),
+        }
 
     # ------------------------------------------------------------------
     # Resume Version Routes

@@ -37,11 +37,13 @@ from pktx.communication_service import ContactCommunicationService
 from pktx.config import (
     MAX_REQUEST_BODY_BYTES,
     configure_logging,
+    resolve_app_version,
     resolve_authorized_parties,
     resolve_clerk_publishable_key,
     resolve_cors_origins,
     resolve_db_url,
     resolve_frontend_dir,
+    resolve_git_sha,
     resolve_pool_max,
     resolve_pool_min,
     resolve_port,
@@ -71,8 +73,10 @@ from pktx.tools.resume_tools import register_resume_tools
 
 logger = logging.getLogger("pktx")
 
-# Placeholder in frontend/index.html, filled from CLERK_PUBLISHABLE_KEY at startup.
+# Placeholders in frontend/index.html, filled from runtime config at startup.
 CLERK_KEY_PLACEHOLDER = "%PKTX_CLERK_PUBLISHABLE_KEY%"
+VERSION_PLACEHOLDER = "%PKTX_VERSION%"
+GIT_SHA_PLACEHOLDER = "%PKTX_GIT_SHA%"
 
 Scope = MutableMapping[str, Any]
 Message = MutableMapping[str, Any]
@@ -92,17 +96,28 @@ class SPAStaticFiles(StaticFiles):
     priority, so /api/*, /health, and /mcp/* are never intercepted.
 
     index.html is rendered once with runtime config (the Clerk publishable
-    key) substituted for its placeholder, so a single image serves every
-    environment. It is sent ``no-cache`` so a deploy is picked up at once;
-    the hashed assets it references stay cacheable.
+    key, app version, git sha) substituted for its placeholders, so a single
+    image serves every environment. It is sent ``no-cache`` so a deploy is
+    picked up at once; the hashed assets it references stay cacheable.
     """
 
-    def __init__(self, *, directory: str, publishable_key: str = "") -> None:
+    def __init__(
+        self,
+        *,
+        directory: str,
+        publishable_key: str = "",
+        version: str = "",
+        git_sha: str = "",
+    ) -> None:
         super().__init__(directory=directory, html=True)
-        raw = (Path(directory) / "index.html").read_text(encoding="utf-8")
-        self._index_html = raw.replace(
-            CLERK_KEY_PLACEHOLDER, html.escape(publishable_key, quote=True)
-        )
+        page = (Path(directory) / "index.html").read_text(encoding="utf-8")
+        for placeholder, value in (
+            (CLERK_KEY_PLACEHOLDER, publishable_key),
+            (VERSION_PLACEHOLDER, version),
+            (GIT_SHA_PLACEHOLDER, git_sha),
+        ):
+            page = page.replace(placeholder, html.escape(value, quote=True))
+        self._index_html = page
 
     def _index_response(self) -> Response:
         return HTMLResponse(self._index_html, headers={"Cache-Control": "no-cache"})
@@ -394,6 +409,8 @@ def _build_mcp(
         mcp_auth = None
     m = FastMCP(
         "pktx",
+        # serverInfo.version in the initialize result: the deployed release.
+        version=resolve_app_version(),
         auth=mcp_auth,
         # Shown on the OAuth consent screen and to clients that render server icons.
         icons=[Icon(src=ICON_DATA_URI, mimeType="image/svg+xml")],
@@ -576,6 +593,8 @@ def create_app(
             SPAStaticFiles(
                 directory=str(frontend_dir),
                 publishable_key=resolve_clerk_publishable_key(),
+                version=resolve_app_version(),
+                git_sha=resolve_git_sha(),
             ),
             name="frontend",
         )

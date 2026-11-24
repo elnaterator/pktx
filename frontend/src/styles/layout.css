@@ -76,11 +76,14 @@ main {
     gap: var(--space-3);
   }
 
-  /* Clear the fixed bottom tab bar (MobileTabBar). */
   main {
     margin: 0;
     padding: var(--space-6);
-    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + var(--space-6));
+  }
+
+  /* Last in the signed-in shell: clear the fixed bottom tab bar (MobileTabBar). */
+  .app-footer {
+    padding-bottom: calc(var(--tabbar-h) + env(safe-area-inset-bottom, 0px) + var(--space-4));
   }
 }
 

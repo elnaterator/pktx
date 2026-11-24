@@ -21,6 +21,16 @@ variable "image_digest" {
   type        = string
 }
 
+variable "app_version" {
+  description = <<-EOT
+    Release the app reports (PKTX_VERSION: /health, MCP serverInfo, UI badge):
+    the release tag in prod, dev-<short sha> in dev. Deploy-time config so one
+    image serves both envs. No default: always passed by scripts/deploy/apply.sh
+    (deploy) or scripts/deploy/current-version.sh (plan).
+  EOT
+  type        = string
+}
+
 variable "memory_size" {
   description = "Lambda function memory allocation in MB."
   type        = number

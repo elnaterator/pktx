@@ -26,7 +26,7 @@ log "build + push ${repo}:${tag}"
 # runners), so retry with backoff.
 for attempt in 1 2 3; do
   if docker buildx build --platform linux/arm64 --provenance=false --sbom=false \
-    --label "org.opencontainers.image.revision=${sha}" \
+    --label "org.opencontainers.image.revision=${sha}" --build-arg "GIT_SHA=${sha}" \
     --tag "${reg}/${repo}:${tag}" --push "$REPO_ROOT" >&2; then
     break
   fi
